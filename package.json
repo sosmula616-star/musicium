@@ -1,0 +1,14 @@
+{
+  "name": "gosting-music-bot",
+  "version": "1.0.0",
+  "description": "Discord Music Bot and Web Player",
+  "main": "index.js",
+  "scripts": {
+    "start": "python3 app.py || python app.py",
+    "build": "echo 'No build step required'",
+    "node": "python3 app.py || python app.py"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
