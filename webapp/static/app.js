@@ -5,26 +5,43 @@
 'use strict';
 
 // ── CONFIG ────────────────────────────────────────────────
-// API_BASE — адрес твоего VDS с Flask-ботом
-// Это единственная строка которую нужно поменять после деплоя!
-const API_BASE = window.MUSICBOT_API || 'http://localhost:8080';
+const API_BASE = window.MUSICBOT_API || window.location.origin;
 const POLL_INTERVAL = 2500; // ms
 
-// Get guild ID from URL params
+// Get guild ID from URL params or Discord SDK
 const urlParams = new URLSearchParams(window.location.search);
-let GUILD_ID = urlParams.get('guild') || '';
+let GUILD_ID = urlParams.get('guild') || urlParams.get('guild_id') || urlParams.get('channel_id') || '';
+
+let discordSdk = null;
+
+async function initDiscordSdk() {
+  if (typeof DiscordSDK !== 'undefined' && window.DiscordSDK.DiscordSDK) {
+    try {
+      // Discord Embedded App SDK initialization
+      const clientId = urlParams.get('client_id') || '100000000000000000';
+      discordSdk = new window.DiscordSDK.DiscordSDK(clientId);
+      await discordSdk.ready();
+      console.log('Discord Embedded App SDK initialized successfully');
+      
+      // Attempt to get guild_id from Discord SDK context if available
+      if (discordSdk.guildId) {
+        GUILD_ID = discordSdk.guildId;
+      }
+    } catch (e) {
+      console.warn('Discord SDK init warning (standalone browser mode):', e);
+    }
+  }
+}
 
 // Platform icons SVG (inline)
 const PLATFORM_ICONS = {
   youtube: `<svg viewBox="0 0 24 24" fill="#FF0000" width="14" height="14"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>`,
   soundcloud: `<svg viewBox="0 0 24 24" fill="#FF5500" width="14" height="14"><path d="M1.175 12.225c-.15 0-.254.097-.264.25l-.44 2.568.44 2.568c.01.15.114.25.264.25.147 0 .25-.1.272-.25L1.69 15.04l-.24-2.568c-.022-.15-.125-.247-.272-.247zm2.195-.35c-.172 0-.303.13-.303.3v5.25c0 .17.13.3.303.3.17 0 .3-.13.3-.3V12.17c0-.17-.13-.296-.3-.296zm2.2-.8c-.2 0-.352.15-.352.35v6.25c0 .2.152.35.353.35.2 0 .35-.15.35-.35v-6.25c0-.2-.15-.35-.35-.35zm2.24.15c-.22 0-.395.175-.395.4v6c0 .22.175.4.395.4.22 0 .4-.18.4-.4v-6c0-.225-.18-.4-.4-.4zm2.27-.4c-.25 0-.44.19-.44.44v6.7c0 .25.19.44.44.44s.44-.19.44-.44v-6.7c0-.25-.19-.44-.44-.44zm2.24.45c-.27 0-.49.22-.49.49v5.7c0 .27.22.49.49.49.27 0 .49-.22.49-.49v-5.7c0-.27-.22-.49-.49-.49zm2.24-.35c-.3 0-.54.24-.54.54v6.2c0 .3.24.54.54.54.3 0 .54-.24.54-.54v-6.2c0-.3-.24-.54-.54-.54zm2.24.1c-.32 0-.58.26-.58.58v5.8c0 .32.26.58.58.58.32 0 .58-.26.58-.58v-5.8c0-.32-.26-.58-.58-.58zm2.24-.5c-.35 0-.63.28-.63.63v6.5c0 .35.28.63.63.63.35 0 .63-.28.63-.63v-6.5c0-.35-.28-.63-.63-.63z"/></svg>`,
-  spotify: `<svg viewBox="0 0 24 24" fill="#1DB954" width="14" height="14"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>`,
 };
 
 const PLATFORM_COLORS = {
   YouTube:    '#FF0000',
   SoundCloud: '#FF5500',
-  Spotify:    '#1DB954',
 };
 
 // ── STATE ─────────────────────────────────────────────────
@@ -48,7 +65,8 @@ let localElapsed = 0;
 let lastPollTime = 0;
 
 // ── INIT ──────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  await initDiscordSdk();
   createParticles();
   setupSearchInput();
   startPolling();
@@ -392,6 +410,62 @@ function updatePlayerUI() {
     if (loopIndex < 0) loopIndex = 0;
     updateLoopBtn();
   }
+
+  // YouTube video embed
+  updateYtEmbed();
+}
+
+function extractYtId(url) {
+  if (!url) return null;
+  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+  if (match) return match[1];
+  if (/^[\w-]{11}$/.test(url)) return url;
+  return null;
+}
+
+let ytEmbedCollapsed = false;
+
+function updateYtEmbed() {
+  const wrap = document.getElementById('ytEmbedWrap');
+  const iframe = document.getElementById('ytIframe');
+  if (!wrap || !iframe) return;
+
+  const track = state.current_track;
+  const isYt = track && (
+    track.platform === 'youtube' ||
+    (track.url && (track.url.includes('youtube') || track.url.includes('youtu.be')))
+  );
+
+  if (isYt && track.url) {
+    const videoId = extractYtId(track.url);
+    if (videoId) {
+      const targetSrc = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&enablejsapi=1`;
+      if (!iframe.src || !iframe.src.includes(videoId)) {
+        iframe.src = targetSrc;
+      }
+      wrap.style.display = 'block';
+      return;
+    }
+  }
+
+  // Hide and stop video if not YouTube
+  iframe.src = '';
+  wrap.style.display = 'none';
+}
+
+function toggleYtEmbed() {
+  const iframeWrap = document.getElementById('ytIframeWrap');
+  const icon = document.getElementById('ytToggleIcon');
+  if (!iframeWrap) return;
+
+  ytEmbedCollapsed = !ytEmbedCollapsed;
+  if (ytEmbedCollapsed) {
+    iframeWrap.style.display = 'none';
+    if (icon) icon.innerHTML = '<polyline points="6 9 12 15 18 9"/>';
+  } else {
+    iframeWrap.style.display = 'block';
+    if (icon) icon.innerHTML = '<polyline points="18 15 12 9 6 15"/>';
+  }
 }
 
 function updateQueueUI() {
@@ -587,6 +661,61 @@ function selectGuild(guildId) {
   closeAdminPanel();
   pollNow();
   showToast(`🔄 Переключено на сервер`, 'info');
+}
+
+// ── YOUTUBE EMBED ──────────────────────────────────────
+
+let ytEmbedOpen = true;
+let lastYtVideoId = null;
+
+function extractYouTubeId(url) {
+  if (!url) return null;
+  // Handle youtu.be/ID and youtube.com/watch?v=ID formats
+  const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/))([\w-]{11})/);
+  return m ? m[1] : null;
+}
+
+function updateYtEmbed() {
+  const wrap     = document.getElementById('ytEmbedWrap');
+  const iframe   = document.getElementById('ytIframe');
+  if (!wrap || !iframe) return;
+
+  const track = state.current;
+  if (!track || track.platform !== 'YouTube') {
+    wrap.style.display = 'none';
+    iframe.src = '';
+    lastYtVideoId = null;
+    return;
+  }
+
+  // Get video ID from track.id or from URL
+  const videoId = track.id || extractYouTubeId(track.url);
+  if (!videoId) {
+    wrap.style.display = 'none';
+    return;
+  }
+
+  // Only update iframe src if track changed
+  if (videoId !== lastYtVideoId) {
+    lastYtVideoId = videoId;
+    // mute=1 — звук идёт через Discord, видео без звука
+    iframe.src = `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&mute=1`;
+    // Restore open/close state
+    document.getElementById('ytIframeWrap').style.display = ytEmbedOpen ? '' : 'none';
+  }
+
+  wrap.style.display = 'block';
+}
+
+function toggleYtEmbed() {
+  ytEmbedOpen = !ytEmbedOpen;
+  const iframeWrap = document.getElementById('ytIframeWrap');
+  const icon       = document.getElementById('ytToggleIcon');
+  iframeWrap.style.display = ytEmbedOpen ? '' : 'none';
+  // Rotate chevron
+  icon.innerHTML = ytEmbedOpen
+    ? '<polyline points="18 15 12 9 6 15"/>'
+    : '<polyline points="6 9 12 15 18 9"/>';
 }
 
 // ── UTILS ─────────────────────────────────────────────────

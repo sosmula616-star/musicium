@@ -968,6 +968,60 @@ body {
   }
 }
 
+/* ── YOUTUBE EMBED ────────────────────────────────────────── */
+.yt-embed-wrap {
+  width: 100%;
+  max-width: 380px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px;
+  margin-top: 6px;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+.yt-embed-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.yt-embed-header span {
+  flex: 1;
+}
+
+.yt-toggle-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.yt-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: white;
+}
+
+.yt-iframe-wrap {
+  position: relative;
+  width: 100%;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
 /* ── SCROLLBAR ───────────────────────────────────────────── */
 * {
   scrollbar-width: thin;

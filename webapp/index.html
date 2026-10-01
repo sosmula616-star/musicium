@@ -4,13 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>🎵 Discord Music Player</title>
-  <meta name="description" content="Premium Discord Music Player — поиск и воспроизведение музыки с YouTube, Spotify, SoundCloud" />
+  <meta name="description" content="Premium Discord Music Player — YouTube, SoundCloud" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css" />
-  <!-- Настройка: здесь прописывается IP твоего VDS -->
-  <script src="/static/config.js"></script>
+  <link rel="stylesheet" href="static/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@discord/embedded-app-sdk@1.0.0/dist/index.min.js"></script>
+  <script src="static/config.js"></script>
 </head>
 <body>
   <!-- Background particles -->
@@ -77,10 +77,7 @@
             <span class="platform-dot" style="background:#FF0000"></span>YouTube
           </button>
           <button class="filter-btn" data-platform="SoundCloud" onclick="setFilter(this, 'SoundCloud')">
-            <span class="platform-dot" style="background:#FF5500"></span>SC
-          </button>
-          <button class="filter-btn" data-platform="Spotify" onclick="setFilter(this, 'Spotify')">
-            <span class="platform-dot" style="background:#1DB954"></span>Spotify
+            <span class="platform-dot" style="background:#FF5500"></span>SoundCloud
           </button>
         </div>
 
@@ -175,6 +172,30 @@
           <input type="range" id="volumeSlider" min="0" max="100" value="50" oninput="setVolume(this.value)" />
           <span id="volumeLabel">50%</span>
         </div>
+
+        <!-- YouTube Video Embed -->
+        <div class="yt-embed-wrap" id="ytEmbedWrap" style="display:none">
+          <div class="yt-embed-header">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="#FF0000"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+            <span>YouTube видео</span>
+            <button class="yt-toggle-btn" id="ytToggleBtn" onclick="toggleYtEmbed()" title="Свернуть">
+              <svg id="ytToggleIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="18 15 12 9 6 15"/>
+              </svg>
+            </button>
+          </div>
+          <div class="yt-iframe-wrap" id="ytIframeWrap">
+            <iframe
+              id="ytIframe"
+              width="100%"
+              height="200"
+              frameborder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowfullscreen
+              style="border-radius:10px;display:block"
+            ></iframe>
+          </div>
+        </div>
       </section>
 
       <!-- RIGHT: Queue Panel -->
@@ -247,6 +268,6 @@
   <!-- ── TOAST NOTIFICATIONS ─────────────────────────────── -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="/static/app.js"></script>
+  <script src="static/app.js"></script>
 </body>
 </html>

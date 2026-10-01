@@ -200,7 +200,7 @@ async def chains_cmd(interaction: discord.Interaction):
         return
     chains = chain_manager.get_guild_chains(interaction.guild_id)
     if not chains:
-        await interaction.response.send_message("📭 Нет привязок.", ephemeral=True)
+        await interaction.response.send_message("📭 Нет активных привязок.", ephemeral=True)
         return
     lines = []
     for tid, fid in chains.items():
@@ -209,6 +209,30 @@ async def chains_cmd(interaction: discord.Interaction):
         lines.append(f"🔗 **{t.display_name if t else tid}** → **{f.display_name if f else fid}**")
     embed = discord.Embed(title="⛓️ Активные цепочки", description="\n".join(lines), color=0xE91E63)
     await interaction.response.send_message(embed=embed)
+
+
+@tree.command(name="unchain", description="Отвязать пользователя от цепочки слежения")
+@app_commands.describe(target="Пользователь которого нужно отвязать")
+async def unchain_cmd(interaction: discord.Interaction, target: discord.Member):
+    is_admin = interaction.user.id in ADMIN_IDS or interaction.user.guild_permissions.move_members
+    if not is_admin:
+        await interaction.response.send_message("❌ Нет прав! Нужно право 'Перемещать участников'.", ephemeral=True)
+        return
+
+    removed = chain_manager.remove_chain(interaction.guild_id, target.id)
+
+    if removed:
+        embed = discord.Embed(
+            title       = "🔓 Цепочка удалена",
+            description = f"**{target.display_name}** больше не следует ни за кем.",
+            color       = 0x2ECC71
+        )
+        await interaction.response.send_message(embed=embed)
+    else:
+        await interaction.response.send_message(
+            f"ℹ️ **{target.display_name}** не был привязан ни к кому.",
+            ephemeral=True
+        )
 
 
 @tree.command(name="player", description="Открыть плеер")
