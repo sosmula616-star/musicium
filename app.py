@@ -462,5 +462,5 @@ _bot_thread.start()
 #  ENTRY POINT (если запускать напрямую: python app.py)
 # ═══════════════════════════════════════════════════════════
 if __name__ == "__main__":
-    print(f"🌐 Starting web server on {WEB_HOST}:{WEB_PORT}")
+    print(f"Starting web server on {WEB_HOST}:{WEB_PORT}")
     app.run(host=WEB_HOST, port=WEB_PORT, debug=False, use_reloader=False, threaded=True)

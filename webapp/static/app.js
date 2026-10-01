@@ -5,11 +5,12 @@
 'use strict';
 
 // ── CONFIG ────────────────────────────────────────────────
-const API_BASE = window.MUSICBOT_API || window.location.origin;
+const isBrowser = typeof window !== 'undefined';
+const API_BASE = isBrowser ? (window.MUSICBOT_API || window.location.origin) : '';
 const POLL_INTERVAL = 2500; // ms
 
 // Get guild ID from URL params or Discord SDK
-const urlParams = new URLSearchParams(window.location.search);
+const urlParams = (isBrowser && window.location) ? new URLSearchParams(window.location.search) : new URLSearchParams();
 let GUILD_ID = urlParams.get('guild') || urlParams.get('guild_id') || urlParams.get('channel_id') || '';
 
 let discordSdk = null;
