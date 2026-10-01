@@ -1,0 +1,9 @@
+{
+  "name": "gosting-music-bot",
+  "version": "2.0.0",
+  "description": "Discord Music Bot - Pure Application",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  }
+}
