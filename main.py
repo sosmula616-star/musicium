@@ -42,6 +42,9 @@ from chain_manager import ChainManager
 # ═══════════════════════════════════════════════════════════
 TOKEN = os.getenv("DISCORD_TOKEN")
 CLIENT_ID = os.getenv("DISCORD_CLIENT_ID")
+WEB_HOST = os.getenv("WEB_HOST", "0.0.0.0")
+WEB_PORT = int(os.getenv("WEB_PORT", 3000))
+PUBLIC_URL = os.getenv("PUBLIC_URL", "https://gostingmusicium.bothost.tech")
 
 HARDCODED_ADMINS = {410432175373156352}
 env_admins = set()
@@ -51,14 +54,248 @@ for raw in os.getenv("ADMIN_IDS", "").split(","):
         env_admins.add(int(raw))
 ADMIN_IDS = HARDCODED_ADMINS | env_admins
 
+
+# ── BUILT-IN WEB SERVER (ELIMINATES 502 BAD GATEWAY) ────────
+from aiohttp import web
+
+async def handle_web_index(request):
+    """Serve a sleek dark status page for Bothost / Web visitors."""
+    bot = request.app["bot"]
+    latency = int(bot.latency * 1000) if bot.latency else 0
+    guild_count = len(bot.guilds)
+    playing_count = sum(1 for p in player_manager._players.values() if p.is_playing())
+    invite_url = (
+        f"https://discord.com/oauth2/authorize?client_id={CLIENT_ID}&permissions=8&scope=bot%20applications.commands"
+        if CLIENT_ID
+        else "#"
+    )
+
+    html = f"""<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GostingMusic • Discord Bot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    body {{
+      background: #090a10;
+      color: #f8fafc;
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      overflow-x: hidden;
+      position: relative;
+    }}
+    .glow {{
+      position: fixed;
+      width: 500px;
+      height: 500px;
+      border-radius: 50%;
+      filter: blur(140px);
+      pointer-events: none;
+      opacity: 0.35;
+    }}
+    .glow-1 {{ top: -100px; left: -100px; background: #8b5cf6; }}
+    .glow-2 {{ bottom: -100px; right: -100px; background: #06b6d4; }}
+    .card {{
+      position: relative;
+      z-index: 1;
+      background: rgba(18, 21, 35, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-radius: 28px;
+      max-width: 520px;
+      width: 100%;
+      padding: 38px 30px;
+      text-align: center;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+    }}
+    .logo {{
+      width: 64px;
+      height: 64px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, #8b5cf6, #06b6d4);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 30px;
+      margin-bottom: 18px;
+      box-shadow: 0 8px 24px rgba(139, 92, 246, 0.5);
+    }}
+    h1 {{
+      font-family: 'Outfit', sans-serif;
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }}
+    h1 span {{ color: #8b5cf6; }}
+    .status-badge {{
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34d399;
+      border-radius: 99px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 22px;
+    }}
+    .dot {{ width: 8px; height: 8px; border-radius: 50%; background: #10b981; box-shadow: 0 0 10px #10b981; }}
+    .stats-grid {{
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 24px;
+    }}
+    .stat-box {{
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 12px 8px;
+    }}
+    .stat-val {{
+      font-family: 'Outfit', sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+    }}
+    .stat-label {{
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 2px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }}
+    .btn-invite {{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+      color: #fff;
+      text-decoration: none;
+      padding: 14px 24px;
+      border-radius: 14px;
+      font-size: 15px;
+      font-weight: 700;
+      box-shadow: 0 8px 24px rgba(139, 92, 246, 0.4);
+      transition: all 0.2s ease;
+      margin-bottom: 18px;
+    }}
+    .btn-invite:hover {{
+      transform: translateY(-2px);
+      box-shadow: 0 12px 30px rgba(139, 92, 246, 0.6);
+    }}
+    .commands-list {{
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 16px;
+      padding: 14px;
+      text-align: left;
+      font-size: 12px;
+      color: #94a3b8;
+      line-height: 1.8;
+    }}
+    .cmd {{ color: #a78bfa; font-family: monospace; font-weight: 600; font-size: 13px; }}
+  </style>
+</head>
+<body>
+  <div class="glow glow-1"></div>
+  <div class="glow glow-2"></div>
+  <div class="card">
+    <div class="logo">🎵</div>
+    <h1>Gosting<span>Music</span></h1>
+    <div class="status-badge"><span class="dot"></span>Бот в сети и готов к воспроизведению</div>
+
+    <div class="stats-grid">
+      <div class="stat-box">
+        <div class="stat-val">{guild_count}</div>
+        <div class="stat-label">Серверов</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val">{latency} ms</div>
+        <div class="stat-label">Пинг</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val">{playing_count}</div>
+        <div class="stat-label">Играет</div>
+      </div>
+    </div>
+
+    <a href="{invite_url}" target="_blank" class="btn-invite">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
+      Пригласить бота в Discord
+    </a>
+
+    <div class="commands-list">
+      <div><span class="cmd">/play &lt;песня&gt;</span> — Воспроизвести с интерактивными кнопками</div>
+      <div><span class="cmd">/nowplaying</span> — Информация о треке и полоса прогресса</div>
+      <div><span class="cmd">/queue</span> — Список очереди воспроизведения</div>
+      <div><span class="cmd">/volume &lt;1-100&gt;</span> — Регулировка громкости</div>
+      <div><span class="cmd">/loop &lt;off|track|queue&gt;</span> — Режимы повтора</div>
+      <div><span class="cmd">/chain &lt;target&gt;</span> — Голосовые связки участников</div>
+    </div>
+  </div>
+</body>
+</html>"""
+    return web.Response(text=html, content_type="text/html", status=200)
+
+async def handle_web_health(request):
+    bot = request.app["bot"]
+    data = {
+        "status": "ok",
+        "bot": str(bot.user) if bot.user else "connecting",
+        "guilds": len(bot.guilds),
+        "latency_ms": int(bot.latency * 1000) if bot.latency else 0,
+    }
+    return web.json_response(data)
+
+
 # ═══════════════════════════════════════════════════════════
-#  BOT SETUP
+#  BOT CLASS SETUP
 # ═══════════════════════════════════════════════════════════
 intents = discord.Intents.default()
 intents.voice_states = True
 intents.guilds = True
 
-bot = commands.Bot(command_prefix="!", intents=intents)
+class MusicBot(commands.Bot):
+    async def setup_hook(self):
+        # 1. Sync global slash commands
+        try:
+            synced = await self.tree.sync()
+            print(f"✅ Synced {len(synced)} global slash commands.")
+        except Exception as e:
+            print(f"⚠️ Slash command sync note: {e}")
+
+        # 2. Start HTTP server on port 3000 to eliminate Bad Gateway
+        try:
+            app = web.Application()
+            app["bot"] = self
+            app.router.add_get("/", handle_web_index)
+            app.router.add_get("/player", handle_web_index)
+            app.router.add_get("/health", handle_web_health)
+
+            runner = web.AppRunner(app)
+            await runner.setup()
+            site = web.TCPSite(runner, host=WEB_HOST, port=WEB_PORT)
+            await site.start()
+            print(f"🌐 HTTP Status Server running on {WEB_HOST}:{WEB_PORT}")
+        except Exception as e:
+            print(f"⚠️ Could not start HTTP server on port {WEB_PORT}: {e}")
+
+bot = MusicBot(command_prefix="!", intents=intents)
 tree = bot.tree
 
 search_engine = MusicSearchEngine()
