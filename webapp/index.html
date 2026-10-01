@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="referrer" content="no-referrer" />
+  <title>🎵 Gosting Musicium — Discord Music Player</title>
+  <meta name="description" content="Премиальный плеер музыки для Discord — чистый звук, YouTube и SoundCloud" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="static/style.css" />
+  <script src="static/discord-sdk.js"></script>
+  <script src="static/config.js"></script>
+</head>
+<body>
+  <!-- Ambient background glow elements -->
+  <div class="ambient-sphere sphere-1"></div>
+  <div class="ambient-sphere sphere-2"></div>
+  <div class="ambient-sphere sphere-3"></div>
+
+  <div class="app-layout" id="app">
+
+    <!-- ── HEADER ──────────────────────────────────────────── -->
+    <header class="navbar">
+      <div class="nav-brand">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24" fill="none" class="brand-svg">
+            <path d="M9 18V5l12-2v13" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="6" cy="18" r="3" fill="currentColor"/>
+            <circle cx="18" cy="16" r="3" fill="currentColor"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <span class="brand-name">Gosting<span class="brand-accent">Music</span></span>
+          <span class="brand-tag">Pure Audio</span>
+        </div>
+      </div>
+
+      <!-- Navigation tabs for mobile / small screens -->
+      <nav class="mobile-tabs" id="mobileTabs">
+        <button class="mobile-tab-btn" data-target="searchPanel" onclick="switchMobileTab('searchPanel')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+          <span>Поиск</span>
+        </button>
+        <button class="mobile-tab-btn active" data-target="playerPanel" onclick="switchMobileTab('playerPanel')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+          <span>Плеер</span>
+        </button>
+        <button class="mobile-tab-btn" data-target="queuePanel" onclick="switchMobileTab('queuePanel')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+            <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+          </svg>
+          <span>Очередь</span>
+          <span class="mobile-badge" id="mobileQueueBadge">0</span>
+        </button>
+      </nav>
+
+      <div class="nav-actions">
+        <!-- Server Select Dropdown -->
+        <div class="select-wrapper">
+          <span class="select-indicator" id="serverStatusDot"></span>
+          <select id="serverSelect" class="custom-select" onchange="onSelectGuild(this.value)">
+            <option value="">Подключение к серверам...</option>
+          </select>
+        </div>
+
+        <!-- Admin Button -->
+        <button class="btn-icon" id="btnAdmin" onclick="openAdminModal()" title="Панель администратора">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- ── MAIN CONTENT ────────────────────────────────────── -->
+    <main class="main-content">
+
+      <!-- ── LEFT: SEARCH PANEL ────────────────────────────── -->
+      <aside class="card-panel panel-search" id="searchPanel">
+        <div class="panel-top">
+          <h2 class="panel-heading">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+            Поиск треков
+          </h2>
+        </div>
+
+        <form class="search-form" id="searchForm" onsubmit="event.preventDefault(); triggerSearch();">
+          <div class="search-field">
+            <svg class="search-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+            <input
+              type="text"
+              id="searchInput"
+              class="search-input"
+              placeholder="Название, автор или ссылка..."
+              autocomplete="off"
+            />
+            <button type="button" class="btn-clear" id="btnClearSearch" onclick="clearSearch()" style="display:none">
+              &times;
+            </button>
+            <button type="submit" class="search-submit-btn" id="btnSubmitSearch">
+              Найти
+            </button>
+          </div>
+        </form>
+
+        <!-- Filter chips -->
+        <div class="filter-chips">
+          <button class="chip active" data-filter="all" onclick="applyPlatformFilter(this, 'all')">
+            Все источники
+          </button>
+          <button class="chip chip-youtube" data-filter="YouTube" onclick="applyPlatformFilter(this, 'YouTube')">
+            <span class="chip-dot youtube-dot"></span>YouTube
+          </button>
+          <button class="chip chip-soundcloud" data-filter="SoundCloud" onclick="applyPlatformFilter(this, 'SoundCloud')">
+            <span class="chip-dot soundcloud-dot"></span>SoundCloud
+          </button>
+        </div>
+
+        <!-- Search results stream -->
+        <div class="search-results-list" id="searchResultsContainer">
+          <div class="empty-state">
+            <div class="empty-icon-bubble">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+              </svg>
+            </div>
+            <p class="empty-title">Найдите любимую музыку</p>
+            <p class="empty-desc">Введи имя исполнителя, трек или прямую ссылку для воспроизведения в голосовом канале</p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- ── CENTER: NOW PLAYING CENTERPIECE ────────────────── -->
+      <section class="card-panel panel-player active-panel" id="playerPanel">
+
+        <div class="player-center-content">
+          <!-- Album art cover with vinyl/halo aesthetic -->
+          <div class="cover-wrapper" id="coverWrapper">
+            <div class="cover-halo" id="coverHalo"></div>
+            <div class="cover-container" id="coverContainer">
+              <img id="trackArtwork" class="cover-img" src="" alt="Album Artwork" style="display:none;" />
+              <div class="cover-placeholder" id="coverPlaceholder">
+                <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+                  <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+                </svg>
+              </div>
+
+              <!-- Animated visualizer equalizer bars in center of artwork when playing -->
+              <div class="cover-equalizer" id="coverEqualizer">
+                <span class="eq-bar bar-1"></span>
+                <span class="eq-bar bar-2"></span>
+                <span class="eq-bar bar-3"></span>
+                <span class="eq-bar bar-4"></span>
+                <span class="eq-bar bar-5"></span>
+              </div>
+            </div>
+
+            <!-- Platform badge -->
+            <div class="platform-pill" id="platformPill" style="display:none;">
+              <span class="pill-dot" id="pillDot"></span>
+              <span class="pill-name" id="pillName">YouTube</span>
+            </div>
+          </div>
+
+          <!-- Metadata -->
+          <div class="metadata-section">
+            <h1 class="current-title" id="currentTitle">Ничего не играет</h1>
+            <p class="current-artist" id="currentArtist">Выберите песню из поиска</p>
+            <div class="requester-tag" id="requesterTag" style="display:none;">
+              <span>Запросил:</span> <strong id="requesterName">Discord</strong>
+            </div>
+          </div>
+
+          <!-- Interactive Seekbar -->
+          <div class="seekbar-section">
+            <span class="time-readout" id="timeElapsed">0:00</span>
+            <div class="seekbar-track-wrap" id="seekbarWrap" onclick="onSeekbarClick(event)">
+              <div class="seekbar-track">
+                <div class="seekbar-fill" id="seekbarFill" style="width: 0%;"></div>
+                <div class="seekbar-thumb" id="seekbarThumb" style="left: 0%;"></div>
+              </div>
+            </div>
+            <span class="time-readout" id="timeTotal">0:00</span>
+          </div>
+
+          <!-- Primary Controls Dock -->
+          <div class="controls-dock">
+            <!-- Repeat Mode Button -->
+            <button class="ctrl-secondary-btn" id="btnLoopMode" onclick="cycleLoopMode()" title="Режим повтора: Выкл">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+              </svg>
+              <span class="loop-indicator" id="loopIndicator"></span>
+            </button>
+
+            <!-- Previous Button -->
+            <button class="ctrl-action-btn" id="btnPrev" onclick="cmdPrevTrack()" title="Предыдущий трек">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="19 20 9 12 19 4 19 20"/>
+                <line x1="5" y1="19" x2="5" y2="5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+              </svg>
+            </button>
+
+            <!-- Main Play/Pause Button -->
+            <button class="ctrl-main-btn" id="btnPlayPause" onclick="cmdTogglePlayPause()" title="Воспроизведение">
+              <!-- Play Icon -->
+              <svg class="icon-play" id="iconPlay" width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="6 3 20 12 6 21 6 3"/>
+              </svg>
+              <!-- Pause Icon -->
+              <svg class="icon-pause" id="iconPause" width="28" height="28" viewBox="0 0 24 24" fill="currentColor" style="display:none;">
+                <rect x="6" y="4" width="4" height="16" rx="1.5"/>
+                <rect x="14" y="4" width="4" height="16" rx="1.5"/>
+              </svg>
+            </button>
+
+            <!-- Next / Skip Button -->
+            <button class="ctrl-action-btn" id="btnNext" onclick="cmdSkipTrack()" title="Следующий трек">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="5 4 15 12 5 20 5 4"/>
+                <line x1="19" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+              </svg>
+            </button>
+
+            <!-- Stop Button -->
+            <button class="ctrl-secondary-btn" id="btnStop" onclick="cmdStopPlayer()" title="Остановить воспроизведение">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="4" y="4" width="16" height="16" rx="2.5"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Volume Dock -->
+          <div class="volume-dock">
+            <button class="btn-mute" id="btnMute" onclick="toggleMute()" title="Звук">
+              <svg id="volumeIcon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+              </svg>
+            </button>
+            <div class="volume-slider-wrap">
+              <input
+                type="range"
+                id="volumeSlider"
+                class="volume-slider"
+                min="0"
+                max="100"
+                value="50"
+                oninput="onVolumeChange(this.value)"
+              />
+            </div>
+            <span class="volume-value-text" id="volumePercentText">50%</span>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ── RIGHT: QUEUE PANEL ────────────────────────────── -->
+      <aside class="card-panel panel-queue" id="queuePanel">
+        <div class="panel-top">
+          <h2 class="panel-heading">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+              <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+            </svg>
+            Очередь треков
+          </h2>
+          <span class="count-badge" id="queueCountBadge">0</span>
+        </div>
+
+        <div class="queue-items-container" id="queueContainer">
+          <div class="empty-state">
+            <div class="empty-icon-bubble">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/>
+              </svg>
+            </div>
+            <p class="empty-title">Очередь пуста</p>
+            <p class="empty-desc">Добавьте треки из поиска, чтобы воспроизвести их один за другим</p>
+          </div>
+        </div>
+      </aside>
+
+    </main>
+  </div>
+
+  <!-- ── ADMIN PANEL MODAL ──────────────────────────────────── -->
+  <div class="modal-backdrop" id="adminBackdrop" onclick="closeAdminOnBackdrop(event)">
+    <div class="modal-window">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span class="modal-shield">🛡️</span>
+          <h3 class="modal-title">Панель управления ботом</h3>
+        </div>
+        <button class="modal-close-btn" onclick="closeAdminModal()">
+          &times;
+        </button>
+      </div>
+
+      <!-- Auth Form (if not logged in) -->
+      <div class="admin-auth-pane" id="adminAuthPane">
+        <p class="auth-hint">Введите ваш Discord User ID для авторизации:</p>
+        <div class="auth-input-row">
+          <input type="text" id="adminUserIdInput" class="admin-input" placeholder="ID пользователя (напр. 410432175373156352)" />
+          <button class="btn-accent" onclick="submitAdminAuth()">Войти</button>
+        </div>
+        <p class="auth-error-msg" id="adminAuthError" style="display:none;">❌ Недостаточно прав для доступа к панели администратора</p>
+      </div>
+
+      <!-- Admin Content (after auth) -->
+      <div class="admin-body-pane" id="adminBodyPane" style="display:none;">
+        <div class="admin-tabs-nav">
+          <button class="admin-tab-btn active" id="tabBtnGuilds" onclick="switchAdminTab('guilds')">Серверы и Плееры</button>
+          <button class="admin-tab-btn" id="tabBtnChains" onclick="switchAdminTab('chains')">Голосовые связки (/chain)</button>
+        </div>
+
+        <div class="admin-tab-content" id="adminTabContentGuilds">
+          <div class="admin-guilds-list" id="adminGuildsList">
+            <div class="admin-loader">Загрузка данных...</div>
+          </div>
+        </div>
+
+        <div class="admin-tab-content" id="adminTabContentChains" style="display:none;">
+          <div class="admin-chain-select-row">
+            <select id="adminChainGuildSelect" class="custom-select" onchange="loadChainsForSelectedGuild()">
+              <option value="">Выберите сервер...</option>
+            </select>
+          </div>
+          <div class="admin-chains-list" id="adminChainsList">
+            <div class="empty-state"><p class="empty-desc">Выберите сервер для просмотра связок</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast notifications -->
+  <div class="toast-wrapper" id="toastWrapper"></div>
+
+  <script src="static/app.js"></script>
+</body>
+</html>
