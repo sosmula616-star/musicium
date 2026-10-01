@@ -16,12 +16,12 @@ function setupEnvironment() {
         console.log("[Bothost Bridge] pip is not installed. Downloading get-pip.py...");
         try {
             try {
-                execSync(`curl -sSL https://bootstrap.pypa.io/get-pip.py -o get-pip.py`, { stdio: 'inherit' });
-            } catch (errCurl) {
                 execSync(`wget -q https://bootstrap.pypa.io/get-pip.py -O get-pip.py`, { stdio: 'inherit' });
+            } catch (errWget) {
+                execSync(`curl -sSL https://bootstrap.pypa.io/get-pip.py -o get-pip.py`, { stdio: 'inherit' });
             }
-            console.log("[Bothost Bridge] Installing pip...");
-            execSync(`${pyCmd} get-pip.py --no-warn-script-location`, { stdio: 'inherit' });
+            console.log("[Bothost Bridge] Installing pip with --break-system-packages...");
+            execSync(`${pyCmd} get-pip.py --break-system-packages --no-warn-script-location`, { stdio: 'inherit' });
             console.log("[Bothost Bridge] pip installed successfully!");
         } catch (errPip) {
             console.log("[Bothost Bridge] Automatic pip installation note:", errPip.message);
@@ -30,7 +30,7 @@ function setupEnvironment() {
 
     console.log("[Bothost Bridge] Installing Python requirements from requirements.txt...");
     try {
-        execSync(`${pyCmd} -m pip install --no-cache-dir -r requirements.txt`, { stdio: 'inherit' });
+        execSync(`${pyCmd} -m pip install --break-system-packages --no-cache-dir -r requirements.txt`, { stdio: 'inherit' });
         console.log("[Bothost Bridge] All Python dependencies installed successfully!");
     } catch (errReq) {
         console.log("[Bothost Bridge] Note on pip install:", errReq.message);
