@@ -5,7 +5,7 @@
 
 // ── GLOBAL STATE ──────────────────────────────────────────
 const state = {
-  apiBase: (window.MUSICBOT_API || window.location.origin).replace(/\/$/, ""),
+  apiBase: (typeof window.MUSICBOT_API === "string" ? window.MUSICBOT_API : (window.location.origin || "")).replace(/\/$/, ""),
   selectedGuildId: null,
   activeChannelId: null,
   userId: null,
@@ -81,12 +81,15 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 // ── DISCORD SDK DETECTION ─────────────────────────────────
 async function initDiscordSdkIfAvailable() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const paramGuildId = urlParams.get("guild_id");
+  const paramChannelId = urlParams.get("channel_id");
+  if (paramGuildId) state.selectedGuildId = paramGuildId;
+  if (paramChannelId) state.activeChannelId = paramChannelId;
+
   if (typeof DiscordSDK !== "undefined") {
     try {
-      const urlParams = new URLSearchParams(window.location.search);
       const frameId = urlParams.get("frame_id");
-
-      // Discord Activity passes frame_id or runs inside discordsays.com
       if (frameId || window.location.origin.includes("discordsays.com")) {
         console.log("[Discord SDK] Initializing Embedded App SDK...");
         state.discordSdk = new DiscordSDK.DiscordSDK(window.DISCORD_CLIENT_ID || "1555020109507199066");
@@ -102,30 +105,33 @@ async function initDiscordSdkIfAvailable() {
         console.log(`[Discord SDK] Connected: Guild ${state.selectedGuildId}, Channel ${state.activeChannelId}`);
       }
     } catch (err) {
-      console.log("[Discord SDK] Not in Discord activity context or init skipped:", err.message);
+      console.log("[Discord SDK] Activity context notice:", err.message);
     }
   }
 }
 
 // ── GUILD LIST & SELECTION ────────────────────────────────
+let _loadGuildsTimer = null;
 async function loadGuilds() {
   const select = document.getElementById("serverSelect");
   const dot = document.getElementById("serverStatusDot");
 
   try {
     const res = await fetch(`${state.apiBase}/api/guilds`);
-    if (!res.ok) throw new Error("Failed to fetch guilds");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     const guilds = data.guilds || [];
 
-    select.innerHTML = "";
     if (guilds.length === 0) {
-      select.innerHTML = '<option value="">Серверы не найдены</option>';
+      select.innerHTML = '<option value="">Подключение к Discord...</option>';
       if (dot) dot.classList.add("offline");
+      clearTimeout(_loadGuildsTimer);
+      _loadGuildsTimer = setTimeout(loadGuilds, 2500);
       return;
     }
 
     if (dot) dot.classList.remove("offline");
+    select.innerHTML = "";
 
     guilds.forEach((g) => {
       const opt = document.createElement("option");
@@ -135,7 +141,6 @@ async function loadGuilds() {
       select.appendChild(opt);
     });
 
-    // Auto-select if in activity, else pick first
     if (state.selectedGuildId && guilds.some((g) => g.id === state.selectedGuildId)) {
       select.value = state.selectedGuildId;
     } else {
@@ -145,9 +150,11 @@ async function loadGuilds() {
 
     await fetchPlayerState();
   } catch (err) {
-    console.error("[Guilds] Error:", err);
-    select.innerHTML = '<option value="">Ошибка подключения</option>';
+    console.warn("[Guilds] Connecting...", err.message);
+    select.innerHTML = '<option value="">Подключение к боту...</option>';
     if (dot) dot.classList.add("offline");
+    clearTimeout(_loadGuildsTimer);
+    _loadGuildsTimer = setTimeout(loadGuilds, 3000);
   }
 }
 
