@@ -458,18 +458,20 @@ def apply_security_headers(response):
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
     response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
     response.headers["Access-Control-Allow-Headers"] = "*"
-    if "Content-Security-Policy" not in response.headers:
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: *; "
-            "img-src * data: blob:; "
-            "media-src * blob: data:; "
-            "connect-src *; "
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' cdn.jsdelivr.net *; "
-            "style-src 'self' 'unsafe-inline' fonts.googleapis.com *; "
-            "font-src 'self' data: fonts.gstatic.com *;"
-        )
+    # Remove X-Frame-Options to allow Discord Activity iframe embedding
+    response.headers.pop("X-Frame-Options", None)
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: *; "
+        "frame-ancestors https://discord.com https://*.discord.com https://*.discordsays.com *; "
+        "img-src * data: blob:; "
+        "media-src * blob: data:; "
+        "connect-src *; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' cdn.jsdelivr.net *; "
+        "style-src 'self' 'unsafe-inline' fonts.googleapis.com *; "
+        "font-src 'self' data: fonts.gstatic.com *;"
+    )
     return response
 
 
