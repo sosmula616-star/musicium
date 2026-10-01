@@ -69,12 +69,12 @@ chain_manager  = ChainManager(bot)
 # ── BOT EVENTS ────────────────────────────────────────────
 @bot.event
 async def on_ready():
-    print(f"✅ Bot ready: {bot.user} (ID: {bot.user.id})")
+    print(f"Bot ready: {bot.user} (ID: {bot.user.id})")
     try:
         synced = await tree.sync()
-        print(f"⚡ Synced {len(synced)} slash commands")
+        print(f"Synced {len(synced)} slash commands")
     except Exception as e:
-        print(f"❌ Sync error: {e}")
+        print(f"Sync error: {e}")
 
 
 @bot.event
@@ -450,7 +450,7 @@ def _run_bot():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     if not TOKEN:
-        print("❌ DISCORD_TOKEN не задан!")
+        print("DISCORD_TOKEN не задан!")
         return
     loop.run_until_complete(bot.start(TOKEN))
 
