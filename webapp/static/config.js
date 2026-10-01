@@ -1,10 +1,16 @@
 (function () {
-  const SERVER_URL = "https://gostingmusicium.bothost.tech";
+  let apiBase = "";
   if (typeof window !== "undefined" && window.location) {
-    if (window.location.origin && window.location.origin.includes("discordsays.com")) {
-      window.MUSICBOT_API = SERVER_URL;
+    const origin = window.location.origin || "";
+    if (origin.includes("discordsays.com")) {
+      // Inside Discord Embedded App Activity, all requests must go via /.proxy
+      apiBase = "/.proxy";
+    } else if (window.location.protocol === "file:") {
+      apiBase = "https://gostingmusicium.bothost.tech";
     } else {
-      window.MUSICBOT_API = window.location.origin;
+      // Standalone web browser on server domain
+      apiBase = "";
     }
   }
+  window.MUSICBOT_API = apiBase;
 })();
