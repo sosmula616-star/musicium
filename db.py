@@ -562,3 +562,42 @@ async def clear_user_history(user_id: str) -> bool:
     except Exception as e:
         logger.error(f"Error clearing history for user {user_id}: {e}")
         return False
+
+async def get_global_recent_history(limit: int = 20) -> List[Dict[str, Any]]:
+    global _pool
+    if not _pool:
+        await init_db()
+    if not _pool:
+        return []
+    try:
+        async with _pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT track_url, title, artist, thumbnail, duration_str, source, played_at
+                FROM user_history
+                ORDER BY played_at DESC
+                LIMIT $1
+                """,
+                limit
+            )
+            # Deduplicate by title & artist keeping newest
+            seen = set()
+            result = []
+            for r in rows:
+                key = (r["title"].strip().lower(), (r["artist"] or "").strip().lower())
+                if key in seen:
+                    continue
+                seen.add(key)
+                result.append({
+                    "url": r["track_url"],
+                    "title": r["title"],
+                    "artist": r["artist"] or "Неизвестный исполнитель",
+                    "thumbnail": r["thumbnail"] or "/static/activity_icon.jpg",
+                    "duration_str": r["duration_str"] or "00:00",
+                    "source": r["source"] or "youtube",
+                    "played_at": r["played_at"].isoformat() if r["played_at"] else None
+                })
+            return result
+    except Exception as e:
+        logger.error(f"Error fetching global recent history: {e}")
+        return []
