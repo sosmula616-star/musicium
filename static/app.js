@@ -376,11 +376,16 @@
   }
 
   // Toast Notification
-  function showToast(message, type = 'info', icon = null) {
+  function showToast(message, type = 'info') {
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
-    const defaultIcon = type === 'success' ? 'fa-circle-check' : (type === 'error' ? 'fa-circle-exclamation' : 'fa-info-circle');
-    toast.innerHTML = `<i class="fa-solid ${icon || defaultIcon}"></i><span>${message}</span>`;
+    let iconSvg = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>';
+    if (type === 'success') {
+      iconSvg = '<svg viewBox="0 0 24 24" width="16" height="16" fill="#10b981"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>';
+    } else if (type === 'error') {
+      iconSvg = '<svg viewBox="0 0 24 24" width="16" height="16" fill="#ef4444"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>';
+    }
+    toast.innerHTML = `${iconSvg}<span>${message}</span>`;
     el.toastContainer.appendChild(toast);
     setTimeout(() => {
       toast.style.opacity = '0';
@@ -551,7 +556,7 @@
     el.loadingState.style.display = 'flex';
     el.emptyState.style.display = 'none';
     el.tracksGrid.innerHTML = '';
-    el.resultsHeading.innerHTML = `<i class="fa-solid fa-magnifying-glass text-accent"></i><span>${t('results.query', { query: escapeHtml(q) })}</span>`;
+    el.resultsHeading.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="#00d2ff" style="display:inline-block;vertical-align:middle;margin-right:6px;"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg><span>${t('results.query', { query: escapeHtml(q) })}</span>`;
 
     try {
       const resp = await fetch(`/api/search?q=${encodeURIComponent(q)}&source=${state.currentSource}&limit=35`);
@@ -581,7 +586,7 @@
     el.loadingState.style.display = 'flex';
     el.emptyState.style.display = 'none';
     el.tracksGrid.innerHTML = '';
-    el.resultsHeading.innerHTML = `<i class="fa-solid fa-fire text-accent"></i><span>${t('results.popular')}</span>`;
+    el.resultsHeading.innerHTML = `<svg class="section-title-svg" viewBox="0 0 24 24" width="20" height="20" fill="#ff4500" style="display:inline-block;vertical-align:middle;margin-right:6px;"><path d="M19.48 12.35c-1.57-4.08-7.16-4.3-5.81-10.23a10 10 0 0 0-4.67 2.68C6.33 7.42 5 11.23 5 14.18c0 4.14 3.03 7.82 7.22 7.82 4.19 0 7.78-3.68 7.78-7.82 0-.6-.09-1.22-.26-1.83h-.26zM12 20.5c-2.76 0-5-2.24-5-5 0-1.46.63-3.4 1.83-4.83.39 1.15 1.05 2.16 1.95 2.92.51.43 1.25.13 1.34-.53.2-1.51 1.01-2.84 2.15-3.69 1.07 1.48 1.73 3.32 1.73 5.13 0 3.31-1.79 6-4 6z"/></svg><span>${t('results.popular')}</span>`;
 
     try {
       const resp = await fetch(`/api/search?q=топ+хиты+2025&source=${state.currentSource}&limit=35`);
@@ -619,7 +624,7 @@
           <div class="card-thumb-wrapper">
             <img src="${getSafeImageUrl(track.thumbnail)}" alt="${escapeHtml(track.title)}" class="card-thumb" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null; this.src='/static/activity_icon.jpg';">
             <div class="card-play-overlay" title="${t('track.playNowTitle')}">
-              <i class="fa-solid fa-play"></i>
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="#ffffff"><path d="M8 5v14l11-7z"/></svg>
             </div>
           </div>
           <div class="card-details">
@@ -833,14 +838,15 @@
 
     // Update Loop button
     el.btnLoop.className = `control-btn btn-sm ${playerState.loop_mode !== 'off' ? 'active' : ''}`;
+    const loopSvg = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>';
     if (playerState.loop_mode === 'track') {
-      el.btnLoop.innerHTML = '<i class="fa-solid fa-repeat"></i><span style="font-size:9px;position:absolute;margin-top:10px">1</span>';
+      el.btnLoop.innerHTML = `${loopSvg}<span style="font-size:9px;position:absolute;margin-top:10px;font-weight:700">1</span>`;
       el.btnLoop.title = t('player.loopTrack');
     } else if (playerState.loop_mode === 'queue') {
-      el.btnLoop.innerHTML = '<i class="fa-solid fa-repeat"></i>';
+      el.btnLoop.innerHTML = loopSvg;
       el.btnLoop.title = t('player.loopQueue');
     } else {
-      el.btnLoop.innerHTML = '<i class="fa-solid fa-repeat"></i>';
+      el.btnLoop.innerHTML = loopSvg;
       el.btnLoop.title = t('player.loopOff');
     }
 
@@ -873,7 +879,7 @@
     if (queue.length === 0) {
       el.queueList.innerHTML = `
         <div class="queue-empty">
-          <i class="fa-solid fa-compact-disc"></i>
+          <svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor" opacity="0.3" style="display:block;margin:0 auto 10px;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-12.5c-2.48 0-4.5 2.02-4.5 4.5s2.02 4.5 4.5 4.5 4.5-2.02 4.5-4.5-2.02-4.5-4.5-4.5zm0 6c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
           <p data-i18n="queue.emptyTitle">${t('queue.emptyTitle')}</p>
           <span data-i18n="queue.emptySubtitle">${t('queue.emptySubtitle')}</span>
         </div>
@@ -913,7 +919,7 @@
     if (!history || history.length === 0) {
       el.historyList.innerHTML = `
         <div class="queue-empty">
-          <i class="fa-regular fa-clock"></i>
+          <svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor" opacity="0.3" style="display:block;margin:0 auto 10px;"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
           <p data-i18n="history.emptyTitle">${t('history.emptyTitle')}</p>
         </div>
       `;
@@ -931,7 +937,7 @@
           <div class="queue-item-sub">${escapeHtml(track.artist)} • ${track.duration_str}</div>
         </div>
         <button class="btn-text-subtle" title="${t('history.replayTitle')}">
-          <i class="fa-solid fa-rotate-right"></i>
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
         </button>
       `;
       item.querySelector('button').addEventListener('click', () => {
