@@ -261,17 +261,19 @@
     } catch (_) {}
   }
 
-  // Check Bot & Yandex status
+  // Check Bot status
   async function checkSystemStatus() {
     try {
       const resp = await fetch('/api/status');
       const data = await resp.json();
-      if (data.yandex_configured) {
-        el.yandexStatusDot.classList.add('active');
-        el.yandexStatusDot.title = 'Яндекс.Музыка подключена';
-      } else {
-        el.yandexStatusDot.classList.remove('active');
-        el.yandexStatusDot.title = 'Требуется YANDEX_MUSIC_TOKEN в .env';
+      if (el.yandexStatusDot) {
+        if (data.yandex_configured) {
+          el.yandexStatusDot.classList.add('active');
+          el.yandexStatusDot.title = 'Яндекс.Музыка подключена';
+        } else {
+          el.yandexStatusDot.classList.remove('active');
+          el.yandexStatusDot.title = 'Требуется YANDEX_MUSIC_TOKEN в .env';
+        }
       }
     } catch (e) {
       console.error('Status check error:', e);
