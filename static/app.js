@@ -23,6 +23,7 @@
     savedVolume: 100,
     searchTimeout: null,
     isScrubbing: false,
+    isAdjustingVolume: false,
   };
 
   const SVG_ICONS = {
@@ -568,7 +569,7 @@
     }
 
     // Update Volume UI
-    if (!el.volumeSlider.matches(':active')) {
+    if (!state.isAdjustingVolume) {
       const vol = playerState.volume !== undefined ? playerState.volume : 100;
       el.volumeSlider.value = vol;
       el.volumeVal.textContent = `${vol}%`;
