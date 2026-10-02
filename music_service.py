@@ -98,14 +98,31 @@ class MusicService:
             "source_address": "0.0.0.0",
             "extractor_args": {
                 "youtube": {
-                    "player_client": ["android", "visionos"]
-                }
+                    "player_client": ["android"],
+                    "player_skip": ["webpage", "configs"],
+                },
+                "youtubetab": {
+                    "skip": ["webpage"],
+                },
             },
         }
 
-        cookie_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt")
-        if os.path.exists(cookie_path):
+        # Check cookies from env var, custom path or default cookies.txt
+        cookie_path = os.getenv("YOUTUBE_COOKIES_PATH") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt")
+        env_cookies = os.getenv("YOUTUBE_COOKIES", "").strip()
+        if env_cookies:
+            try:
+                target_cf = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt")
+                with open(target_cf, "w", encoding="utf-8") as cf:
+                    cf.write(env_cookies)
+                cookie_path = target_cf
+                logger.info("Saved cookies from YOUTUBE_COOKIES env var to cookies.txt")
+            except Exception as ce:
+                logger.warning(f"Could not write YOUTUBE_COOKIES to cookies.txt: {ce}")
+
+        if os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
             self.ydl_opts["cookiefile"] = cookie_path
+            logger.info(f"Using YouTube cookies from: {cookie_path}")
 
     def _init_yandex_client(self):
         if not self.yandex_token:
@@ -452,16 +469,20 @@ class MusicService:
                 "no_warnings": True,
                 "extract_flat": False,
                 "noplaylist": True,
+                "source_address": "0.0.0.0",
                 "extractor_args": {
                     "youtube": {
-                        "player_client": ["android", "visionos"]
-                    }
+                        "player_client": ["android"],
+                        "player_skip": ["webpage", "configs"],
+                    },
+                    "youtubetab": {
+                        "skip": ["webpage"],
+                    },
                 },
             }
 
-            cookie_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt")
-            if os.path.exists(cookie_file):
-                opts["cookiefile"] = cookie_file
+            if "cookiefile" in self.ydl_opts:
+                opts["cookiefile"] = self.ydl_opts["cookiefile"]
 
             try:
                 with yt_dlp.YoutubeDL(opts) as ydl:
@@ -475,10 +496,18 @@ class MusicService:
                         return stream
                     raise ValueError("No audio stream URL in info")
             except Exception as e:
-                logger.warning(f"Primary YouTube stream extraction failed ({e}), attempting secondary client...")
+                logger.warning(f"Primary YouTube stream extraction failed ({e}), attempting fallback client...")
                 try:
                     sec_opts = dict(opts)
-                    sec_opts["extractor_args"] = {"youtube": {"player_client": ["web_embedded"]}}
+                    sec_opts["extractor_args"] = {
+                        "youtube": {
+                            "player_client": ["android_vr"],
+                            "player_skip": ["webpage", "configs"],
+                        },
+                        "youtubetab": {
+                            "skip": ["webpage"],
+                        },
+                    }
                     with yt_dlp.YoutubeDL(sec_opts) as ydl:
                         sec_info = ydl.extract_info(target_url, download=False)
                         if sec_info:
