@@ -155,11 +155,35 @@ class GuildPlayer:
         return math.ceil(count / 2)  # Strict majority (e.g. 2 of 3, 2 of 2, 3 of 4)
 
     async def connect_to_channel(self, channel: discord.VoiceChannel):
+        guild_vc = self.guild.voice_client
+        if guild_vc and guild_vc.is_connected():
+            self.voice_client = guild_vc
+            if self.voice_client.channel.id != channel.id:
+                await self.voice_client.move_to(channel)
+            return
+
         if self.voice_client and self.voice_client.is_connected():
             if self.voice_client.channel.id != channel.id:
                 await self.voice_client.move_to(channel)
-        else:
+            return
+
+        if guild_vc:
+            try:
+                await guild_vc.disconnect(force=True)
+            except Exception as e:
+                logger.warning(f"Error disconnecting stale voice client in guild {self.guild.id}: {e}")
+
+        try:
             self.voice_client = await channel.connect(timeout=20.0, reconnect=True, self_deaf=True, self_mute=False)
+        except discord.ClientException as ce:
+            logger.warning(f"ClientException connecting to {channel.id}: {ce}. Attempting to use existing guild.voice_client...")
+            guild_vc = self.guild.voice_client
+            if guild_vc and guild_vc.is_connected():
+                self.voice_client = guild_vc
+                if self.voice_client.channel.id != channel.id:
+                    await self.voice_client.move_to(channel)
+            else:
+                raise
 
     async def enqueue(self, track: Track, play_now: bool = False) -> Dict[str, Any]:
         async with self._lock:
