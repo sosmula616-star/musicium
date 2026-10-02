@@ -98,10 +98,14 @@ class MusicService:
             "source_address": "0.0.0.0",
             "extractor_args": {
                 "youtube": {
-                    "player_client": ["android", "ios", "web"]
+                    "player_client": ["ios", "mweb", "android_music"]
                 }
             },
         }
+
+        cookie_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt")
+        if os.path.exists(cookie_path):
+            self.ydl_opts["cookiefile"] = cookie_path
 
     def _init_yandex_client(self):
         if not self.yandex_token:
@@ -407,20 +411,47 @@ class MusicService:
                 "noplaylist": True,
                 "extractor_args": {
                     "youtube": {
-                        "player_client": ["android", "ios", "web"]
+                        "player_client": ["ios", "mweb", "android_music"]
                     }
                 },
             }
+
+            cookie_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt")
+            if os.path.exists(cookie_file):
+                opts["cookiefile"] = cookie_file
+
             try:
                 with yt_dlp.YoutubeDL(opts) as ydl:
                     info = ydl.extract_info(target_url, download=False)
                     if not info:
-                        return None
+                        raise ValueError("No video info returned")
                     if "entries" in info and info["entries"]:
                         info = info["entries"][0]
-                    return info.get("url")
+                    stream = info.get("url")
+                    if stream:
+                        return stream
+                    raise ValueError("No audio stream URL in info")
             except Exception as e:
-                logger.error(f"Error extracting stream for {track.title}: {e}")
+                logger.warning(f"YouTube stream extraction failed ({e}), attempting SoundCloud fallback...")
+                # Automatic fallback: search track title on SoundCloud
+                try:
+                    sc_opts = {
+                        "format": "bestaudio/best",
+                        "quiet": True,
+                        "extract_flat": False,
+                        "noplaylist": True,
+                    }
+                    search_query = f"{track.title} {track.artist}".strip()
+                    with yt_dlp.YoutubeDL(sc_opts) as ydl:
+                        sc_info = ydl.extract_info(f"scsearch1:{search_query}", download=False)
+                        if sc_info and "entries" in sc_info and sc_info["entries"]:
+                            sc_entry = sc_info["entries"][0]
+                            sc_stream = sc_entry.get("url")
+                            if sc_stream:
+                                logger.info(f"SoundCloud fallback stream resolved for: {track.title}")
+                                return sc_stream
+                except Exception as sc_err:
+                    logger.error(f"SoundCloud fallback failed as well: {sc_err}")
                 return None
 
         return await asyncio.to_thread(_get)
