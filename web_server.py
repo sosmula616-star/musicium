@@ -21,7 +21,7 @@ class WebServer:
         self.site = None
 
         self.host = os.getenv("WEB_HOST", "0.0.0.0")
-        self.port = int(os.getenv("WEB_PORT", 3000))
+        self.port = int(os.getenv("PORT") or os.getenv("SERVER_PORT") or os.getenv("WEB_PORT", 3000))
         self.client_id = os.getenv("DISCORD_CLIENT_ID", "")
         self.client_secret = os.getenv("DISCORD_CLIENT_SECRET", "")
 
