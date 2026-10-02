@@ -62,17 +62,11 @@
     voiceLabel: document.getElementById('voiceLabel'),
     voiceChannelName: document.getElementById('voiceChannelName'),
     refreshVoiceBtn: document.getElementById('refreshVoiceBtn'),
-    // User Badge
+    // User Badge (Display only)
     userBadge: document.getElementById('userBadge'),
     userAvatar: document.getElementById('userAvatar'),
     userName: document.getElementById('userName'),
     userTag: document.getElementById('userTag'),
-    // Modal
-    userModal: document.getElementById('userModal'),
-    closeUserModalBtn: document.getElementById('closeUserModalBtn'),
-    voiceUsersList: document.getElementById('voiceUsersList'),
-    manualUserIdInput: document.getElementById('manualUserIdInput'),
-    saveManualIdBtn: document.getElementById('saveManualIdBtn'),
     // Sidebar
     sidebarTabs: document.querySelectorAll('.sidebar-tab'),
     queuePanel: document.getElementById('queuePanel'),
@@ -83,6 +77,7 @@
     shuffleQueueBtn: document.getElementById('shuffleQueueBtn'),
     clearQueueBtn: document.getElementById('clearQueueBtn'),
     // Player Dock
+    dockArtDisc: document.getElementById('dockArtDisc'),
     dockArt: document.getElementById('dockArt'),
     dockTitle: document.getElementById('dockTitle'),
     dockArtist: document.getElementById('dockArtist'),
@@ -424,9 +419,7 @@
   // Send play request to backend
   async function playTrack(track, playNow = false) {
     if (!state.userId) {
-      openUserModal();
-      showToast('Пожалуйста, выберите ваш профиль Discord', 'info');
-      return;
+      await checkUserVoice();
     }
 
     showToast(`Запрос: ${track.title}`, 'info', 'fa-music');
@@ -447,10 +440,6 @@
       const data = await resp.json();
       if (!data.success) {
         showToast(data.error || 'Ошибка при воспроизведении', 'error');
-        // If not in voice, prompt to select active voice user or join
-        if (data.error && data.error.includes('голосовом канале')) {
-          openUserModal();
-        }
         return;
       }
 
@@ -503,6 +492,23 @@
     }
   }
 
+  // Vinyl Plate Spinning Animation Helper
+  function setVinylSpinning(spinning) {
+    const disc = el.dockArtDisc || document.getElementById('dockArtDisc');
+    if (disc) {
+      if (spinning) disc.classList.add('spinning');
+      else disc.classList.remove('spinning');
+    }
+    if (el.dockArt) {
+      if (spinning) el.dockArt.classList.add('spinning');
+      else el.dockArt.classList.remove('spinning');
+    }
+    if (el.equalizerBars) {
+      if (spinning) el.equalizerBars.classList.add('active');
+      else el.equalizerBars.classList.remove('active');
+    }
+  }
+
   // Update Player UI from Player state
   function updatePlayerUI(playerState) {
     // Guild isolation guard: ignore updates from other servers
@@ -515,9 +521,8 @@
       el.dockTitle.removeAttribute('href');
       el.dockArtist.textContent = 'Выберите песню для воспроизведения';
       el.dockSourceBadge.textContent = 'DISCORD';
-      el.dockArt.src = 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop&q=60';
-      el.dockArt.classList.remove('spinning');
-      el.equalizerBars.classList.remove('active');
+      el.dockArt.src = '/static/activity_icon.jpg';
+      setVinylSpinning(false);
       const playBtn = el.playIconSvg || el.btnPlayPause;
       if (playBtn) playBtn.innerHTML = SVG_ICONS.play;
       state.isPlaying = false;
@@ -554,21 +559,18 @@
 
       const playBtn = el.playIconSvg || el.btnPlayPause;
       if (state.isPlaying) {
-        el.dockArt.classList.add('spinning');
-        el.equalizerBars.classList.add('active');
+        setVinylSpinning(true);
         playBtn.innerHTML = SVG_ICONS.pause;
         startProgressTicker();
       } else {
-        el.dockArt.classList.remove('spinning');
-        el.equalizerBars.classList.remove('active');
+        setVinylSpinning(false);
         playBtn.innerHTML = SVG_ICONS.play;
         stopProgressTicker();
       }
     } else {
       el.dockTitle.textContent = 'Очередь завершена';
       el.dockArtist.textContent = 'Добавьте новые треки';
-      el.dockArt.classList.remove('spinning');
-      el.equalizerBars.classList.remove('active');
+      setVinylSpinning(false);
       const playBtn = el.playIconSvg || el.btnPlayPause;
       playBtn.innerHTML = SVG_ICONS.play;
       state.isPlaying = false;
@@ -782,60 +784,7 @@
     }
   }
 
-  // Open / Close User Selector Modal
-  async function openUserModal() {
-    el.userModal.style.display = 'flex';
-    el.manualUserIdInput.value = state.userId;
-    el.voiceUsersList.innerHTML = '<div class="loading-state-sm"><i class="fa-solid fa-spinner fa-spin"></i> Сканирование голосовых каналов...</div>';
 
-    try {
-      const q = state.guildId ? `?guild_id=${encodeURIComponent(state.guildId)}` : '';
-      const resp = await fetch(`/api/voice-users${q}`);
-      const data = await resp.json();
-      if (!data.voice_users || data.voice_users.length === 0) {
-        el.voiceUsersList.innerHTML = `
-          <div style="padding:16px;text-align:center;color:var(--text-muted);font-size:13px">
-            В голосовых каналах бот никого не обнаружил.<br>Зайдите в голосовой канал Discord и нажмите «Обновить»!
-          </div>
-        `;
-      } else {
-        el.voiceUsersList.innerHTML = '';
-        data.voice_users.forEach(u => {
-          const card = document.createElement('div');
-          card.className = 'voice-user-card';
-          card.innerHTML = `
-            <img src="${getSafeImageUrl(u.avatar)}" alt="${escapeHtml(u.display_name)}" referrerpolicy="no-referrer" onerror="this.onerror=null; this.src='/static/activity_icon.jpg';">
-            <div class="voice-user-meta">
-              <div class="voice-user-name">${escapeHtml(u.display_name)}</div>
-              <div class="voice-user-channel"><i class="fa-solid fa-volume-high"></i> ${escapeHtml(u.channel_name)} (${escapeHtml(u.guild_name)})</div>
-            </div>
-          `;
-          card.addEventListener('click', () => {
-            state.userId = u.id;
-            state.userName = u.display_name;
-            state.userAvatar = u.avatar;
-            state.guildId = u.guild_id || state.guildId;
-            state.guildName = u.guild_name || state.guildName;
-            state.channelId = u.channel_id || state.channelId;
-            state.channelName = u.channel_name || state.channelName;
-            saveUser();
-            sendWsSubscribe();
-            checkUserVoice();
-            fetchCurrentPlayer();
-            closeUserModal();
-            showToast(`Выбран профиль: ${u.display_name}`, 'success');
-          });
-          el.voiceUsersList.appendChild(card);
-        });
-      }
-    } catch (err) {
-      el.voiceUsersList.innerHTML = '<div style="color:var(--accent-red);padding:10px">Ошибка загрузки пользователей</div>';
-    }
-  }
-
-  function closeUserModal() {
-    el.userModal.style.display = 'none';
-  }
 
   // Utility to escape HTML
   function escapeHtml(text) {
@@ -892,27 +841,12 @@
 
     el.voiceStatusPill.addEventListener('click', () => {
       checkUserVoice();
-      openUserModal();
+      showToast('Голосовой статус обновлен', 'info');
     });
 
-    // User badge
-    el.userBadge.addEventListener('click', openUserModal);
-    el.closeUserModalBtn.addEventListener('click', closeUserModal);
-    el.userModal.addEventListener('click', (e) => {
-      if (e.target === el.userModal) closeUserModal();
-    });
-
-    el.saveManualIdBtn.addEventListener('click', () => {
-      const val = el.manualUserIdInput.value.trim();
-      if (val) {
-        state.userId = val;
-        state.userName = `User ${val.slice(-4)}`;
-        saveUser();
-        checkUserVoice();
-        fetchCurrentPlayer();
-        closeUserModal();
-        showToast(`Discord ID сохранен: ${val}`, 'success');
-      }
+    // User badge (Informational)
+    el.userBadge.addEventListener('click', () => {
+      showToast(state.userName ? `Вы вошли как: ${state.userName}` : 'Discord профиль активен', 'info', 'fa-user');
     });
 
     // Sidebar tab switching
@@ -955,13 +889,11 @@
         const playBtn = el.playIconSvg || el.btnPlayPause;
         if (state.isPlaying) {
           playBtn.innerHTML = SVG_ICONS.pause;
-          el.dockArt.classList.add('spinning');
-          el.equalizerBars.classList.add('active');
+          setVinylSpinning(true);
           startProgressTicker();
         } else {
           playBtn.innerHTML = SVG_ICONS.play;
-          el.dockArt.classList.remove('spinning');
-          el.equalizerBars.classList.remove('active');
+          setVinylSpinning(false);
           stopProgressTicker();
         }
       }
