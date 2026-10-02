@@ -110,7 +110,20 @@ class MusicService:
         # Check cookies from env var, custom path or default cookies.txt
         cookie_path = os.getenv("YOUTUBE_COOKIES_PATH") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt")
         env_cookies = os.getenv("YOUTUBE_COOKIES", "").strip()
-        if env_cookies:
+        env_cookies_b64 = os.getenv("YOUTUBE_COOKIES_BASE64", "").strip()
+
+        if env_cookies_b64:
+            try:
+                import base64
+                decoded = base64.b64decode(env_cookies_b64).decode("utf-8")
+                target_cf = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt")
+                with open(target_cf, "w", encoding="utf-8") as cf:
+                    cf.write(decoded)
+                cookie_path = target_cf
+                logger.info("Saved cookies from YOUTUBE_COOKIES_BASE64 env var to cookies.txt")
+            except Exception as ce:
+                logger.warning(f"Could not decode YOUTUBE_COOKIES_BASE64: {ce}")
+        elif env_cookies:
             try:
                 target_cf = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt")
                 with open(target_cf, "w", encoding="utf-8") as cf:
