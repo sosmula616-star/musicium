@@ -37,16 +37,39 @@ except Exception as e:
 try:
     import discord
     if not discord.opus.is_loaded():
-        opus_candidates = [
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), "opus.dll"),
-            os.path.join(os.path.dirname(discord.__file__), "bin", "libopus-0.x64.dll"),
-            "opus.dll",
-        ]
-        for c in opus_candidates:
-            if os.path.exists(c):
-                discord.opus.load_opus(c)
-                logger.info(f"Loaded Discord Voice Opus library from: {c}")
-                break
+        if sys.platform == "win32":
+            opus_candidates = [
+                os.path.join(os.path.dirname(os.path.abspath(__file__)), "opus.dll"),
+                os.path.join(os.path.dirname(discord.__file__), "bin", "libopus-0.x64.dll"),
+                "opus.dll",
+            ]
+            for c in opus_candidates:
+                if os.path.exists(c):
+                    try:
+                        discord.opus.load_opus(c)
+                        logger.info(f"Loaded Discord Voice Opus library from: {c}")
+                        break
+                    except Exception as e:
+                        logger.warning(f"Could not load opus from {c}: {e}")
+        else:
+            import ctypes.util
+            opus_lib = ctypes.util.find_library("opus")
+            if opus_lib:
+                try:
+                    discord.opus.load_opus(opus_lib)
+                    logger.info(f"Loaded Discord Voice Opus library via find_library: {opus_lib}")
+                except Exception as e:
+                    logger.warning(f"Could not load opus from find_library ({opus_lib}): {e}")
+
+            if not discord.opus.is_loaded():
+                for c in ["libopus.so.0", "libopus.so", "/usr/lib/libopus.so.0", "/usr/lib/libopus.so", "/usr/lib/x86_64-linux-gnu/libopus.so.0"]:
+                    if os.path.exists(c):
+                        try:
+                            discord.opus.load_opus(c)
+                            logger.info(f"Loaded Discord Voice Opus library from: {c}")
+                            break
+                        except Exception as e:
+                            logger.warning(f"Could not load opus from {c}: {e}")
     logger.info(f"Discord Voice Opus status: {discord.opus.is_loaded()}")
 except Exception as e:
     logger.warning(f"Failed to load opus in main.py: {e}")
