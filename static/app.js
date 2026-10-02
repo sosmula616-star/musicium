@@ -349,7 +349,8 @@
       const sourceLabels = {
         youtube: 'YouTube',
         soundcloud: 'SoundCloud',
-        yandex: 'Яндекс.Музыка'
+        yt_albums: 'Альбом YouTube',
+        sc_albums: 'Альбом SoundCloud',
       };
 
       card.innerHTML = `
