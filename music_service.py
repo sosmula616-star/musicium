@@ -139,12 +139,19 @@ class MusicService:
         source = source.lower()
         tasks = []
 
+        if source == "all":
+            yt_limit = min(limit, 35)
+            sc_limit = min(limit, 20)
+            ym_limit = min(limit, 20)
+        else:
+            yt_limit = sc_limit = ym_limit = limit
+
         if source in ("all", "youtube"):
-            tasks.append(self._search_youtube(query, limit=limit if source == "youtube" else 6))
+            tasks.append(self._search_youtube(query, limit=yt_limit))
         if source in ("all", "soundcloud"):
-            tasks.append(self._search_soundcloud(query, limit=limit if source == "soundcloud" else 6))
+            tasks.append(self._search_soundcloud(query, limit=sc_limit))
         if source in ("all", "yandex"):
-            tasks.append(self._search_yandex(query, limit=limit if source == "yandex" else 6))
+            tasks.append(self._search_yandex(query, limit=ym_limit))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
         all_tracks: List[Track] = []
@@ -195,6 +202,7 @@ class MusicService:
 
         title = entry.get("title") or "Неизвестный трек"
         artist = entry.get("uploader") or entry.get("channel") or entry.get("artist") or "Неизвестный автор"
+        duration = int(entry.get("duration") or 0)
         vid_id = str(entry.get("id") or "")
         if source == "youtube" and vid_id:
             thumbnail = f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg"
@@ -283,19 +291,21 @@ class MusicService:
                 info = ydl.extract_info(search_query, download=False)
                 if not info or "entries" not in info:
                     return []
-                tracks = []
+                filtered_tracks = []
+                all_sc_tracks = []
                 clean_query_words = [w.lower() for w in re.findall(r'[\w]+', query) if len(w) >= 3]
                 for entry in info["entries"]:
                     if entry:
                         t = self._parse_flat_entry(entry, default_source="soundcloud")
+                        all_sc_tracks.append(t)
                         if clean_query_words:
                             text = f"{t.title} {t.artist}".lower()
                             # Ensure at least one word from the query appears in the track title/artist
                             if any(w in text for w in clean_query_words):
-                                tracks.append(t)
+                                filtered_tracks.append(t)
                         else:
-                            tracks.append(t)
-                return tracks
+                            filtered_tracks.append(t)
+                return filtered_tracks if filtered_tracks else all_sc_tracks
 
         return await asyncio.to_thread(_search)
 
