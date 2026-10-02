@@ -64,9 +64,7 @@
       'source.yt': 'YouTube Music',
       'source.sc': 'SoundCloud',
       'source.yt_albums': 'Альбомы YouTube',
-      'source.sc_albums': 'Альбомы SoundCloud',
       'source.albumYt': 'Альбом YouTube',
-      'source.albumSc': 'Альбом SoundCloud',
       'results.popular': 'Популярные рекомендации',
       'results.query': 'Результаты для «{query}»',
       'results.found': '{count} найдено',
@@ -148,9 +146,7 @@
       'source.yt': 'YouTube Music',
       'source.sc': 'SoundCloud',
       'source.yt_albums': 'YouTube Albums',
-      'source.sc_albums': 'SoundCloud Albums',
       'source.albumYt': 'YouTube Album',
-      'source.albumSc': 'SoundCloud Album',
       'results.popular': 'Trending Recommendations',
       'results.query': 'Results for «{query}»',
       'results.found': '{count} found',
@@ -616,7 +612,6 @@
         youtube: 'YouTube',
         soundcloud: 'SoundCloud',
         yt_albums: t('source.albumYt'),
-        sc_albums: t('source.albumSc'),
       };
 
       card.innerHTML = `
