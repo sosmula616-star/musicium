@@ -120,6 +120,7 @@ class GuildPlayer:
         self.total_paused_duration: float = 0.0
 
         self.audio_source: Optional[discord.PCMVolumeTransformer] = None
+        self._is_seeking: bool = False
         self._lock = asyncio.Lock()
 
     @property
@@ -240,6 +241,8 @@ class GuildPlayer:
             self.total_paused_duration = 0.0
 
             def _after_play(err):
+                if self._is_seeking:
+                    return
                 if err:
                     logger.error(f"Playback error: {err}")
                 coro = self._on_track_finished()
@@ -356,6 +359,66 @@ class GuildPlayer:
                 "votes": current_votes,
                 "required": required_votes,
             }
+
+    async def seek(self, seconds: int) -> bool:
+        async with self._lock:
+            if not self.current_track or not self.voice_client or not self.voice_client.is_connected():
+                return False
+
+            duration = self.current_track.duration or 0
+            seconds = max(0, min(seconds, duration - 1 if duration > 0 else seconds))
+
+            stream_url = self.current_track.stream_url
+            if not stream_url:
+                stream_url = await self.music_service.get_stream_url(self.current_track)
+                self.current_track.stream_url = stream_url
+
+            if not stream_url:
+                return False
+
+            self._is_seeking = True
+            if self.voice_client.is_playing() or self.voice_client.is_paused():
+                self.voice_client.stop()
+
+            seek_before = f"{FFMPEG_BEFORE_OPTIONS} -ss {seconds}"
+            ffmpeg_opts = {
+                "before_options": seek_before,
+                "options": FFMPEG_OPTIONS,
+            }
+            exec_bin = FFMPEG_EXECUTABLE
+            if not os.path.isfile(exec_bin):
+                if sys.platform != "win32" and os.path.isfile("/usr/bin/ffmpeg"):
+                    exec_bin = "/usr/bin/ffmpeg"
+                elif sys.platform != "win32" and os.path.isfile("/usr/local/bin/ffmpeg"):
+                    exec_bin = "/usr/local/bin/ffmpeg"
+                else:
+                    exec_bin = "ffmpeg"
+
+            audio = discord.FFmpegPCMAudio(
+                stream_url,
+                executable=exec_bin,
+                **ffmpeg_opts
+            )
+            self.audio_source = discord.PCMVolumeTransformer(audio, volume=self.volume)
+
+            self.is_paused = False
+            self.start_time = time.time() - seconds
+            self.pause_start_time = 0.0
+            self.total_paused_duration = 0.0
+
+            def _after_play(err):
+                if self._is_seeking:
+                    return
+                if err:
+                    logger.error(f"Playback error after seek: {err}")
+                coro = self._on_track_finished()
+                asyncio.run_coroutine_threadsafe(coro, self.bot.loop)
+
+            self.voice_client.play(self.audio_source, after=_after_play)
+            self._is_seeking = False
+            logger.info(f"Seeked to {seconds}s in track: {self.current_track.title}")
+            await self._notify_change()
+            return True
 
     async def stop(self):
         async with self._lock:
