@@ -534,36 +534,36 @@ class WebServer:
         return web.Response(status=404)
 
     async def handle_recommendations(self, request: web.Request) -> web.Response:
-        """Returns verified recommendation sections with valid YouTube thumbnails and URLs."""
+        """Returns verified recommendation sections with valid YouTube & SoundCloud tracks."""
         curated = [
-            {"id": "pgPpgquGemg", "title": "Passengers & Pilots", "artist": "Big Baby Tape", "duration_str": "2:15", "thumbnail": "https://i.ytimg.com/vi/pgPpgquGemg/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=pgPpgquGemg"},
-            {"id": "P8EYqmmeae8", "title": "Ova", "artist": "Lyov и Xudo", "duration_str": "3:04", "thumbnail": "https://i.ytimg.com/vi/P8EYqmmeae8/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=P8EYqmmeae8"},
-            {"id": "TQSHNV3mCfU", "title": "Slimed Out", "artist": "Mamba Cinco & Zahsosaa", "duration_str": "2:40", "thumbnail": "https://i.ytimg.com/vi/TQSHNV3mCfU/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=TQSHNV3mCfU"},
-            {"id": "tP3h0iP8OY8", "title": "Malo 2.0", "artist": "Егор Крид, OG Buda, Toxi$", "duration_str": "2:38", "thumbnail": "https://i.ytimg.com/vi/tP3h0iP8OY8/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=tP3h0iP8OY8"},
-            {"id": "8CdcCD5V-d8", "title": "Venom (Music From The Motion Picture)", "artist": "Eminem", "duration_str": "4:29", "thumbnail": "https://i.ytimg.com/vi/8CdcCD5V-d8/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=8CdcCD5V-d8"},
-            {"id": "EsmFmcpdybU", "title": "Spasi L", "artist": "Dav", "duration_str": "2:52", "thumbnail": "https://i.ytimg.com/vi/EsmFmcpdybU/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=EsmFmcpdybU"},
-            {"id": "VHoT4N43jK8", "title": "Alors on danse (Radio Edit)", "artist": "Stromae", "duration_str": "3:28", "thumbnail": "https://i.ytimg.com/vi/VHoT4N43jK8/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=VHoT4N43jK8"},
-            {"id": "I4Ra4z2Arqg", "title": "Overseas", "artist": "D-Block Europe & Central Cee", "duration_str": "3:42", "thumbnail": "https://i.ytimg.com/vi/I4Ra4z2Arqg/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=I4Ra4z2Arqg"},
-            {"id": "UYSciD1u7sE", "title": "Държавен Кючек", "artist": "Leo Band", "duration_str": "3:15", "thumbnail": "https://i.ytimg.com/vi/UYSciD1u7sE/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=UYSciD1u7sE"},
-            {"id": "xqkGMZCYbrY", "title": "Party Funk", "artist": "Young Madz & MC Zudo Bo", "duration_str": "2:12", "thumbnail": "https://i.ytimg.com/vi/xqkGMZCYbrY/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=xqkGMZCYbrY"},
-            {"id": "ehcVomMexkY", "title": "Pour It Up", "artist": "Rihanna", "duration_str": "2:41", "thumbnail": "https://i.ytimg.com/vi/ehcVomMexkY/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=ehcVomMexkY"},
-            {"id": "K0CEBXmehSg", "title": "Layli", "artist": "Jamshid Ximmatov", "duration_str": "3:30", "thumbnail": "https://i.ytimg.com/vi/K0CEBXmehSg/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=K0CEBXmehSg"}
+            {"id": "4NRXx6U8ABQ", "title": "Blinding Lights", "artist": "The Weeknd", "duration_str": "3:20", "thumbnail": "https://i.ytimg.com/vi/4NRXx6U8ABQ/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=4NRXx6U8ABQ"},
+            {"id": "5NV6Rdv1a3I", "title": "Get Lucky", "artist": "Daft Punk ft. Pharrell Williams", "duration_str": "4:08", "thumbnail": "https://i.ytimg.com/vi/5NV6Rdv1a3I/hqdefault.jpg", "source": "soundcloud", "url": "https://api.soundcloud.com/tracks/soundcloud%3Atracks%3A88335161"},
+            {"id": "34Na4j8AVgA", "title": "Starboy", "artist": "The Weeknd ft. Daft Punk", "duration_str": "3:50", "thumbnail": "https://i.ytimg.com/vi/34Na4j8AVgA/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=34Na4j8AVgA"},
+            {"id": "TUVcZfQe-Kw", "title": "Levitating", "artist": "Dua Lipa", "duration_str": "3:23", "thumbnail": "https://i.ytimg.com/vi/TUVcZfQe-Kw/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=TUVcZfQe-Kw"},
+            {"id": "7wtfhZwyrcc", "title": "Believer", "artist": "Imagine Dragons", "duration_str": "3:24", "thumbnail": "https://i.ytimg.com/vi/7wtfhZwyrcc/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=7wtfhZwyrcc"},
+            {"id": "ALZHF5UqnU4", "title": "Alone", "artist": "Marshmello", "duration_str": "3:19", "thumbnail": "https://i.ytimg.com/vi/ALZHF5UqnU4/hqdefault.jpg", "source": "soundcloud", "url": "https://soundcloud.com/marshmellomusic/marshmello-alone"},
+            {"id": "60ItHLz5WEA", "title": "Faded", "artist": "Alan Walker", "duration_str": "3:32", "thumbnail": "https://i.ytimg.com/vi/60ItHLz5WEA/hqdefault.jpg", "source": "soundcloud", "url": "https://soundcloud.com/alanwalker/faded"},
+            {"id": "DyDfgMOUjCI", "title": "Bad Guy", "artist": "Billie Eilish", "duration_str": "3:14", "thumbnail": "https://i.ytimg.com/vi/DyDfgMOUjCI/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=DyDfgMOUjCI"},
+            {"id": "gCYcYZW45Uk", "title": "Animals", "artist": "Martin Garrix", "duration_str": "2:56", "thumbnail": "https://i.ytimg.com/vi/gCYcYZW45Uk/hqdefault.jpg", "source": "soundcloud", "url": "https://soundcloud.com/martingarrix/martin-garrix-animals"},
+            {"id": "kTJczUoc268", "title": "Stay", "artist": "The Kid LAROI & Justin Bieber", "duration_str": "2:21", "thumbnail": "https://i.ytimg.com/vi/kTJczUoc268/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=kTJczUoc268"},
+            {"id": "dX3k_QDnzHE", "title": "Midnight City", "artist": "M83", "duration_str": "4:03", "thumbnail": "https://i.ytimg.com/vi/dX3k_QDnzHE/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=dX3k_QDnzHE"},
+            {"id": "UtF6Jej8yb4", "title": "The Nights", "artist": "Avicii", "duration_str": "2:56", "thumbnail": "https://i.ytimg.com/vi/UtF6Jej8yb4/hqdefault.jpg", "source": "soundcloud", "url": "https://soundcloud.com/aviciiofficial/the-nights"}
         ]
         quick_picks = [
-            {"title": "ДИНАСТИЯ", "artist": "VILLIAN & madk1d", "thumbnail": "https://i.ytimg.com/vi/J7NFL-eOxiQ/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=J7NFL-eOxiQ"},
-            {"title": "Caramelldansen (Speedy Mixes)", "artist": "Caramella Girls", "thumbnail": "https://i.ytimg.com/vi/PDJLvF1dUek/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=PDJLvF1dUek"},
-            {"title": "все хотят меня", "artist": "gotlib", "thumbnail": "https://i.ytimg.com/vi/DXoOqDf8o3k/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=DXoOqDf8o3k"},
-            {"title": "Там ревели горы", "artist": "Miyagi & Эндшпиль", "thumbnail": "https://i.ytimg.com/vi/MzI_CIYSsfQ/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=MzI_CIYSsfQ"},
-            {"title": "Sweater Weather", "artist": "The Neighbourhood", "thumbnail": "https://i.ytimg.com/vi/GCdwKhTtNNw/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=GCdwKhTtNNw"},
-            {"title": "Где прошла ты", "artist": "Кравц & Гио Пика", "thumbnail": "https://i.ytimg.com/vi/I6dXiJ8r5jM/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=I6dXiJ8r5jM"}
+            {"title": "Bangarang", "artist": "Skrillex", "thumbnail": "https://i.ytimg.com/vi/YJVmu6yttiw/hqdefault.jpg", "source": "soundcloud", "url": "https://soundcloud.com/skrillex/bangarang-feat-sirah"},
+            {"title": "First of the Year (Equinox)", "artist": "Skrillex", "thumbnail": "https://i.ytimg.com/vi/2cXDgFwE13g/hqdefault.jpg", "source": "soundcloud", "url": "https://soundcloud.com/skrillex/first-of-the-year-equinox"},
+            {"title": "Strobe", "artist": "deadmau5", "thumbnail": "https://i.ytimg.com/vi/tKi9Z-f6qX4/hqdefault.jpg", "source": "soundcloud", "url": "https://soundcloud.com/deadmau5/strobe"},
+            {"title": "One More Time", "artist": "Daft Punk", "thumbnail": "https://i.ytimg.com/vi/FGBhQbmMxH8/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=FGBhQbmMxH8"},
+            {"title": "Wake Me Up", "artist": "Avicii", "thumbnail": "https://i.ytimg.com/vi/IcrbM1l_BoI/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=IcrbM1l_BoI"},
+            {"title": "Counting Stars", "artist": "OneRepublic", "thumbnail": "https://i.ytimg.com/vi/hT_nvWreIhg/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=hT_nvWreIhg"}
         ]
         albums = [
-            {"title": "Viva La Vida", "artist": "SODA LUV", "subtitle": "Альбом • SODA LUV", "thumbnail": "https://i.ytimg.com/vi/9_wwDPM1OFE/hqdefault.jpg", "source": "yt_albums", "url": "https://music.youtube.com/watch?v=9_wwDPM1OFE"},
-            {"title": "АРТЁМ", "artist": "SLAVA MARLOW", "subtitle": "EP • SLAVA MARLOW", "thumbnail": "https://i.ytimg.com/vi/ABow8gM1UI4/hqdefault.jpg", "source": "yt_albums", "url": "https://music.youtube.com/watch?v=ABow8gM1UI4"},
-            {"title": "SODA LUV", "artist": "SODA LUV", "subtitle": "Альбом • SODA LUV", "thumbnail": "https://i.ytimg.com/vi/a39YBPPpmI4/hqdefault.jpg", "source": "yt_albums", "url": "https://music.youtube.com/watch?v=a39YBPPpmI4"},
-            {"title": "BOYS DON'T CRY", "artist": "GONE.Fludd", "subtitle": "Альбом • GONE.Fludd", "thumbnail": "https://i.ytimg.com/vi/pomoFf4PUXE/hqdefault.jpg", "source": "yt_albums", "url": "https://music.youtube.com/watch?v=pomoFf4PUXE"},
-            {"title": "DUMMY BOY", "artist": "6ix9ine", "subtitle": "Альбом • 6ix9ine", "thumbnail": "https://i.ytimg.com/vi/6cRTU8lpSMA/hqdefault.jpg", "source": "yt_albums", "url": "https://music.youtube.com/watch?v=6cRTU8lpSMA"},
-            {"title": "Whenever You Need Somebody", "artist": "Rick Astley", "subtitle": "Альбом • Rick Astley", "thumbnail": "https://i.ytimg.com/vi/BeyEGebJ1l4/hqdefault.jpg", "source": "yt_albums", "url": "https://music.youtube.com/watch?v=BeyEGebJ1l4"}
+            {"title": "Discovery", "artist": "Daft Punk", "subtitle": "Альбом • Daft Punk", "thumbnail": "https://i.ytimg.com/vi/A2VpR8HahKc/hqdefault.jpg", "source": "yt_albums", "url": "https://music.youtube.com/watch?v=A2VpR8HahKc"},
+            {"title": "After Hours", "artist": "The Weeknd", "subtitle": "Альбом • The Weeknd", "thumbnail": "https://i.ytimg.com/vi/ygTZZpVkm3o/hqdefault.jpg", "source": "yt_albums", "url": "https://music.youtube.com/watch?v=ygTZZpVkm3o"},
+            {"title": "Random Access Memories", "artist": "Daft Punk", "subtitle": "Альбом • Daft Punk", "thumbnail": "https://i.ytimg.com/vi/IhnqEw70vGQ/hqdefault.jpg", "source": "yt_albums", "url": "https://music.youtube.com/watch?v=IhnqEw70vGQ"},
+            {"title": "Future Nostalgia", "artist": "Dua Lipa", "subtitle": "Альбом • Dua Lipa", "thumbnail": "https://i.ytimg.com/vi/njbmwfndFH8/hqdefault.jpg", "source": "yt_albums", "url": "https://music.youtube.com/watch?v=njbmwfndFH8"},
+            {"title": "Night Visions", "artist": "Imagine Dragons", "subtitle": "Альбом • Imagine Dragons", "thumbnail": "https://i.ytimg.com/vi/4m2pknR3k-4/hqdefault.jpg", "source": "yt_albums", "url": "https://music.youtube.com/watch?v=4m2pknR3k-4"},
+            {"title": "Scary Monsters and Nice Sprites", "artist": "Skrillex", "subtitle": "EP • Skrillex", "thumbnail": "https://i.ytimg.com/vi/WSeNSzJ2-Jw/hqdefault.jpg", "source": "yt_albums", "url": "https://music.youtube.com/watch?v=WSeNSzJ2-Jw"}
         ]
         return web.json_response({
             "curated": curated,
