@@ -358,10 +358,10 @@
         </div>
         <div class="card-actions">
           <button class="btn-card-action btn-play-now" title="Включить прямо сейчас">
-            <i class="fa-solid fa-play"></i> Играть
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Играть
           </button>
           <button class="btn-card-action btn-add-queue" title="Добавить в конец очереди">
-            <i class="fa-solid fa-plus"></i> В очередь
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg> В очередь
           </button>
         </div>
       `;
@@ -422,6 +422,13 @@
         showToast(`➕ Добавлено в очередь: ${track.title}`, 'success');
       }
 
+      // Immediately sync player state and queue
+      if (data.player) {
+        updatePlayerUI(data.player);
+      } else {
+        await fetchCurrentPlayer();
+      }
+
       // Refresh voice status immediately
       checkUserVoice();
 
@@ -444,6 +451,11 @@
         })
       });
       const data = await resp.json();
+      if (data && data.player) {
+        updatePlayerUI(data.player);
+      } else {
+        await fetchCurrentPlayer();
+      }
       return data;
     } catch (e) {
       showToast('Ошибка отправки команды плееру', 'error');
@@ -492,15 +504,16 @@
 
       updateProgressBar();
 
+      const playBtn = el.playIconSvg || el.btnPlayPause;
       if (state.isPlaying) {
         el.dockArt.classList.add('spinning');
         el.equalizerBars.classList.add('active');
-        el.playIcon.className = 'fa-solid fa-pause';
+        playBtn.innerHTML = SVG_ICONS.pause;
         startProgressTicker();
       } else {
         el.dockArt.classList.remove('spinning');
         el.equalizerBars.classList.remove('active');
-        el.playIcon.className = 'fa-solid fa-play';
+        playBtn.innerHTML = SVG_ICONS.play;
         stopProgressTicker();
       }
     } else {
@@ -508,7 +521,8 @@
       el.dockArtist.textContent = 'Добавьте новые треки';
       el.dockArt.classList.remove('spinning');
       el.equalizerBars.classList.remove('active');
-      el.playIcon.className = 'fa-solid fa-play';
+      const playBtn = el.playIconSvg || el.btnPlayPause;
+      playBtn.innerHTML = SVG_ICONS.play;
       state.isPlaying = false;
       stopProgressTicker();
       el.timeElapsed.textContent = '00:00';
