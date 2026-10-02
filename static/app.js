@@ -1028,6 +1028,19 @@
 
     // Volume Slider
     let volDebounce = null;
+    el.volumeSlider.addEventListener('mousedown', () => { state.isAdjustingVolume = true; });
+    el.volumeSlider.addEventListener('touchstart', () => { state.isAdjustingVolume = true; }, { passive: true });
+    document.addEventListener('mouseup', () => {
+      if (state.isAdjustingVolume) {
+        setTimeout(() => { state.isAdjustingVolume = false; }, 350);
+      }
+    });
+    document.addEventListener('touchend', () => {
+      if (state.isAdjustingVolume) {
+        setTimeout(() => { state.isAdjustingVolume = false; }, 350);
+      }
+    });
+
     el.volumeSlider.addEventListener('input', (e) => {
       const val = parseInt(e.target.value) || 0;
       el.volumeVal.textContent = `${val}%`;
