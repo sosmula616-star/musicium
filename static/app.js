@@ -849,6 +849,49 @@
       showToast(state.userName ? `Вы вошли как: ${state.userName}` : 'Discord профиль активен', 'info', 'fa-user');
     });
 
+    // Legal Documentation Modal & Tabs
+    const legalModal = document.getElementById('legalModal');
+    const openTermsBtn = document.getElementById('openTermsBtn');
+    const openPrivacyBtn = document.getElementById('openPrivacyBtn');
+    const closeLegalModalBtn = document.getElementById('closeLegalModalBtn');
+    const closeLegalModalBtnBottom = document.getElementById('closeLegalModalBtnBottom');
+    const tabTermsBtn = document.getElementById('tabTermsBtn');
+    const tabPrivacyBtn = document.getElementById('tabPrivacyBtn');
+    const termsDocPane = document.getElementById('termsDocPane');
+    const privacyDocPane = document.getElementById('privacyDocPane');
+
+    function showLegalTab(tab) {
+      if (!legalModal) return;
+      legalModal.style.display = 'flex';
+      if (tab === 'privacy') {
+        if (tabTermsBtn) tabTermsBtn.classList.remove('active');
+        if (tabPrivacyBtn) tabPrivacyBtn.classList.add('active');
+        if (termsDocPane) termsDocPane.style.display = 'none';
+        if (privacyDocPane) privacyDocPane.style.display = 'block';
+      } else {
+        if (tabTermsBtn) tabTermsBtn.classList.add('active');
+        if (tabPrivacyBtn) tabPrivacyBtn.classList.remove('active');
+        if (termsDocPane) termsDocPane.style.display = 'block';
+        if (privacyDocPane) privacyDocPane.style.display = 'none';
+      }
+    }
+
+    function closeLegalModal() {
+      if (legalModal) legalModal.style.display = 'none';
+    }
+
+    if (openTermsBtn) openTermsBtn.addEventListener('click', () => showLegalTab('terms'));
+    if (openPrivacyBtn) openPrivacyBtn.addEventListener('click', () => showLegalTab('privacy'));
+    if (closeLegalModalBtn) closeLegalModalBtn.addEventListener('click', closeLegalModal);
+    if (closeLegalModalBtnBottom) closeLegalModalBtnBottom.addEventListener('click', closeLegalModal);
+    if (tabTermsBtn) tabTermsBtn.addEventListener('click', () => showLegalTab('terms'));
+    if (tabPrivacyBtn) tabPrivacyBtn.addEventListener('click', () => showLegalTab('privacy'));
+    if (legalModal) {
+      legalModal.addEventListener('click', (e) => {
+        if (e.target === legalModal) closeLegalModal();
+      });
+    }
+
     // Sidebar tab switching
     el.sidebarTabs.forEach(tab => {
       tab.addEventListener('click', () => {
