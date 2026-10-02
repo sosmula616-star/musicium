@@ -98,7 +98,7 @@ class MusicService:
             "source_address": "0.0.0.0",
             "extractor_args": {
                 "youtube": {
-                    "player_client": ["ios", "mweb", "android_music"]
+                    "player_client": ["android", "visionos"]
                 }
             },
         }
@@ -141,8 +141,6 @@ class MusicService:
 
         if source == "yt_albums":
             tasks.append(self._search_youtube_albums(query, limit=limit))
-        elif source == "sc_albums":
-            tasks.append(self._search_soundcloud_albums(query, limit=limit))
         elif source == "youtube":
             tasks.append(self._search_youtube(query, limit=limit))
         elif source == "soundcloud":
@@ -312,7 +310,7 @@ class MusicService:
             opts = dict(self.ydl_opts)
             opts["extract_flat"] = True
             opts["noplaylist"] = False
-            search_query = f"ytsearchplaylist{limit}:{query}"
+            search_query = f"ytsearch{limit}:{query} album"
             info = None
             with yt_dlp.YoutubeDL(opts) as ydl:
                 try:
@@ -321,7 +319,7 @@ class MusicService:
                     info = None
                 if not info or "entries" not in info or not info["entries"]:
                     try:
-                        search_query = f"ytsearch{limit}:{query} album"
+                        search_query = f"ytsearch{limit}:{query} full album"
                         info = ydl.extract_info(search_query, download=False)
                     except Exception:
                         info = None
@@ -331,30 +329,6 @@ class MusicService:
                 for entry in info["entries"]:
                     if entry:
                         t = self._parse_flat_entry(entry, default_source="youtube")
-                        t.title = f"💿 {t.title}"
-                        tracks.append(t)
-                return tracks
-
-        return await asyncio.to_thread(_search)
-
-    async def _search_soundcloud_albums(self, query: str, limit: int = 15) -> List[Track]:
-        def _search():
-            opts = dict(self.ydl_opts)
-            opts["extract_flat"] = True
-            opts["noplaylist"] = False
-            search_query = f"scsearch{limit}:{query} album"
-            info = None
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                try:
-                    info = ydl.extract_info(search_query, download=False)
-                except Exception:
-                    info = None
-                if not info or "entries" not in info:
-                    return []
-                tracks = []
-                for entry in info["entries"]:
-                    if entry:
-                        t = self._parse_flat_entry(entry, default_source="soundcloud")
                         t.title = f"💿 {t.title}"
                         tracks.append(t)
                 return tracks
@@ -467,7 +441,10 @@ class MusicService:
         def _get():
             target_url = track.url
             if not target_url:
-                target_url = f"ytsearch1:{track.title} {track.artist}"
+                if track.id and "_" in track.id and not track.id.startswith("yandex_"):
+                    target_url = f"https://www.youtube.com/watch?v={track.id.split('_', 1)[1]}"
+                else:
+                    target_url = f"ytsearch1:{track.title} {track.artist}"
 
             opts = {
                 "format": "bestaudio/best",
@@ -477,7 +454,7 @@ class MusicService:
                 "noplaylist": True,
                 "extractor_args": {
                     "youtube": {
-                        "player_client": ["ios", "mweb", "android_music"]
+                        "player_client": ["android", "visionos"]
                     }
                 },
             }
@@ -498,7 +475,22 @@ class MusicService:
                         return stream
                     raise ValueError("No audio stream URL in info")
             except Exception as e:
-                logger.warning(f"YouTube stream extraction failed ({e}), attempting SoundCloud fallback...")
+                logger.warning(f"Primary YouTube stream extraction failed ({e}), attempting secondary client...")
+                try:
+                    sec_opts = dict(opts)
+                    sec_opts["extractor_args"] = {"youtube": {"player_client": ["web_embedded"]}}
+                    with yt_dlp.YoutubeDL(sec_opts) as ydl:
+                        sec_info = ydl.extract_info(target_url, download=False)
+                        if sec_info:
+                            if "entries" in sec_info and sec_info["entries"]:
+                                sec_info = sec_info["entries"][0]
+                            sec_stream = sec_info.get("url")
+                            if sec_stream:
+                                return sec_stream
+                except Exception:
+                    pass
+
+                logger.warning(f"YouTube stream extraction failed, attempting SoundCloud fallback...")
                 # Automatic fallback: search track title on SoundCloud
                 try:
                     sc_opts = {
