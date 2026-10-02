@@ -21,8 +21,68 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <!-- Discord Embedded App SDK -->
   <script src="https://cdn.jsdelivr.net/npm/@discord/embedded-app-sdk@1.1.0/output/index.min.js"></script>
-  <link rel="stylesheet" href="/static/style.css?v=3.2">
+  <link rel="stylesheet" href="/static/style.css?v=4.0">
   <style>
+    /* Language switching rules - critical guarantee, immune to cache */
+    html[data-lang="ru"] .lang-en,
+    html:not([data-lang="en"]) .lang-en {
+      display: none !important;
+    }
+    html[data-lang="en"] .lang-ru {
+      display: none !important;
+    }
+
+    /* Header right layout and sleek language switcher */
+    .header-right-group {
+      display: flex !important;
+      align-items: center !important;
+      gap: 10px !important;
+      flex-shrink: 0 !important;
+    }
+    .lang-switch {
+      display: inline-flex !important;
+      align-items: center !important;
+      background: rgba(18, 20, 29, 0.85) !important;
+      border: 1px solid rgba(255, 255, 255, 0.12) !important;
+      border-radius: 9999px !important;
+      padding: 3px !important;
+      gap: 2px !important;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.35) !important;
+      backdrop-filter: blur(12px) !important;
+      -webkit-backdrop-filter: blur(12px) !important;
+    }
+    .lang-switch:hover {
+      border-color: rgba(255, 255, 255, 0.22) !important;
+    }
+    .lang-toggle-btn {
+      background: transparent !important;
+      border: none !important;
+      outline: none !important;
+      color: #94a3b8 !important;
+      font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+      font-size: 11px !important;
+      font-weight: 700 !important;
+      letter-spacing: 0.6px !important;
+      padding: 5px 12px !important;
+      border-radius: 9999px !important;
+      cursor: pointer !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+      user-select: none !important;
+      line-height: 1 !important;
+    }
+    .lang-toggle-btn:hover:not(.active) {
+      color: #ffffff !important;
+      background: rgba(255, 255, 255, 0.08) !important;
+    }
+    .lang-toggle-btn.active {
+      background: linear-gradient(135deg, #5865f2 0%, #4752c4 100%) !important;
+      color: #ffffff !important;
+      box-shadow: 0 2px 10px rgba(88, 101, 242, 0.5) !important;
+    }
+
     /* Critical inline guards: Guarantee mini vinyl sizing regardless of cache */
     .vinyl-wrapper { width: 50px !important; height: 50px !important; min-width: 50px !important; max-width: 50px !important; min-height: 50px !important; max-height: 50px !important; flex-shrink: 0 !important; overflow: hidden !important; border-radius: 50% !important; display: flex !important; align-items: center !important; justify-content: center !important; }
     .vinyl-disc { width: 50px !important; height: 50px !important; min-width: 50px !important; max-width: 50px !important; border-radius: 50% !important; overflow: hidden !important; flex-shrink: 0 !important; }
@@ -419,8 +479,8 @@
               <span class="lang-en">Legal Documentation</span>
             </h2>
             <div class="legal-modal-sub">
-              <span class="lang-ru">Developed by Musicium Team • Редакция от 02 октября 2026 г.</span>
-              <span class="lang-en">Developed by Musicium Team • Revision of October 02, 2026</span>
+              <span class="lang-ru">Musicium • Редакция от 02 октября 2026 г.</span>
+              <span class="lang-en">Musicium • Revision of October 02, 2026</span>
             </div>
           </div>
         </div>
@@ -433,13 +493,13 @@
       <div class="legal-nav-tabs">
         <button type="button" class="legal-tab-btn active" id="tabTermsBtn">
           <i class="fa-solid fa-file-contract"></i>
-          <span class="lang-ru">Условия использования (Terms)</span>
-          <span class="lang-en">Terms of Service (Terms)</span>
+          <span class="lang-ru">Условия использования</span>
+          <span class="lang-en">Terms of Service</span>
         </button>
         <button type="button" class="legal-tab-btn" id="tabPrivacyBtn">
           <i class="fa-solid fa-shield-halved"></i>
-          <span class="lang-ru">Политика конфиденциальности (Privacy)</span>
-          <span class="lang-en">Privacy Policy (Privacy)</span>
+          <span class="lang-ru">Политика конфиденциальности</span>
+          <span class="lang-en">Privacy Policy</span>
         </button>
       </div>
 
@@ -612,7 +672,7 @@
       </div>
 
       <div class="legal-modal-footer">
-        <span class="legal-modal-footer-note">Musicium • <strong>Developed by Musicium Team</strong></span>
+        <span class="legal-modal-footer-note">Musicium • <strong>Documentation</strong></span>
         <button type="button" class="btn-primary-legal" id="closeLegalModalBtnBottom">
           <span class="lang-ru">Понятно</span>
           <span class="lang-en">Understood</span>
@@ -624,6 +684,6 @@
   <!-- Toast Notification Container -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="/static/app.js?v=3.2"></script>
+  <script src="/static/app.js?v=4.0"></script>
 </body>
 </html>
