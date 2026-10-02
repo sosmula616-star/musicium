@@ -9,6 +9,8 @@ import aiohttp
 from music_service import MusicService, Track
 from player_manager import PlayerManager
 
+import db
+
 logger = logging.getLogger("web_server")
 
 @web.middleware
@@ -45,6 +47,23 @@ class WebServer:
         self.app.router.add_post("/api/action", self.handle_action)
         self.app.router.add_post("/api/token", self.handle_discord_token)
         self.app.router.add_get("/api/proxy-image", self.handle_proxy_image)
+        self.app.router.add_get("/api/recommendations", self.handle_recommendations)
+
+        # User Database routes (PostgreSQL)
+        self.app.router.add_get("/api/user/liked", self.handle_get_liked)
+        self.app.router.add_post("/api/user/liked", self.handle_post_liked)
+        self.app.router.add_get("/api/user/playlists", self.handle_get_playlists)
+        self.app.router.add_post("/api/user/playlists", self.handle_post_playlists)
+        self.app.router.add_delete("/api/user/playlists/{id}", self.handle_delete_playlist)
+        self.app.router.add_post("/api/user/playlists/{id}/tracks", self.handle_add_playlist_track)
+        self.app.router.add_delete("/api/user/playlists/{id}/tracks", self.handle_remove_playlist_track)
+        self.app.router.add_get("/api/user/history", self.handle_get_history)
+        self.app.router.add_post("/api/user/history", self.handle_post_history)
+        self.app.router.add_delete("/api/user/history", self.handle_clear_history)
+
+        # Community / Shared Playlists & Leaderboard (PostgreSQL)
+        self.app.router.add_get("/api/community/playlists", self.handle_get_community_playlists)
+        self.app.router.add_post("/api/community/playlists/{id}/like", self.handle_post_playlist_like)
 
         # WebSocket
         self.app.router.add_get("/ws", self.handle_websocket)
@@ -91,7 +110,6 @@ class WebServer:
             "online": self.bot.is_ready(),
             "bot": bot_user,
             "guilds_count": len(self.bot.guilds),
-            "yandex_configured": bool(self.music_service.yandex_client is not None),
         })
 
     async def handle_voice_users(self, request: web.Request) -> web.Response:
@@ -220,16 +238,11 @@ class WebServer:
 
         limit_arg = int(request.query.get("limit", 35))
         tracks = await self.music_service.search(query=q, source=source, limit=min(limit_arg, 50))
-        notice = None
-        if source == "yandex" and not tracks:
-            notice = "Яндекс.Музыка недоступна на зарубежном хостинге (территориальные ограничения API 451). Используйте YouTube Music!"
 
         return web.json_response({
             "query": q,
             "source": source,
             "tracks": [t.to_dict() for t in tracks],
-            "notice": notice,
-            "yandex_configured": bool(self.music_service.yandex_client is not None),
         })
 
     async def handle_get_player(self, request: web.Request) -> web.Response:
@@ -346,6 +359,9 @@ class WebServer:
 
             # Enqueue or play single track
             res = await player.enqueue(track, play_now=play_now)
+
+            # Record track in user history in PostgreSQL
+            asyncio.create_task(db.add_user_history(str(user_id), track.to_dict()))
 
             return web.json_response({
                 "success": True,
@@ -517,6 +533,179 @@ class WebServer:
             return web.FileResponse(static_icon)
         return web.Response(status=404)
 
+    async def handle_recommendations(self, request: web.Request) -> web.Response:
+        """Returns verified recommendation sections with valid YouTube thumbnails and URLs."""
+        curated = [
+            {"id": "pgPpgquGemg", "title": "Passengers & Pilots", "artist": "Big Baby Tape", "duration_str": "2:15", "thumbnail": "https://i.ytimg.com/vi/pgPpgquGemg/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=pgPpgquGemg"},
+            {"id": "P8EYqmmeae8", "title": "Ova", "artist": "Lyov и Xudo", "duration_str": "3:04", "thumbnail": "https://i.ytimg.com/vi/P8EYqmmeae8/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=P8EYqmmeae8"},
+            {"id": "TQSHNV3mCfU", "title": "Slimed Out", "artist": "Mamba Cinco & Zahsosaa", "duration_str": "2:40", "thumbnail": "https://i.ytimg.com/vi/TQSHNV3mCfU/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=TQSHNV3mCfU"},
+            {"id": "tP3h0iP8OY8", "title": "Malo 2.0", "artist": "Егор Крид, OG Buda, Toxi$", "duration_str": "2:38", "thumbnail": "https://i.ytimg.com/vi/tP3h0iP8OY8/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=tP3h0iP8OY8"},
+            {"id": "8CdcCD5V-d8", "title": "Venom (Music From The Motion Picture)", "artist": "Eminem", "duration_str": "4:29", "thumbnail": "https://i.ytimg.com/vi/8CdcCD5V-d8/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=8CdcCD5V-d8"},
+            {"id": "EsmFmcpdybU", "title": "Spasi L", "artist": "Dav", "duration_str": "2:52", "thumbnail": "https://i.ytimg.com/vi/EsmFmcpdybU/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=EsmFmcpdybU"},
+            {"id": "VHoT4N43jK8", "title": "Alors on danse (Radio Edit)", "artist": "Stromae", "duration_str": "3:28", "thumbnail": "https://i.ytimg.com/vi/VHoT4N43jK8/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=VHoT4N43jK8"},
+            {"id": "I4Ra4z2Arqg", "title": "Overseas", "artist": "D-Block Europe & Central Cee", "duration_str": "3:42", "thumbnail": "https://i.ytimg.com/vi/I4Ra4z2Arqg/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=I4Ra4z2Arqg"},
+            {"id": "UYSciD1u7sE", "title": "Държавен Кючек", "artist": "Leo Band", "duration_str": "3:15", "thumbnail": "https://i.ytimg.com/vi/UYSciD1u7sE/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=UYSciD1u7sE"},
+            {"id": "xqkGMZCYbrY", "title": "Party Funk", "artist": "Young Madz & MC Zudo Bo", "duration_str": "2:12", "thumbnail": "https://i.ytimg.com/vi/xqkGMZCYbrY/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=xqkGMZCYbrY"},
+            {"id": "ehcVomMexkY", "title": "Pour It Up", "artist": "Rihanna", "duration_str": "2:41", "thumbnail": "https://i.ytimg.com/vi/ehcVomMexkY/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=ehcVomMexkY"},
+            {"id": "K0CEBXmehSg", "title": "Layli", "artist": "Jamshid Ximmatov", "duration_str": "3:30", "thumbnail": "https://i.ytimg.com/vi/K0CEBXmehSg/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=K0CEBXmehSg"}
+        ]
+        quick_picks = [
+            {"title": "ДИНАСТИЯ", "artist": "VILLIAN & madk1d", "thumbnail": "https://i.ytimg.com/vi/J7NFL-eOxiQ/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=J7NFL-eOxiQ"},
+            {"title": "Caramelldansen (Speedy Mixes)", "artist": "Caramella Girls", "thumbnail": "https://i.ytimg.com/vi/PDJLvF1dUek/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=PDJLvF1dUek"},
+            {"title": "все хотят меня", "artist": "gotlib", "thumbnail": "https://i.ytimg.com/vi/DXoOqDf8o3k/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=DXoOqDf8o3k"},
+            {"title": "Там ревели горы", "artist": "Miyagi & Эндшпиль", "thumbnail": "https://i.ytimg.com/vi/MzI_CIYSsfQ/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=MzI_CIYSsfQ"},
+            {"title": "Sweater Weather", "artist": "The Neighbourhood", "thumbnail": "https://i.ytimg.com/vi/GCdwKhTtNNw/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=GCdwKhTtNNw"},
+            {"title": "Где прошла ты", "artist": "Кравц & Гио Пика", "thumbnail": "https://i.ytimg.com/vi/I6dXiJ8r5jM/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=I6dXiJ8r5jM"}
+        ]
+        albums = [
+            {"title": "Viva La Vida", "artist": "SODA LUV", "subtitle": "Альбом • SODA LUV", "thumbnail": "https://i.ytimg.com/vi/9_wwDPM1OFE/hqdefault.jpg", "source": "yt_albums", "url": "https://music.youtube.com/watch?v=9_wwDPM1OFE"},
+            {"title": "АРТЁМ", "artist": "SLAVA MARLOW", "subtitle": "EP • SLAVA MARLOW", "thumbnail": "https://i.ytimg.com/vi/ABow8gM1UI4/hqdefault.jpg", "source": "yt_albums", "url": "https://music.youtube.com/watch?v=ABow8gM1UI4"},
+            {"title": "SODA LUV", "artist": "SODA LUV", "subtitle": "Альбом • SODA LUV", "thumbnail": "https://i.ytimg.com/vi/a39YBPPpmI4/hqdefault.jpg", "source": "yt_albums", "url": "https://music.youtube.com/watch?v=a39YBPPpmI4"},
+            {"title": "BOYS DON'T CRY", "artist": "GONE.Fludd", "subtitle": "Альбом • GONE.Fludd", "thumbnail": "https://i.ytimg.com/vi/pomoFf4PUXE/hqdefault.jpg", "source": "yt_albums", "url": "https://music.youtube.com/watch?v=pomoFf4PUXE"},
+            {"title": "DUMMY BOY", "artist": "6ix9ine", "subtitle": "Альбом • 6ix9ine", "thumbnail": "https://i.ytimg.com/vi/6cRTU8lpSMA/hqdefault.jpg", "source": "yt_albums", "url": "https://music.youtube.com/watch?v=6cRTU8lpSMA"},
+            {"title": "Whenever You Need Somebody", "artist": "Rick Astley", "subtitle": "Альбом • Rick Astley", "thumbnail": "https://i.ytimg.com/vi/BeyEGebJ1l4/hqdefault.jpg", "source": "yt_albums", "url": "https://music.youtube.com/watch?v=BeyEGebJ1l4"}
+        ]
+        return web.json_response({
+            "curated": curated,
+            "quick_picks": quick_picks,
+            "albums": albums
+        })
+
+    # --- User PostgreSQL Endpoints ---
+
+    async def handle_get_liked(self, request: web.Request) -> web.Response:
+        user_id = request.query.get("user_id")
+        if not user_id:
+            return web.json_response({"tracks": []})
+        tracks = await db.get_user_liked_tracks(user_id)
+        return web.json_response({"tracks": tracks})
+
+    async def handle_post_liked(self, request: web.Request) -> web.Response:
+        try:
+            data = await request.json()
+        except Exception:
+            return web.json_response({"success": False, "error": "Invalid JSON"}, status=400)
+        user_id = data.get("user_id")
+        track = data.get("track")
+        action = data.get("action", "add")
+        if not user_id or not track:
+            return web.json_response({"success": False, "error": "user_id and track required"}, status=400)
+        track_url = track.get("url") or f"https://music.youtube.com/search?q={track.get('title', '')}"
+        if action == "remove":
+            ok = await db.remove_user_liked_track(str(user_id), track_url)
+        else:
+            ok = await db.add_user_liked_track(str(user_id), track)
+        updated = await db.get_user_liked_tracks(str(user_id))
+        return web.json_response({"success": ok, "tracks": updated})
+
+    async def handle_get_playlists(self, request: web.Request) -> web.Response:
+        user_id = request.query.get("user_id")
+        if not user_id:
+            return web.json_response({"playlists": []})
+        playlists = await db.get_user_playlists(user_id)
+        return web.json_response({"playlists": playlists})
+
+    async def handle_post_playlists(self, request: web.Request) -> web.Response:
+        try:
+            data = await request.json()
+        except Exception:
+            return web.json_response({"success": False, "error": "Invalid JSON"}, status=400)
+        user_id = data.get("user_id")
+        title = data.get("title")
+        cover = data.get("cover")
+        author_name = data.get("author_name") or "Пользователь"
+        author_avatar = data.get("author_avatar") or "/static/activity_icon.jpg"
+        if not user_id or not title:
+            return web.json_response({"success": False, "error": "user_id and title required"}, status=400)
+        pl = await db.create_user_playlist(str(user_id), title, cover, author_name=author_name, author_avatar=author_avatar)
+        return web.json_response({"success": bool(pl), "playlist": pl})
+
+    async def handle_get_community_playlists(self, request: web.Request) -> web.Response:
+        user_id = request.query.get("user_id")
+        sort_by = request.query.get("sort", "top")
+        playlists = await db.get_community_playlists(current_user_id=user_id, sort_by=sort_by)
+        return web.json_response({"playlists": playlists})
+
+    async def handle_post_playlist_like(self, request: web.Request) -> web.Response:
+        playlist_id = request.match_info.get("id")
+        try:
+            data = await request.json()
+        except Exception:
+            data = {}
+        user_id = data.get("user_id") or request.query.get("user_id")
+        if not playlist_id or not user_id:
+            return web.json_response({"success": False, "error": "playlist id and user_id required"}, status=400)
+        res = await db.toggle_playlist_like(str(user_id), int(playlist_id))
+        return web.json_response({"success": True, **res})
+
+    async def handle_delete_playlist(self, request: web.Request) -> web.Response:
+        playlist_id = request.match_info.get("id")
+        user_id = request.query.get("user_id")
+        if not playlist_id or not user_id:
+            return web.json_response({"success": False, "error": "playlist id and user_id required"}, status=400)
+        try:
+            ok = await db.delete_user_playlist(str(user_id), int(playlist_id))
+            return web.json_response({"success": ok})
+        except Exception as e:
+            return web.json_response({"success": False, "error": str(e)}, status=500)
+
+    async def handle_add_playlist_track(self, request: web.Request) -> web.Response:
+        playlist_id = request.match_info.get("id")
+        try:
+            data = await request.json()
+        except Exception:
+            return web.json_response({"success": False, "error": "Invalid JSON"}, status=400)
+        track = data.get("track")
+        if not playlist_id or not track:
+            return web.json_response({"success": False, "error": "playlist id and track required"}, status=400)
+        try:
+            ok = await db.add_track_to_playlist(int(playlist_id), track)
+            return web.json_response({"success": ok})
+        except Exception as e:
+            return web.json_response({"success": False, "error": str(e)}, status=500)
+
+    async def handle_remove_playlist_track(self, request: web.Request) -> web.Response:
+        playlist_id = request.match_info.get("id")
+        try:
+            data = await request.json()
+        except Exception:
+            return web.json_response({"success": False, "error": "Invalid JSON"}, status=400)
+        track_url = data.get("track_url")
+        if not playlist_id or not track_url:
+            return web.json_response({"success": False, "error": "playlist id and track_url required"}, status=400)
+        try:
+            ok = await db.remove_track_from_playlist(int(playlist_id), track_url)
+            return web.json_response({"success": ok})
+        except Exception as e:
+            return web.json_response({"success": False, "error": str(e)}, status=500)
+
+    async def handle_get_history(self, request: web.Request) -> web.Response:
+        user_id = request.query.get("user_id")
+        if not user_id:
+            return web.json_response({"history": []})
+        limit = int(request.query.get("limit", 50))
+        hist = await db.get_user_history(user_id, limit=limit)
+        return web.json_response({"history": hist})
+
+    async def handle_post_history(self, request: web.Request) -> web.Response:
+        try:
+            data = await request.json()
+        except Exception:
+            return web.json_response({"success": False, "error": "Invalid JSON"}, status=400)
+        user_id = data.get("user_id")
+        track = data.get("track")
+        if not user_id or not track:
+            return web.json_response({"success": False, "error": "user_id and track required"}, status=400)
+        ok = await db.add_user_history(str(user_id), track)
+        return web.json_response({"success": ok})
+
+    async def handle_clear_history(self, request: web.Request) -> web.Response:
+        user_id = request.query.get("user_id")
+        if not user_id:
+            return web.json_response({"success": False, "error": "user_id required"}, status=400)
+        ok = await db.clear_user_history(str(user_id))
+        return web.json_response({"success": ok})
+
     async def handle_websocket(self, request: web.Request) -> web.WebSocketResponse:
         ws = web.WebSocketResponse(heartbeat=30.0)
         await ws.prepare(request)
@@ -569,6 +758,10 @@ class WebServer:
         return ws
 
     async def start(self):
+        try:
+            await db.init_db()
+        except Exception as e:
+            logger.error(f"Failed to initialize database on startup: {e}")
         self.runner = web.AppRunner(self.app)
         await self.runner.setup()
         self.site = web.TCPSite(self.runner, self.host, self.port)
@@ -580,3 +773,7 @@ class WebServer:
             await self.site.stop()
         if self.runner:
             await self.runner.cleanup()
+        try:
+            await db.close_db()
+        except Exception:
+            pass
