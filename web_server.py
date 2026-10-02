@@ -73,8 +73,18 @@ class WebServer:
 
     async def handle_voice_users(self, request: web.Request) -> web.Response:
         """Returns users currently connected to voice channels in bot guilds."""
+        guild_id_str = request.query.get("guild_id")
+        target_guild_id = None
+        if guild_id_str:
+            try:
+                target_guild_id = int(guild_id_str)
+            except ValueError:
+                pass
+
         voice_members = []
-        for guild in self.bot.guilds:
+        guilds_to_check = [self.bot.get_guild(target_guild_id)] if target_guild_id and self.bot.get_guild(target_guild_id) else self.bot.guilds
+
+        for guild in guilds_to_check:
             for vc in guild.voice_channels:
                 for member in vc.members:
                     if not member.bot:
@@ -83,16 +93,19 @@ class WebServer:
                             "name": member.name,
                             "display_name": member.display_name,
                             "avatar": member.display_avatar.url,
-                            "guild_id": str(guild.id),
-                            "guild_name": guild.name,
                             "channel_id": str(vc.id),
                             "channel_name": vc.name,
+                            "guild_id": str(guild.id),
+                            "guild_name": guild.name,
                         })
 
         return web.json_response({"voice_users": voice_members})
 
     async def handle_user_voice(self, request: web.Request) -> web.Response:
         user_id_str = request.query.get("user_id")
+        guild_id_str = request.query.get("guild_id")
+        channel_id_str = request.query.get("channel_id")
+
         if not user_id_str:
             return web.json_response({"in_voice": False, "error": "Missing user_id parameter"}, status=400)
 
@@ -101,7 +114,43 @@ class WebServer:
         except ValueError:
             return web.json_response({"in_voice": False, "error": "Invalid user_id"}, status=400)
 
-        found = self.player_manager.find_user_voice(user_id)
+        guild_id = None
+        if guild_id_str:
+            try:
+                guild_id = int(guild_id_str)
+            except ValueError:
+                pass
+
+        # If channel_id was provided (e.g. from Discord Activity SDK), check it directly
+        if channel_id_str:
+            try:
+                channel = self.bot.get_channel(int(channel_id_str))
+                if channel and isinstance(channel, (discord.VoiceChannel, discord.StageChannel)):
+                    guild = channel.guild
+                    user_member = None
+                    for m in channel.members:
+                        if m.id == user_id:
+                            user_member = m
+                            break
+                    if not user_member:
+                        user_member = guild.get_member(user_id)
+
+                    player = self.player_manager.get_player_by_guild_id(guild.id)
+                    return web.json_response({
+                        "in_voice": True,
+                        "user_id": str(user_id),
+                        "user_name": user_member.display_name if user_member else "Пользователь Discord",
+                        "avatar": user_member.display_avatar.url if (user_member and hasattr(user_member, 'display_avatar')) else None,
+                        "guild_id": str(guild.id),
+                        "guild_name": guild.name,
+                        "channel_id": str(channel.id),
+                        "channel_name": channel.name,
+                        "player_active": player.is_playing if player else False,
+                    })
+            except Exception as e:
+                logger.debug(f"Error checking channel_id {channel_id_str}: {e}")
+
+        found = self.player_manager.find_user_voice(user_id, guild_id=guild_id)
         if not found:
             return web.json_response({
                 "in_voice": False,
@@ -172,6 +221,8 @@ class WebServer:
             return web.json_response({"success": False, "error": "Invalid JSON body"}, status=400)
 
         user_id_str = data.get("user_id")
+        guild_id_str = data.get("guild_id")
+        channel_id_str = data.get("channel_id")
         track_data = data.get("track")
         play_now = bool(data.get("play_now", False))
 
@@ -183,24 +234,50 @@ class WebServer:
         except ValueError:
             return web.json_response({"success": False, "error": "Invalid user_id"}, status=400)
 
-        # Find user's voice channel
-        found = self.player_manager.find_user_voice(user_id)
-        if not found:
+        guild_id = None
+        if guild_id_str:
+            try:
+                guild_id = int(guild_id_str)
+            except ValueError:
+                pass
+
+        # 1. Find user's voice channel, scoped to requested guild_id if provided
+        found = self.player_manager.find_user_voice(user_id, guild_id=guild_id)
+        target_channel = None
+        target_guild = None
+        member_name = "Пользователь Discord"
+
+        if found:
+            target_guild, target_channel, member = found
+            member_name = member.display_name
+        elif channel_id_str:
+            # 2. Fallback: if user launched via Discord Activity and channel_id is known
+            try:
+                ch = self.bot.get_channel(int(channel_id_str))
+                if ch and isinstance(ch, (discord.VoiceChannel, discord.StageChannel)):
+                    target_channel = ch
+                    target_guild = ch.guild
+                    mem = ch.guild.get_member(user_id)
+                    if mem:
+                        member_name = mem.display_name
+            except Exception as e:
+                logger.warning(f"Failed to resolve channel_id {channel_id_str}: {e}")
+
+        if not target_channel or not target_guild:
             return web.json_response({
                 "success": False,
                 "error": "Вы не находитесь в голосовом канале! Зайдите в любой голосовой канал на сервере, чтобы бот мог включить трек.",
             }, status=400)
 
-        guild, channel, member = found
-        player = self.player_manager.get_or_create_player(guild)
+        player = self.player_manager.get_or_create_player(target_guild)
 
         try:
             # Connect or move to channel
-            await player.connect_to_channel(channel)
+            await player.connect_to_channel(target_channel)
 
             # Build Track object
             track_data["requester_id"] = user_id
-            track_data["requester_name"] = member.display_name
+            track_data["requester_name"] = member_name
             track = Track.from_dict(track_data)
 
             track_url = track_data.get("url", "")
@@ -210,18 +287,18 @@ class WebServer:
                     if album_tracks and len(album_tracks) > 1:
                         first_t = album_tracks[0]
                         first_t.requester_id = user_id
-                        first_t.requester_name = member.display_name
+                        first_t.requester_name = member_name
                         res = await player.enqueue(first_t, play_now=play_now)
                         for sub_t in album_tracks[1:]:
                             sub_t.requester_id = user_id
-                            sub_t.requester_name = member.display_name
+                            sub_t.requester_name = member_name
                             await player.enqueue(sub_t, play_now=False)
                         return web.json_response({
                             "success": True,
                             "action": "album_enqueued",
                             "tracks_count": len(album_tracks),
-                            "channel_name": channel.name,
-                            "guild_name": guild.name,
+                            "channel_name": target_channel.name,
+                            "guild_name": target_guild.name,
                             "track": first_t.to_dict(),
                             "player": player.get_state(),
                         })
@@ -234,8 +311,8 @@ class WebServer:
             return web.json_response({
                 "success": True,
                 "action": res.get("action"),
-                "channel_name": channel.name,
-                "guild_name": guild.name,
+                "channel_name": target_channel.name,
+                "guild_name": target_guild.name,
                 "track": track.to_dict(),
                 "player": player.get_state(),
             })
@@ -412,14 +489,22 @@ class WebServer:
                         action = payload.get("action")
                         if action == "ping":
                             await ws.send_json({"event": "pong"})
-                        elif action == "get_state":
-                            guild_id = payload.get("guild_id")
-                            user_id = payload.get("user_id")
+                        elif action in ("subscribe", "get_state"):
+                            guild_id_raw = payload.get("guild_id")
+                            user_id_raw = payload.get("user_id")
+                            guild_id = int(guild_id_raw) if guild_id_raw else None
+                            user_id = int(user_id_raw) if user_id_raw else None
+
+                            if guild_id:
+                                self.player_manager.ws_subscriptions[ws] = guild_id
+
                             player = None
                             if guild_id:
-                                player = self.player_manager.get_player_by_guild_id(int(guild_id))
+                                player = self.player_manager.get_player_by_guild_id(guild_id)
                             elif user_id:
-                                player = self.player_manager.find_active_player_for_user(int(user_id))
+                                player = self.player_manager.find_active_player_for_user(user_id)
+                                if player:
+                                    self.player_manager.ws_subscriptions[ws] = player.guild.id
 
                             if player:
                                 await ws.send_json({"event": "player_update", "data": player.get_state()})
@@ -429,6 +514,7 @@ class WebServer:
                     logger.warning(f"WebSocket connection closed with error {ws.exception()}")
         finally:
             self.player_manager.ws_clients.discard(ws)
+            self.player_manager.ws_subscriptions.pop(ws, None)
             logger.info("WebSocket client disconnected.")
 
         return ws
