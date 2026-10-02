@@ -75,7 +75,7 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  padding-bottom: 120px; /* Space for bottom dock */
+  padding-bottom: 140px; /* Space for bottom dock */
 }
 
 /* Top Header */
@@ -250,6 +250,7 @@ body {
   margin: 0 auto;
   width: 100%;
   padding: 24px 28px;
+  flex: 1 0 auto;
 }
 
 /* Search Section */
@@ -963,35 +964,46 @@ body {
   justify-self: start;
 }
 
-/* Vinyl Record Plate Container */
+/* Vinyl Record Plate Container (Compact 50px mini-vinyl) */
 .vinyl-wrapper {
   position: relative;
-  width: 58px;
-  height: 58px;
-  flex-shrink: 0;
+  width: 50px !important;
+  height: 50px !important;
+  min-width: 50px !important;
+  max-width: 50px !important;
+  min-height: 50px !important;
+  max-height: 50px !important;
+  flex-shrink: 0 !important;
   display: flex;
   align-items: center;
   justify-content: center;
-  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.7));
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.7));
+  border-radius: 50%;
+  overflow: hidden;
 }
 
 .vinyl-disc {
   position: relative;
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
+  width: 50px !important;
+  height: 50px !important;
+  min-width: 50px !important;
+  max-width: 50px !important;
+  min-height: 50px !important;
+  max-height: 50px !important;
+  border-radius: 50% !important;
   background: radial-gradient(circle, #28282c 0%, #121214 32%, #1c1c1f 48%, #0d0d0f 68%, #18181b 86%, #08080a 100%);
   box-shadow: 
     inset 0 0 0 1px rgba(255, 255, 255, 0.12),
-    inset 0 0 0 3px rgba(0, 0, 0, 0.85),
-    inset 0 0 0 5px rgba(255, 255, 255, 0.05),
-    inset 0 0 0 8px rgba(0, 0, 0, 0.75),
-    inset 0 0 0 11px rgba(255, 255, 255, 0.04);
+    inset 0 0 0 2px rgba(0, 0, 0, 0.85),
+    inset 0 0 0 4px rgba(255, 255, 255, 0.05),
+    inset 0 0 0 7px rgba(0, 0, 0, 0.75),
+    inset 0 0 0 9px rgba(255, 255, 255, 0.04);
   display: flex;
   align-items: center;
   justify-content: center;
   transition: transform 0.4s ease;
-  overflow: hidden;
+  overflow: hidden !important;
+  flex-shrink: 0 !important;
 }
 
 /* Vinyl reflection sheen highlight */
@@ -1016,20 +1028,30 @@ body {
 
 .vinyl-label {
   position: relative;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  overflow: hidden;
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  max-width: 28px !important;
+  min-height: 28px !important;
+  max-height: 28px !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
   box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.3), 0 2px 6px rgba(0, 0, 0, 0.85);
   z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0 !important;
 }
 
 .dock-art {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 50%;
-  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 28px !important;
+  max-height: 28px !important;
+  object-fit: cover !important;
+  border-radius: 50% !important;
+  display: block !important;
 }
 
 .vinyl-spindle-hole {
@@ -1037,11 +1059,11 @@ body {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: #09090b;
-  border: 1.5px solid rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.9);
   z-index: 4;
 }
@@ -1721,30 +1743,42 @@ body {
    Legal Footer & 'Developed by Musicium Team' Section
    =================================================== */
 .app-legal-footer {
-  margin: 32px auto 20px;
+  margin: 48px auto 24px;
+  width: calc(100% - 56px);
   max-width: 1440px;
-  padding: 24px 28px;
-  border-top: 1px solid var(--border-subtle);
-  background: rgba(15, 17, 24, 0.45);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  padding: 32px 36px;
+  background: linear-gradient(180deg, rgba(17, 21, 30, 0.72) 0%, rgba(10, 12, 18, 0.92) 100%);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border-radius: var(--radius-lg);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.app-legal-footer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 20%;
+  right: 20%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(88, 101, 242, 0.5) 50%, transparent 100%);
 }
 
 .legal-footer-inner {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 14px;
+  gap: 22px;
   text-align: center;
 }
 
 .legal-brand-block {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   flex-wrap: wrap;
   justify-content: center;
 }
@@ -1752,61 +1786,167 @@ body {
 .legal-brand-name {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   font-family: 'Outfit', sans-serif;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   color: var(--text-main);
+  letter-spacing: -0.3px;
 }
 
 .legal-brand-dot {
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
   background: var(--accent-blurple);
-  box-shadow: 0 0 8px var(--accent-blurple);
+  box-shadow: 0 0 10px var(--accent-blurple);
+  animation: pulse-dot 2.5s infinite ease-in-out;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.2); box-shadow: 0 0 14px #00f5d4; }
 }
 
 .legal-badge-team {
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 700;
   letter-spacing: 0.3px;
-  background: rgba(88, 101, 242, 0.16);
-  border: 1px solid rgba(88, 101, 242, 0.35);
+  background: linear-gradient(135deg, rgba(88, 101, 242, 0.25) 0%, rgba(139, 92, 246, 0.2) 100%);
+  border: 1px solid rgba(88, 101, 242, 0.45);
   color: #c7d2fe;
-  padding: 3px 10px;
+  padding: 4px 14px;
   border-radius: 999px;
-  text-shadow: 0 0 10px rgba(88, 101, 242, 0.4);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 0 16px rgba(88, 101, 242, 0.25);
+  transition: all 0.25s ease;
 }
 
+.legal-badge-team:hover {
+  border-color: rgba(88, 101, 242, 0.8);
+  box-shadow: 0 0 20px rgba(88, 101, 242, 0.5);
+  transform: translateY(-1px);
+}
+
+.legal-tech-pills {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.legal-tech-chip {
+  font-size: 10.5px;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  padding: 3px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* 3-Card Policy / Usage Grid */
+.legal-info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  width: 100%;
+  text-align: left;
+}
+
+@media (max-width: 900px) {
+  .legal-info-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.legal-info-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  transition: all 0.25s ease;
+}
+
+.legal-info-card:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateY(-2px);
+}
+
+.legal-info-card-header {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 8px;
+}
+
+.legal-info-card-header i {
+  font-size: 14px;
+}
+
+.text-blurple { color: #818cf8; }
+.text-cyan { color: #00f5d4; }
+.text-amber { color: #f59e0b; }
+
+.legal-info-card h4 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.2px;
+}
+
+.legal-info-card p {
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.legal-info-card p strong {
+  color: #fff;
+  font-weight: 600;
+}
+
+/* Navigation & Action Links */
 .legal-nav-links {
   display: flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
   justify-content: center;
+  padding-top: 4px;
 }
 
 .legal-link-btn {
-  background: none;
-  border: none;
-  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-main);
   font-family: inherit;
   font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 8px;
+  gap: 8px;
+  padding: 7px 14px;
   border-radius: var(--radius-sm);
   transition: all 0.2s ease;
   text-decoration: none;
 }
 
 .legal-link-btn:hover {
-  color: var(--text-main);
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(88, 101, 242, 0.2);
+  border-color: rgba(88, 101, 242, 0.5);
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(88, 101, 242, 0.25);
 }
 
 .legal-link-ext {
@@ -1814,6 +1954,8 @@ body {
 }
 
 .legal-link-ext:hover {
+  background: rgba(0, 245, 212, 0.15);
+  border-color: rgba(0, 245, 212, 0.5);
   color: #fff;
 }
 
@@ -1825,10 +1967,15 @@ body {
 .legal-copyright-row {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  font-size: 11px;
+  gap: 5px;
+  font-size: 11.5px;
   color: var(--text-muted);
-  line-height: 1.5;
+  line-height: 1.6;
+  max-width: 860px;
+}
+
+.legal-highlight-team {
+  color: #c7d2fe;
 }
 
 .legal-disclaimer-sub {
