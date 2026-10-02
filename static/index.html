@@ -1,15 +1,15 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" data-lang="ru">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Discord Music Player • Mini App</title>
-  <meta name="description" content="Discord Music Activity & Web Player with YouTube, SoundCloud, and Yandex Music support.">
+  <meta name="description" content="Discord Music Activity & Web Player with YouTube and SoundCloud support.">
   <link rel="icon" type="image/jpeg" href="/static/activity_icon.jpg">
   <!-- OpenGraph Discord Embed tags -->
   <meta property="og:type" content="website">
   <meta property="og:title" content="Musicium • Discord Music Player">
-  <meta property="og:description" content="Интерактивный музыкальный плеер с YouTube Music, SoundCloud и Яндекс.Музыкой">
+  <meta property="og:description" content="Интерактивный музыкальный плеер с YouTube Music и SoundCloud">
   <meta property="og:image" content="/static/activity_banner.jpg">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:image" content="/static/activity_banner.jpg">
@@ -43,28 +43,41 @@
         </div>
         <div class="brand-text">
           <h1>Musicium</h1>
-          <span class="badge-mini">Discord Mini App</span>
+          <span class="badge-mini" data-i18n="app.miniBadge">Discord Mini App</span>
         </div>
       </div>
 
       <!-- Voice Channel Status Bar -->
-      <div class="voice-status-pill" id="voiceStatusPill" title="Статус голосового канала">
+      <div class="voice-status-pill" id="voiceStatusPill" data-i18n-title="voice.channelTitle" title="Статус голосового канала">
         <div class="status-indicator" id="voiceIndicator"></div>
         <div class="voice-info">
-          <span class="voice-label" id="voiceLabel">Поиск голосового канала...</span>
-          <span class="voice-channel-name" id="voiceChannelName">Не подключен</span>
+          <span class="voice-label" id="voiceLabel" data-i18n="voice.searching">Поиск голосового канала...</span>
+          <span class="voice-channel-name" id="voiceChannelName" data-i18n="voice.notConnected">Не подключен</span>
         </div>
-        <button class="btn-icon-subtle" id="refreshVoiceBtn" title="Обновить статус канала">
+        <button class="btn-icon-subtle" id="refreshVoiceBtn" data-i18n-title="voice.refreshTitle" title="Обновить статус канала">
           <i class="fa-solid fa-arrows-rotate"></i>
         </button>
       </div>
 
-      <!-- Active User Profile (Display Only) -->
-      <div class="user-profile-badge" id="userBadge" title="Ваш профиль Discord">
-        <img src="/static/activity_icon.jpg" alt="Avatar" id="userAvatar" class="user-avatar">
-        <div class="user-details">
-          <span class="user-name" id="userName">Вход...</span>
-          <span class="user-tag" id="userTag">ID: —</span>
+      <!-- Header Right: Language Switcher & Profile -->
+      <div class="header-right-group">
+        <!-- Language Switcher Toggle -->
+        <div class="lang-switch" id="langSwitch" role="group" aria-label="Language switcher" title="Сменить язык / Switch language">
+          <button type="button" class="lang-toggle-btn active" data-lang="ru" id="langBtnRu" title="Русский">
+            <span>RU</span>
+          </button>
+          <button type="button" class="lang-toggle-btn" data-lang="en" id="langBtnEn" title="English">
+            <span>EN</span>
+          </button>
+        </div>
+
+        <!-- Active User Profile (Display Only) -->
+        <div class="user-profile-badge" id="userBadge" data-i18n-title="user.profileTitle" title="Ваш профиль Discord">
+          <img src="/static/activity_icon.jpg" alt="Avatar" id="userAvatar" class="user-avatar">
+          <div class="user-details">
+            <span class="user-name" id="userName" data-i18n="user.loggingIn">Вход...</span>
+            <span class="user-tag" id="userTag">ID: —</span>
+          </div>
         </div>
       </div>
     </header>
@@ -80,13 +93,14 @@
               type="text" 
               id="searchInput" 
               placeholder="Поиск треков, артистов или вставьте ссылку..." 
+              data-i18n-placeholder="search.placeholder"
               autocomplete="off"
             >
-            <button class="search-clear-btn" id="searchClearBtn" style="display: none;">
+            <button class="search-clear-btn" id="searchClearBtn" style="display: none;" data-i18n-title="search.clearTitle" title="Очистить поиск">
               <i class="fa-solid fa-xmark"></i>
             </button>
             <button class="search-action-btn" id="searchSubmitBtn">
-              <span>Найти</span>
+              <span data-i18n="search.btn">Найти</span>
               <i class="fa-solid fa-arrow-right"></i>
             </button>
           </div>
@@ -95,23 +109,23 @@
           <div class="source-chips">
             <button class="source-chip active" data-source="all">
               <i class="fa-solid fa-border-all"></i>
-              <span>Все треки</span>
+              <span data-i18n="source.all">Все треки</span>
             </button>
             <button class="source-chip" data-source="youtube">
               <i class="fa-brands fa-youtube icon-yt"></i>
-              <span>YouTube Music</span>
+              <span data-i18n="source.yt">YouTube Music</span>
             </button>
             <button class="source-chip" data-source="soundcloud">
               <i class="fa-brands fa-soundcloud icon-sc"></i>
-              <span>SoundCloud</span>
+              <span data-i18n="source.sc">SoundCloud</span>
             </button>
             <button class="source-chip" data-source="yt_albums">
               <i class="fa-solid fa-compact-disc"></i>
-              <span>Альбомы YouTube</span>
+              <span data-i18n="source.yt_albums">Альбомы YouTube</span>
             </button>
             <button class="source-chip" data-source="sc_albums">
               <i class="fa-solid fa-record-vinyl"></i>
-              <span>Альбомы SoundCloud</span>
+              <span data-i18n="source.sc_albums">Альбомы SoundCloud</span>
             </button>
           </div>
         </div>
@@ -128,7 +142,7 @@
           <div class="section-title-row">
             <h2 id="resultsHeading">
               <i class="fa-solid fa-fire text-accent"></i>
-              <span>Популярные рекомендации</span>
+              <span data-i18n="results.popular">Популярные рекомендации</span>
             </h2>
             <span class="results-count" id="resultsCount">0 найдено</span>
           </div>
@@ -138,14 +152,14 @@
             <div class="loader-waves">
               <span></span><span></span><span></span><span></span><span></span>
             </div>
-            <p>Ищем лучшую музыку на всех источниках...</p>
+            <p data-i18n="results.loading">Ищем лучшую музыку на всех источниках...</p>
           </div>
 
           <!-- Empty State -->
           <div class="empty-state" id="emptyState" style="display: none;">
             <div class="empty-icon"><i class="fa-solid fa-music"></i></div>
-            <h3>Ничего не найдено</h3>
-            <p>Попробуйте изменить поисковый запрос или выбрать другой источник</p>
+            <h3 data-i18n="results.emptyTitle">Ничего не найдено</h3>
+            <p data-i18n="results.emptyDesc">Попробуйте изменить поисковый запрос или выбрать другой источник</p>
           </div>
 
           <!-- Tracks Grid -->
@@ -161,32 +175,32 @@
         <div class="sidebar-tabs">
           <button class="sidebar-tab active" data-tab="queue">
             <i class="fa-solid fa-list-ul"></i>
-            <span>Очередь (<span id="queueCount">0</span>)</span>
+            <span><span data-i18n="sidebar.queue">Очередь</span> (<span id="queueCount">0</span>)</span>
           </button>
           <button class="sidebar-tab" data-tab="history">
             <i class="fa-solid fa-clock-rotate-left"></i>
-            <span>История</span>
+            <span data-i18n="sidebar.history">История</span>
           </button>
         </div>
 
         <!-- Queue Panel -->
         <div class="tab-panel active" id="queuePanel">
           <div class="queue-toolbar">
-            <span class="toolbar-title">Предстоящие треки</span>
+            <span class="toolbar-title" data-i18n="queue.title">Предстоящие треки</span>
             <div class="toolbar-actions">
-              <button class="btn-text-subtle" id="shuffleQueueBtn" title="Перемешать очередь">
-                <i class="fa-solid fa-shuffle"></i> Перемешать
+              <button class="btn-text-subtle" id="shuffleQueueBtn" data-i18n-title="queue.shuffleTitle" title="Перемешать очередь">
+                <i class="fa-solid fa-shuffle"></i> <span data-i18n="queue.shuffle">Перемешать</span>
               </button>
-              <button class="btn-text-danger" id="clearQueueBtn" title="Очистить очередь">
-                <i class="fa-solid fa-trash-can"></i> Очистить
+              <button class="btn-text-danger" id="clearQueueBtn" data-i18n-title="queue.clearTitle" title="Очистить очередь">
+                <i class="fa-solid fa-trash-can"></i> <span data-i18n="queue.clear">Очистить</span>
               </button>
             </div>
           </div>
           <div class="queue-list" id="queueList">
             <div class="queue-empty">
               <i class="fa-solid fa-compact-disc"></i>
-              <p>Очередь пуста</p>
-              <span>Найдите трек и нажмите «+ В очередь»</span>
+              <p data-i18n="queue.emptyTitle">Очередь пуста</p>
+              <span data-i18n="queue.emptySubtitle">Найдите трек и нажмите «+ В очередь»</span>
             </div>
           </div>
         </div>
@@ -194,12 +208,12 @@
         <!-- History Panel -->
         <div class="tab-panel" id="historyPanel" style="display: none;">
           <div class="queue-toolbar">
-            <span class="toolbar-title">Недавно играли</span>
+            <span class="toolbar-title" data-i18n="history.title">Недавно играли</span>
           </div>
           <div class="queue-list" id="historyList">
             <div class="queue-empty">
               <i class="fa-regular fa-clock"></i>
-              <p>История пуста</p>
+              <p data-i18n="history.emptyTitle">История пуста</p>
             </div>
           </div>
         </div>
@@ -209,19 +223,16 @@
     <!-- Bottom App Legal & Usage Footer -->
     <footer class="app-legal-footer" id="appLegalFooter">
       <div class="legal-footer-inner">
-        <!-- Top: Brand, Glow Badge & Tech Pills -->
+        <!-- Top: Brand & Tech Pills -->
         <div class="legal-brand-block">
           <div class="legal-brand-name">
             <span class="legal-brand-dot"></span>
             <strong>Musicium</strong>
           </div>
-          <span class="legal-badge-team">
-            <i class="fa-solid fa-bolt"></i> Developed by Musicium Team
-          </span>
           <div class="legal-tech-pills">
             <span class="legal-tech-chip"><i class="fa-brands fa-discord"></i> Discord Gateway</span>
             <span class="legal-tech-chip"><i class="fa-solid fa-shield-halved"></i> Zero-Logs Voice</span>
-            <span class="legal-tech-chip"><i class="fa-solid fa-music"></i> YouTube • SoundCloud • Яндекс</span>
+            <span class="legal-tech-chip"><i class="fa-solid fa-music"></i> YouTube • SoundCloud</span>
           </div>
         </div>
 
@@ -230,30 +241,42 @@
           <div class="legal-info-card">
             <div class="legal-info-card-header">
               <i class="fa-solid fa-user-shield text-blurple"></i>
-              <h4>Конфиденциальность (Privacy by Design)</h4>
+              <h4 class="lang-ru">Конфиденциальность (Privacy by Design)</h4>
+              <h4 class="lang-en">Privacy (Privacy by Design)</h4>
             </div>
-            <p>
+            <p class="lang-ru">
               Сервис работает исключительно на отдачу звука (Audio Output). Мы гарантированно <strong>не записываем</strong>, не анализируем и не храним голоса участников в каналах Discord.
+            </p>
+            <p class="lang-en">
+              The service operates strictly on audio output. We guaranteed <strong>do not record</strong>, analyze, or store voices of participants in Discord channels.
             </p>
           </div>
 
           <div class="legal-info-card">
             <div class="legal-info-card-header">
               <i class="fa-solid fa-scale-balanced text-cyan"></i>
-              <h4>Правила сервиса & DMCA</h4>
+              <h4 class="lang-ru">Правила сервиса & DMCA</h4>
+              <h4 class="lang-en">Terms of Service & DMCA</h4>
             </div>
-            <p>
+            <p class="lang-ru">
               Бот не сохраняет аудиофайлы на сервере. Контент воспроизводится в реальном времени из открытых источников. Запрещены спам, флуд и деструктивный шум в голосовых каналах.
+            </p>
+            <p class="lang-en">
+              The bot does not store audio files on the server. Content is streamed in real time from public sources. Spam, flooding, and earrape in voice channels are strictly prohibited.
             </p>
           </div>
 
           <div class="legal-info-card">
             <div class="legal-info-card-header">
               <i class="fa-solid fa-sliders text-amber"></i>
-              <h4>Функции и управление</h4>
+              <h4 class="lang-ru">Функции и управление</h4>
+              <h4 class="lang-en">Features & Controls</h4>
             </div>
-            <p>
+            <p class="lang-ru">
               Интерактивная очередь, перемотка по таймлайну, перемешивание, режим повтора и система демократического пропуска треков (Vote Skip) для вашего сообщества.
+            </p>
+            <p class="lang-en">
+              Interactive queue, timeline scrubbing, shuffle, repeat mode, and democratic vote skip system for your community.
             </p>
           </div>
         </div>
@@ -262,29 +285,29 @@
         <div class="legal-nav-links">
           <button type="button" class="legal-link-btn" id="openTermsBtn">
             <i class="fa-solid fa-file-contract"></i>
-            <span>Условия использования</span>
+            <span class="lang-ru">Условия использования</span>
+            <span class="lang-en">Terms of Service</span>
           </button>
           <span class="legal-bullet">•</span>
           <button type="button" class="legal-link-btn" id="openPrivacyBtn">
             <i class="fa-solid fa-shield-halved"></i>
-            <span>Политика конфиденциальности</span>
+            <span class="lang-ru">Политика конфиденциальности</span>
+            <span class="lang-en">Privacy Policy</span>
           </button>
           <span class="legal-bullet">•</span>
-          <a href="/terms" target="_blank" class="legal-link-btn legal-link-ext" title="Открыть ToS в отдельной вкладке">
-            <i class="fa-solid fa-arrow-up-right-from-square"></i>
-            <span>Веб ToS</span>
-          </a>
-          <span class="legal-bullet">•</span>
-          <a href="/privacy" target="_blank" class="legal-link-btn legal-link-ext" title="Открыть Privacy в отдельной вкладке">
-            <i class="fa-solid fa-arrow-up-right-from-square"></i>
-            <span>Веб Privacy</span>
+          <a href="https://discord.gg/nvhyKTjZNh" target="_blank" rel="noopener noreferrer" class="legal-link-btn legal-link-ext" id="supportLinkBtn" title="Тех.поддержка Discord / Discord Tech Support">
+            <i class="fa-brands fa-discord"></i>
+            <span class="lang-ru">Тех.поддержка</span>
+            <span class="lang-en">Tech Support</span>
           </a>
         </div>
 
         <!-- Bottom Copyright Row -->
         <div class="legal-copyright-row">
-          <span>© 2025–2026 Musicium. Все права защищены. <strong class="legal-highlight-team">Developed by Musicium Team</strong>.</span>
-          <span class="legal-disclaimer-sub">Musicium не связан и не аффилирован с Discord Inc., YouTube (Google LLC) или SoundCloud Ltd. Все торговые марки принадлежат правообладателям.</span>
+          <span class="lang-ru">© 2025–2026 Musicium. Все права защищены. <strong class="legal-highlight-team">Developed by Musicium Team</strong>.</span>
+          <span class="lang-en">© 2025–2026 Musicium. All rights reserved. <strong class="legal-highlight-team">Developed by Musicium Team</strong>.</span>
+          <span class="legal-disclaimer-sub lang-ru">Musicium не связан и не аффилирован с Discord Inc., YouTube (Google LLC) или SoundCloud Ltd. Все торговые марки принадлежат правообладателям.</span>
+          <span class="legal-disclaimer-sub lang-en">Musicium is not affiliated with Discord Inc., YouTube (Google LLC), or SoundCloud Ltd. All trademarks belong to their respective owners.</span>
         </div>
       </div>
     </footer>
@@ -305,13 +328,13 @@
           </div>
           <div class="dock-meta">
             <div class="dock-title-marquee">
-              <a href="#" target="_blank" id="dockTitle" class="dock-title">Трек не выбран</a>
+              <a href="#" target="_blank" id="dockTitle" class="dock-title" data-i18n="player.noTrack">Трек не выбран</a>
             </div>
             <div class="dock-submeta">
               <div class="playing-equalizer-bars" id="equalizerBars">
                 <span></span><span></span><span></span><span></span>
               </div>
-              <span id="dockArtist" class="dock-artist">Выберите песню для воспроизведения</span>
+              <span id="dockArtist" class="dock-artist" data-i18n="player.selectSong">Выберите песню для воспроизведения</span>
               <span class="dock-source-badge" id="dockSourceBadge">DISCORD</span>
             </div>
           </div>
@@ -321,29 +344,29 @@
         <div class="dock-controls-center">
           <div class="controls-buttons-row">
             <!-- Shuffle -->
-            <button class="control-btn btn-sm" id="btnShuffle" title="Перемешать">
+            <button class="control-btn btn-sm" id="btnShuffle" data-i18n-title="player.shuffleTitle" title="Перемешать">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
             </button>
             <!-- Previous -->
-            <button class="control-btn" id="btnPrev" title="Предыдущий / В начало">
+            <button class="control-btn" id="btnPrev" data-i18n-title="player.prevTitle" title="Предыдущий / В начало">
               <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
             </button>
             <!-- Play/Pause -->
-            <button class="control-btn btn-play-main" id="btnPlayPause" title="Воспроизведение / Пауза">
+            <button class="control-btn btn-play-main" id="btnPlayPause" data-i18n-title="player.playPauseTitle" title="Воспроизведение / Пауза">
               <span id="playIconSvg"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>
             </button>
             <!-- Next / Skip -->
-            <button class="control-btn" id="btnSkip" title="Следующий трек">
+            <button class="control-btn" id="btnSkip" data-i18n-title="player.nextTitle" title="Следующий трек">
               <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
             </button>
             <!-- Vote Skip Button -->
-            <button class="control-btn btn-vote-skip" id="btnVoteSkip" title="Голосовать за пропуск песни">
+            <button class="control-btn btn-vote-skip" id="btnVoteSkip" data-i18n-title="player.voteSkipTitle" title="Голосовать за пропуск песни">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M18 13h-.68l-2 2h2.68v4H6v-4h2.68l-2-2H6c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2zm-6-2.58l3.29-3.29-1.41-1.42L13 6.59V1h-2v5.59L9.12 4.71 7.71 6.13 11 9.42l1 1z"/></svg>
-              <span class="vote-label" id="voteSkipLabel">Скип</span>
+              <span class="vote-label" id="voteSkipLabel" data-i18n="player.voteSkipLabel">Скип</span>
               <span class="vote-counter" id="voteCountBadge">0/1</span>
             </button>
             <!-- Loop Mode -->
-            <button class="control-btn btn-sm" id="btnLoop" title="Повтор">
+            <button class="control-btn btn-sm" id="btnLoop" data-i18n-title="player.loopTitle" title="Повтор">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
             </button>
           </div>
@@ -364,7 +387,7 @@
         <div class="dock-extra-controls">
           <!-- Volume Group -->
           <div class="volume-group">
-            <button class="btn-icon-subtle" id="btnMute" title="Громкость">
+            <button class="btn-icon-subtle" id="btnMute" data-i18n-title="player.volumeTitle" title="Громкость">
               <span id="volumeIconSvg"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg></span>
             </button>
             <div class="volume-slider-wrapper">
@@ -374,9 +397,9 @@
           </div>
 
           <!-- Stop / Disconnect -->
-          <button class="btn-danger-dock" id="btnStop" title="Остановить и отключить бота">
+          <button class="btn-danger-dock" id="btnStop" data-i18n-title="player.stopTitle" title="Остановить и отключить бота">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M6 6h12v12H6z"/></svg>
-            <span class="btn-text-hide-mobile">Стоп</span>
+            <span class="btn-text-hide-mobile" id="btnStopLabel" data-i18n="player.stopLabel">Стоп</span>
           </button>
         </div>
       </div>
@@ -391,11 +414,17 @@
             <i class="fa-solid fa-scale-balanced"></i>
           </div>
           <div>
-            <h2 id="legalModalTitle">Юридическая документация</h2>
-            <div class="legal-modal-sub">Developed by Musicium Team • Редакция от 02 октября 2026 г.</div>
+            <h2 id="legalModalTitle">
+              <span class="lang-ru">Юридическая документация</span>
+              <span class="lang-en">Legal Documentation</span>
+            </h2>
+            <div class="legal-modal-sub">
+              <span class="lang-ru">Developed by Musicium Team • Редакция от 02 октября 2026 г.</span>
+              <span class="lang-en">Developed by Musicium Team • Revision of October 02, 2026</span>
+            </div>
           </div>
         </div>
-        <button class="btn-close-legal" id="closeLegalModalBtn" title="Закрыть">
+        <button class="btn-close-legal" id="closeLegalModalBtn" data-i18n-title="modal.closeTitle" title="Закрыть">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
@@ -403,98 +432,191 @@
       <!-- Legal Navigation Tabs -->
       <div class="legal-nav-tabs">
         <button type="button" class="legal-tab-btn active" id="tabTermsBtn">
-          <i class="fa-solid fa-file-contract"></i> Условия использования (Terms)
+          <i class="fa-solid fa-file-contract"></i>
+          <span class="lang-ru">Условия использования (Terms)</span>
+          <span class="lang-en">Terms of Service (Terms)</span>
         </button>
         <button type="button" class="legal-tab-btn" id="tabPrivacyBtn">
-          <i class="fa-solid fa-shield-halved"></i> Политика конфиденциальности (Privacy)
+          <i class="fa-solid fa-shield-halved"></i>
+          <span class="lang-ru">Политика конфиденциальности (Privacy)</span>
+          <span class="lang-en">Privacy Policy (Privacy)</span>
         </button>
       </div>
 
       <div class="legal-modal-body">
         <!-- Tab 1: Terms of Service -->
         <div id="termsDocPane" class="legal-doc-pane active">
-          <div class="legal-article">
-            <h3><i class="fa-solid fa-gavel text-cyan"></i> 1. Общие положения и принятие Соглашения</h3>
-            <p>
-              Настоящие Условия использования («Условия», «Соглашение») представляют собой юридически обязывающее соглашение между Вами («Пользователь») и командой разработчиков <strong>Musicium Team</strong> («Администрация», «Разработчик»), определяющее порядок и правила эксплуатации музыкального бота «Musicium» и встроенного веб-приложения Discord Activity (Mini App).
-            </p>
-            <p>
-              Взаимодействуя с Сервисом (добавление бота на сервер Discord, вызов слеш-команд, запуск воспроизведения или открытие веб-интерфейса), Пользователь подтверждает полное и безоговорочное согласие с настоящими Условиями, а также с <a href="https://discord.com/terms" target="_blank" class="legal-link-inline">Условиями обслуживания платформы Discord</a>.
-            </p>
-          </div>
+          <!-- Russian Terms -->
+          <div class="lang-ru">
+            <div class="legal-article">
+              <h3><i class="fa-solid fa-gavel text-cyan"></i> 1. Общие положения и принятие Соглашения</h3>
+              <p>
+                Настоящие Условия использования («Условия», «Соглашение») представляют собой юридически обязывающее соглашение между Вами («Пользователь») и командой разработчиков <strong>Musicium Team</strong> («Администрация», «Разработчик»), определяющее порядок и правила эксплуатации музыкального бота «Musicium» и встроенного веб-приложения Discord Activity (Mini App).
+              </p>
+              <p>
+                Взаимодействуя с Сервисом (добавление бота на сервер Discord, вызов слеш-команд, запуск воспроизведения или открытие веб-интерфейса), Пользователь подтверждает полное и безоговорочное согласие с настоящими Условиями, а также с <a href="https://discord.com/terms" target="_blank" class="legal-link-inline">Условиями обслуживания платформы Discord</a>.
+              </p>
+            </div>
 
-          <div class="legal-article">
-            <h3><i class="fa-solid fa-microchip text-cyan"></i> 2. Характер Сервиса и отказ от ответственности по контенту</h3>
-            <p>
-              Сервис «Musicium» является исключительно программно-техническим медиа-шлюзом («Media Relay Gateway»), преобразующим общедоступные аудиопотоки из открытых источников сети Интернет в реальном времени для воспроизведения в голосовых каналах Discord.
-            </p>
-            <div class="legal-alert-box">
-              <strong>Уведомление об авторских правах (DMCA):</strong> Сервис не хранит, не скачивает на долговременные носители, не тиражирует, не архивирует и не продает музыкальные файлы и фонограммы. Все права на музыкальные произведения, торговые марки, названия треков и обложки альбомов принадлежат их законным авторам и правообладателям (YouTube, SoundCloud и др.).
+            <div class="legal-article">
+              <h3><i class="fa-solid fa-microchip text-cyan"></i> 2. Характер Сервиса и отказ от ответственности по контенту</h3>
+              <p>
+                Сервис «Musicium» является исключительно программно-техническим медиа-шлюзом («Media Relay Gateway»), преобразующим общедоступные аудиопотоки из открытых источников сети Интернет в реальном времени для воспроизведения в голосовых каналах Discord.
+              </p>
+              <div class="legal-alert-box">
+                <strong>Уведомление об авторских правах (DMCA):</strong> Сервис не хранит, не скачивает на долговременные носители, не тиражирует, не архивирует и не продает музыкальные файлы и фонограммы. Все права на музыкальные произведения, торговые марки, названия треков и обложки альбомов принадлежат их законным авторам и правообладателям (YouTube, SoundCloud и др.).
+              </div>
+            </div>
+
+            <div class="legal-article">
+              <h3><i class="fa-solid fa-ban text-cyan"></i> 3. Правила допустимого использования (AUP)</h3>
+              <p>Пользователю категорически запрещается:</p>
+              <ul>
+                <li>Использовать Сервис для распространения противоправных, экстремистских материалов или призывов к насилию;</li>
+                <li>Осуществлять намеренный акустический спам (earrape/деструктивный шум с целью помешать общению участников канала);</li>
+                <li>Предпринимать попытки декомпиляции кода, взлома API, перехвата токенов или проведения DoS/DDoS атак;</li>
+                <li>Нарушать действующие <a href="https://discord.com/guidelines" target="_blank" class="legal-link-inline">Правила сообщества Discord</a>.</li>
+              </ul>
+            </div>
+
+            <div class="legal-article">
+              <h3><i class="fa-solid fa-shield-virus text-cyan"></i> 4. Ограничение ответственности («AS IS»)</h3>
+              <p>
+                Сервис предоставляется по принципу «КАК ЕСТЬ» («AS IS») и «ПО МЕРЕ ДОСТУПНОСТИ» («AS AVAILABLE»). Musicium Team не гарантирует бесперебойную и безошибочную работу при сбоях внешних поставщиков (Discord Gateway, YouTube API, SoundCloud CDN), блокировках хостинга или сетевых разрывах. Разработчики не несут ответственности за любые прямые или косвенные убытки, возникшие вследствие использования Сервиса.
+              </p>
             </div>
           </div>
 
-          <div class="legal-article">
-            <h3><i class="fa-solid fa-ban text-cyan"></i> 3. Правила допустимого использования (AUP)</h3>
-            <p>Пользователю категорически запрещается:</p>
-            <ul>
-              <li>Использовать Сервис для распространения противоправных, экстремистских материалов или призывов к насилию;</li>
-              <li>Осуществлять намеренный акустический спам (earrape/деструктивный шум с целью помешать общению участников канала);</li>
-              <li>Предпринимать попытки декомпиляции кода, взлома API, перехвата токенов или проведения DoS/DDoS атак;</li>
-              <li>Нарушать действующие <a href="https://discord.com/guidelines" target="_blank" class="legal-link-inline">Правила сообщества Discord</a>.</li>
-            </ul>
-          </div>
+          <!-- English Terms -->
+          <div class="lang-en">
+            <div class="legal-article">
+              <h3><i class="fa-solid fa-gavel text-cyan"></i> 1. General Provisions & Acceptance of Terms</h3>
+              <p>
+                These Terms of Service ("Terms", "Agreement") constitute a legally binding agreement between you ("User") and the <strong>Musicium Team</strong> ("Administration", "Developer"), governing the use and operation of the "Musicium" music bot and the embedded Discord Activity (Mini App).
+              </p>
+              <p>
+                By interacting with the Service (adding the bot to a Discord server, invoking slash commands, initiating playback, or opening the web interface), you confirm your full and unconditional acceptance of these Terms, as well as the <a href="https://discord.com/terms" target="_blank" class="legal-link-inline">Discord Terms of Service</a>.
+              </p>
+            </div>
 
-          <div class="legal-article">
-            <h3><i class="fa-solid fa-shield-virus text-cyan"></i> 4. Ограничение ответственности («AS IS»)</h3>
-            <p>
-              Сервис предоставляется по принципу «КАК ЕСТЬ» («AS IS») и «ПО МЕРЕ ДОСТУПНОСТИ» («AS AVAILABLE»). Musicium Team не гарантирует бесперебойную и безошибочную работу при сбоях внешних поставщиков (Discord Gateway, YouTube API, SoundCloud CDN), блокировках хостинга или сетевых разрывах. Разработчики не несут ответственности за любые прямые или косвенные убытки, возникшие вследствие использования Сервиса.
-            </p>
+            <div class="legal-article">
+              <h3><i class="fa-solid fa-microchip text-cyan"></i> 2. Nature of Service & Content Disclaimer</h3>
+              <p>
+                The "Musicium" Service functions strictly as a software-technical media relay gateway ("Media Relay Gateway"), relaying publicly available audio streams from open internet sources in real time for playback in Discord voice channels.
+              </p>
+              <div class="legal-alert-box">
+                <strong>Copyright Notice (DMCA):</strong> The Service does not store, download to persistent storage, distribute, archive, or sell music files or phonograms. All rights to musical compositions, trademarks, track titles, and album artworks belong to their respective authors and copyright owners (YouTube, SoundCloud, etc.).
+              </div>
+            </div>
+
+            <div class="legal-article">
+              <h3><i class="fa-solid fa-ban text-cyan"></i> 3. Acceptable Use Policy (AUP)</h3>
+              <p>The User is strictly prohibited from:</p>
+              <ul>
+                <li>Using the Service to distribute unlawful, harmful, or extremist materials;</li>
+                <li>Engaging in intentional acoustic spam (earrape/destructive noise intended to disrupt voice communications);</li>
+                <li>Attempting to decompile code, exploit APIs, intercept tokens, or conduct DoS/DDoS attacks;</li>
+                <li>Violating the official <a href="https://discord.com/guidelines" target="_blank" class="legal-link-inline">Discord Community Guidelines</a>.</li>
+              </ul>
+            </div>
+
+            <div class="legal-article">
+              <h3><i class="fa-solid fa-shield-virus text-cyan"></i> 4. Limitation of Liability ("AS IS")</h3>
+              <p>
+                The Service is provided on an "AS IS" and "AS AVAILABLE" basis. Musicium Team does not warrant uninterrupted or error-free operation in the event of third-party provider failures (Discord Gateway, YouTube API, SoundCloud CDN), hosting restrictions, or network disruptions. Developers assume no liability for any direct or indirect damages resulting from using the Service.
+              </p>
+            </div>
           </div>
         </div>
 
         <!-- Tab 2: Privacy Policy -->
         <div id="privacyDocPane" class="legal-doc-pane" style="display: none;">
-          <div class="legal-article">
-            <h3><i class="fa-solid fa-shield-heart text-cyan"></i> 1. Принцип минимизации данных (Privacy by Design)</h3>
-            <p>
-              Команда <strong>Musicium Team</strong> придерживается строгой политики защиты конфиденциальности в соответствии с положениями GDPR и применимого законодательства. Мы обрабатываем исключительно минимальный объем технических метаданных, критически необходимых для работы бота в голосовом канале Discord.
-            </p>
-          </div>
-
-          <div class="legal-article">
-            <h3><i class="fa-solid fa-database text-cyan"></i> 2. Категории обрабатываемых данных</h3>
-            <ul>
-              <li><strong>Discord User ID:</strong> уникальный идентификатор пользователя для авторизации прав на добавление треков, перемотку и учет голосов при скипе (`vote_skip`).</li>
-              <li><strong>Guild ID и Voice Channel ID:</strong> технические номера сервера и голосового канала для подключения голосового клиента бота и изоляции плееров между разными серверами.</li>
-              <li><strong>Отображаемое имя и аватар:</strong> считываются локально через Discord Embedded App SDK для визуализации текущего пользователя в шапке приложения.</li>
-              <li><strong>Очередь треков:</strong> названия и ссылки на воспроизводимые треки сохраняются только в оперативной памяти (RAM) на период воспроизведения.</li>
-            </ul>
-          </div>
-
-          <div class="legal-article">
-            <h3><i class="fa-solid fa-microphone-slash text-cyan"></i> 3. Что мы КАТЕГОРИЧЕСКИ НЕ собираем</h3>
-            <div class="legal-alert-box alert-danger">
-              <strong>Абсолютный запрет на запись речи:</strong> Бот работает исключительно на трансляцию аудио в канал (Output). Сервис <strong>НЕ ЗАПИСЫВАЕТ, НЕ ПРОСЛУШИВАЕТ И НЕ СОХРАНЯЕТ ГОЛОСА И РАЗГОВОРЫ</strong> участников в голосовых каналах Discord.
+          <!-- Russian Privacy -->
+          <div class="lang-ru">
+            <div class="legal-article">
+              <h3><i class="fa-solid fa-shield-heart text-cyan"></i> 1. Принцип минимизации данных (Privacy by Design)</h3>
+              <p>
+                Команда <strong>Musicium Team</strong> придерживается строгой политики защиты конфиденциальности в соответствии с положениями GDPR и применимого законодательства. Мы обрабатываем исключительно минимальный объем технических метаданных, критически необходимых для работы бота в голосовом канале Discord.
+              </p>
             </div>
-            <ul>
-              <li>Мы НЕ собираем пароли, адреса электронной почты, телефоны, банковские реквизиты или IP-адреса;</li>
-              <li>Мы НЕ используем рекламные трекеры и не профилируем пользователей;</li>
-              <li>Мы НИКОГДА НЕ ПРОДАЕМ и не передаем пользовательские данные третьим лицам.</li>
-            </ul>
+
+            <div class="legal-article">
+              <h3><i class="fa-solid fa-database text-cyan"></i> 2. Категории обрабатываемых данных</h3>
+              <ul>
+                <li><strong>Discord User ID:</strong> уникальный идентификатор пользователя для авторизации прав на добавление треков, перемотку и учет голосов при скипе (`vote_skip`).</li>
+                <li><strong>Guild ID и Voice Channel ID:</strong> технические номера сервера и голосового канала для подключения голосового клиента бота и изоляции плееров между разными серверами.</li>
+                <li><strong>Отображаемое имя и аватар:</strong> считываются локально через Discord Embedded App SDK для визуализации текущего пользователя в шапке приложения.</li>
+                <li><strong>Очередь треков:</strong> названия и ссылки на воспроизводимые треки сохраняются только в оперативной памяти (RAM) на период воспроизведения.</li>
+              </ul>
+            </div>
+
+            <div class="legal-article">
+              <h3><i class="fa-solid fa-microphone-slash text-cyan"></i> 3. Что мы КАТЕГОРИЧЕСКИ НЕ собираем</h3>
+              <div class="legal-alert-box alert-danger">
+                <strong>Абсолютный запрет на запись речи:</strong> Бот работает исключительно на трансляцию аудио в канал (Output). Сервис <strong>НЕ ЗАПИСЫВАЕТ, НЕ ПРОСЛУШИВАЕТ И НЕ СОХРАНЯЕТ ГОЛОСА И РАЗГОВОРЫ</strong> участников в голосовых каналах Discord.
+              </div>
+              <ul>
+                <li>Мы НЕ собираем пароли, адреса электронной почты, телефоны, банковские реквизиты или IP-адреса;</li>
+                <li>Мы НЕ используем рекламные трекеры и не профилируем пользователей;</li>
+                <li>Мы НИКОГДА НЕ ПРОДАЕМ и не передаем пользовательские данные третьим лицам.</li>
+              </ul>
+            </div>
+
+            <div class="legal-article">
+              <h3><i class="fa-solid fa-cookie text-cyan"></i> 4. Локальное хранилище браузера (LocalStorage)</h3>
+              <p>
+                В веб-интерфейсе Mini App используется клиентское хранилище LocalStorage исключительно для запоминания ваших персональных предпочтений: уровня громкости, языка интерфейса, режима повтора треков и кэша отображения профиля. Эти данные хранятся локально на вашем компьютере/смартфоне.
+              </p>
+            </div>
           </div>
 
-          <div class="legal-article">
-            <h3><i class="fa-solid fa-cookie text-cyan"></i> 4. Локальное хранилище браузера (LocalStorage)</h3>
-            <p>
-              В веб-интерфейсе Mini App используется клиентское хранилище LocalStorage исключительно для запоминания ваших персональных предпочтений: уровня громкости, режима повтора треков и кэша отображения профиля. Эти данные хранятся локально на вашем компьютере/смартфоне.
-            </p>
+          <!-- English Privacy -->
+          <div class="lang-en">
+            <div class="legal-article">
+              <h3><i class="fa-solid fa-shield-heart text-cyan"></i> 1. Data Minimization Principle (Privacy by Design)</h3>
+              <p>
+                The <strong>Musicium Team</strong> is committed to strict privacy standards in compliance with GDPR principles and applicable regulations. We process solely the minimal volume of technical metadata necessary for bot operation inside Discord voice channels.
+              </p>
+            </div>
+
+            <div class="legal-article">
+              <h3><i class="fa-solid fa-database text-cyan"></i> 2. Categories of Processed Data</h3>
+              <ul>
+                <li><strong>Discord User ID:</strong> unique user identifier used to authorize playback management, seeking, and voting during track skips (`vote_skip`).</li>
+                <li><strong>Guild ID & Voice Channel ID:</strong> technical identifiers for server and voice channel connectivity, ensuring strict isolation between servers.</li>
+                <li><strong>Display Name & Avatar:</strong> retrieved locally via Discord Embedded App SDK for visualizing your user avatar in the application header.</li>
+                <li><strong>Track Queue:</strong> track titles and stream links kept strictly in volatile memory (RAM) during active playback.</li>
+              </ul>
+            </div>
+
+            <div class="legal-article">
+              <h3><i class="fa-solid fa-microphone-slash text-cyan"></i> 3. What We Strictly DO NOT Collect</h3>
+              <div class="legal-alert-box alert-danger">
+                <strong>Absolute Voice Recording Prohibition:</strong> The bot operates exclusively as an audio broadcaster (Audio Output). The Service <strong>DOES NOT RECORD, LISTEN TO, OR STORE VOICES AND PRIVATE CONVERSATIONS</strong> of voice channel participants.
+              </div>
+              <ul>
+                <li>We do NOT collect passwords, emails, phone numbers, payment details, or IP addresses;</li>
+                <li>We do NOT deploy advertising trackers or profile users;</li>
+                <li>We NEVER sell or transfer user data to third parties.</li>
+              </ul>
+            </div>
+
+            <div class="legal-article">
+              <h3><i class="fa-solid fa-cookie text-cyan"></i> 4. Browser Local Storage (LocalStorage)</h3>
+              <p>
+                The Mini App utilizes client-side LocalStorage exclusively to remember your personal preferences: volume level, interface language, repeat mode, and cached profile display. This data remains stored locally on your device.
+              </p>
+            </div>
           </div>
         </div>
       </div>
 
       <div class="legal-modal-footer">
         <span class="legal-modal-footer-note">Musicium • <strong>Developed by Musicium Team</strong></span>
-        <button type="button" class="btn-primary-legal" id="closeLegalModalBtnBottom">Понятно</button>
+        <button type="button" class="btn-primary-legal" id="closeLegalModalBtnBottom">
+          <span class="lang-ru">Понятно</span>
+          <span class="lang-en">Understood</span>
+        </button>
       </div>
     </div>
   </div>
