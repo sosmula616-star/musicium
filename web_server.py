@@ -203,7 +203,32 @@ class WebServer:
             track_data["requester_name"] = member.display_name
             track = Track.from_dict(track_data)
 
-            # Enqueue or play
+            track_url = track_data.get("url", "")
+            if ("playlist" in track_url or "/sets/" in track_url) and not track_data.get("stream_url"):
+                try:
+                    album_tracks = await self.music_service._resolve_direct_url(track_url)
+                    if album_tracks and len(album_tracks) > 1:
+                        first_t = album_tracks[0]
+                        first_t.requester_id = user_id
+                        first_t.requester_name = member.display_name
+                        res = await player.enqueue(first_t, play_now=play_now)
+                        for sub_t in album_tracks[1:]:
+                            sub_t.requester_id = user_id
+                            sub_t.requester_name = member.display_name
+                            await player.enqueue(sub_t, play_now=False)
+                        return web.json_response({
+                            "success": True,
+                            "action": "album_enqueued",
+                            "tracks_count": len(album_tracks),
+                            "channel_name": channel.name,
+                            "guild_name": guild.name,
+                            "track": first_t.to_dict(),
+                            "player": player.get_state(),
+                        })
+                except Exception as ex:
+                    logger.warning(f"Could not batch-resolve playlist {track_url}: {ex}")
+
+            # Enqueue or play single track
             res = await player.enqueue(track, play_now=play_now)
 
             return web.json_response({
