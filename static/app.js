@@ -2,6 +2,11 @@
 (function() {
   'use strict';
 
+  // Read URL query parameters passed by Discord Activity iframe or slash command
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialGuildId = urlParams.get('guild_id') || null;
+  const initialChannelId = urlParams.get('channel_id') || null;
+
   // State
   const state = {
     userId: localStorage.getItem('music_user_id') || '',
@@ -9,9 +14,9 @@
     userAvatar: localStorage.getItem('music_user_avatar') || '/static/activity_icon.jpg',
     currentSource: 'all',
     inVoice: false,
-    guildId: null,
+    guildId: initialGuildId,
     guildName: '',
-    channelId: null,
+    channelId: initialChannelId,
     channelName: '',
     player: null,
     ws: null,
@@ -151,6 +156,14 @@
       try {
         const discordSdk = new window.DiscordSDK.DiscordSDK('1555020109507199066');
         await discordSdk.ready();
+
+        if (discordSdk.guildId) {
+          state.guildId = discordSdk.guildId;
+        }
+        if (discordSdk.channelId) {
+          state.channelId = discordSdk.channelId;
+        }
+
         // Request authorization if inside Activity
         const { code } = await discordSdk.commands.authorize({
           client_id: '1555020109507199066',
@@ -206,21 +219,25 @@
 
   // Voice Channel Check
   async function checkUserVoice() {
+    const guildQuery = state.guildId ? `&guild_id=${encodeURIComponent(state.guildId)}` : '';
+    const chanQuery = state.channelId ? `&channel_id=${encodeURIComponent(state.channelId)}` : '';
+
     if (state.userId) {
       try {
-        const resp = await fetch(`/api/user-voice?user_id=${state.userId}`);
+        const resp = await fetch(`/api/user-voice?user_id=${encodeURIComponent(state.userId)}${guildQuery}${chanQuery}`);
         const data = await resp.json();
         if (data.in_voice) {
           state.inVoice = true;
-          state.guildId = data.guild_id;
-          state.guildName = data.guild_name;
-          state.channelId = data.channel_id;
-          state.channelName = data.channel_name;
+          state.guildId = data.guild_id || state.guildId;
+          state.guildName = data.guild_name || state.guildName;
+          state.channelId = data.channel_id || state.channelId;
+          state.channelName = data.channel_name || state.channelName;
 
           el.voiceIndicator.className = 'status-indicator connected';
-          el.voiceLabel.textContent = data.guild_name;
-          el.voiceChannelName.textContent = `🔊 ${data.channel_name}`;
+          el.voiceLabel.textContent = state.guildName;
+          el.voiceChannelName.textContent = `🔊 ${state.channelName}`;
           el.voiceStatusPill.classList.add('active');
+          sendWsSubscribe();
           return;
         }
       } catch (e) {
@@ -231,16 +248,17 @@
     // If current user is not in voice, scan server voice channels
     state.inVoice = false;
     el.voiceIndicator.className = 'status-indicator';
-    el.voiceLabel.textContent = 'Голосовой канал';
+    el.voiceLabel.textContent = state.guildName || 'Голосовой канал';
     el.voiceChannelName.textContent = 'Не подключен';
     el.voiceStatusPill.classList.remove('active');
 
     try {
-      const vuResp = await fetch('/api/voice-users');
+      const vuUrl = state.guildId ? `/api/voice-users?guild_id=${encodeURIComponent(state.guildId)}` : '/api/voice-users';
+      const vuResp = await fetch(vuUrl);
       const vuData = await vuResp.json();
       if (vuData.voice_users && vuData.voice_users.length > 0) {
-        // If there's an active person in voice and user is unset or not matching
-        if (!state.userId || vuData.voice_users.length === 1) {
+        // Only auto-pick if user has NO profile set at all
+        if (!state.userId) {
           const u = vuData.voice_users[0];
           state.userId = u.id;
           state.userName = u.display_name;
@@ -257,6 +275,7 @@
           el.voiceLabel.textContent = u.guild_name;
           el.voiceChannelName.textContent = `🔊 ${u.channel_name}`;
           el.voiceStatusPill.classList.add('active');
+          sendWsSubscribe();
         }
       }
     } catch (_) {}
@@ -418,6 +437,8 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: state.userId,
+          guild_id: state.guildId,
+          channel_id: state.channelId,
           track: track,
           play_now: playNow,
         })
@@ -484,6 +505,11 @@
 
   // Update Player UI from Player state
   function updatePlayerUI(playerState) {
+    // Guild isolation guard: ignore updates from other servers
+    if (state.guildId && playerState && playerState.guild_id && String(playerState.guild_id) !== String(state.guildId)) {
+      return;
+    }
+
     if (!playerState) {
       el.dockTitle.textContent = 'Трек не выбран';
       el.dockTitle.removeAttribute('href');
@@ -502,7 +528,9 @@
     }
 
     state.player = playerState;
-    state.guildId = playerState.guild_id;
+    if (!state.guildId && playerState.guild_id) {
+      state.guildId = playerState.guild_id;
+    }
 
     const track = playerState.current_track;
     state.isPlaying = playerState.is_playing && !playerState.is_paused;
@@ -696,6 +724,17 @@
     el.progressFill.style.width = `${percent}%`;
   }
 
+  // Subscribe helper for WebSocket
+  function sendWsSubscribe() {
+    if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+      state.ws.send(JSON.stringify({
+        action: 'subscribe',
+        user_id: state.userId,
+        guild_id: state.guildId
+      }));
+    }
+  }
+
   // WebSocket Connection
   function setupWebSocket() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -705,18 +744,17 @@
 
     state.ws.onopen = () => {
       console.log('Connected to Music Player WebSocket');
-      // Request initial player state
-      state.ws.send(JSON.stringify({
-        action: 'get_state',
-        user_id: state.userId,
-        guild_id: state.guildId
-      }));
+      sendWsSubscribe();
     };
 
     state.ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
         if (msg.event === 'player_update') {
+          // Ignore events from other servers
+          if (state.guildId && msg.data && msg.data.guild_id && String(msg.data.guild_id) !== String(state.guildId)) {
+            return;
+          }
           updatePlayerUI(msg.data);
         }
       } catch (e) {
@@ -733,7 +771,8 @@
   // Initial fetch of player state
   async function fetchCurrentPlayer() {
     try {
-      const resp = await fetch(`/api/player?user_id=${state.userId}`);
+      const q = state.guildId ? `guild_id=${encodeURIComponent(state.guildId)}` : `user_id=${encodeURIComponent(state.userId)}`;
+      const resp = await fetch(`/api/player?${q}`);
       const data = await resp.json();
       if (data.player) {
         updatePlayerUI(data.player);
@@ -750,7 +789,8 @@
     el.voiceUsersList.innerHTML = '<div class="loading-state-sm"><i class="fa-solid fa-spinner fa-spin"></i> Сканирование голосовых каналов...</div>';
 
     try {
-      const resp = await fetch('/api/voice-users');
+      const q = state.guildId ? `?guild_id=${encodeURIComponent(state.guildId)}` : '';
+      const resp = await fetch(`/api/voice-users${q}`);
       const data = await resp.json();
       if (!data.voice_users || data.voice_users.length === 0) {
         el.voiceUsersList.innerHTML = `
@@ -774,7 +814,12 @@
             state.userId = u.id;
             state.userName = u.display_name;
             state.userAvatar = u.avatar;
+            state.guildId = u.guild_id || state.guildId;
+            state.guildName = u.guild_name || state.guildName;
+            state.channelId = u.channel_id || state.channelId;
+            state.channelName = u.channel_name || state.channelName;
             saveUser();
+            sendWsSubscribe();
             checkUserVoice();
             fetchCurrentPlayer();
             closeUserModal();
