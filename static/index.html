@@ -343,17 +343,6 @@
           <span data-i18n="source.yt_albums">Альбомы</span>
         </button>
 
-        <!-- Mood quick query chips (like Screenshot 2) -->
-        <button class="mood-chip" data-mood="В дороге">В дороге</button>
-        <button class="mood-chip" data-mood="Вечеринка">Вечеринка</button>
-        <button class="mood-chip" data-mood="Сон">Сон</button>
-        <button class="mood-chip" data-mood="Заряд энергии">Заряд энергии</button>
-        <button class="mood-chip" data-mood="Релакс">Релакс</button>
-        <button class="mood-chip" data-mood="Грусть">Грусть</button>
-        <button class="mood-chip" data-mood="Романтика">Романтика</button>
-        <button class="mood-chip" data-mood="Веселая">Веселая</button>
-        <button class="mood-chip" data-mood="Тренировка">Тренировка</button>
-        <button class="mood-chip" data-mood="Концентрация">Концентрация</button>
       </div>
 
       <!-- Main Content Area Views -->
@@ -409,6 +398,25 @@
               </div>
             </div>
             <div class="square-cards-row" id="albumsRow">
+              <!-- Injected by JS -->
+            </div>
+          </div>
+
+          <!-- Section 4: Топ плейлистов сообщества (Community Albums & Leaderboard) -->
+          <div class="ytm-shelf" id="communityPlaylistsShelf">
+            <div class="ytm-shelf-header">
+              <div class="shelf-brand-title">
+                <div class="shelf-avatar-badge" style="background: rgba(255, 0, 0, 0.15); border-color: rgba(255, 0, 0, 0.4);">
+                  <i class="fa-solid fa-fire text-red" style="color: #ff0000; font-size: 14px;"></i>
+                </div>
+                <h2><span>Топ плейлистов сообщества</span></h2>
+              </div>
+              <div class="shelf-nav-arrows">
+                <button class="shelf-arrow-btn" id="commArrowLeft" title="Назад"><i class="fa-solid fa-chevron-left"></i></button>
+                <button class="shelf-arrow-btn" id="commArrowRight" title="Вперед"><i class="fa-solid fa-chevron-right"></i></button>
+              </div>
+            </div>
+            <div class="community-cards-row" id="communityPlaylistsRow">
               <!-- Injected by JS -->
             </div>
           </div>
