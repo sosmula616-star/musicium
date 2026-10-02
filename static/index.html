@@ -322,8 +322,122 @@
       </div>
     </footer>
   </div>
+  <!-- Comprehensive Legal Document Modal (Terms of Service & Privacy Policy) -->
+  <div class="legal-modal-overlay" id="legalModal" style="display: none;">
+    <div class="legal-modal-box glass-panel">
+      <div class="legal-modal-header">
+        <div class="legal-modal-title-row">
+          <div class="legal-modal-icon-badge">
+            <i class="fa-solid fa-scale-balanced"></i>
+          </div>
+          <div>
+            <h2 id="legalModalTitle">Юридическая документация</h2>
+            <div class="legal-modal-sub">Developed by Musicium Team • Редакция от 02 октября 2026 г.</div>
+          </div>
+        </div>
+        <button class="btn-close-legal" id="closeLegalModalBtn" title="Закрыть">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
 
+      <!-- Legal Navigation Tabs -->
+      <div class="legal-nav-tabs">
+        <button type="button" class="legal-tab-btn active" id="tabTermsBtn">
+          <i class="fa-solid fa-file-contract"></i> Условия использования (Terms)
+        </button>
+        <button type="button" class="legal-tab-btn" id="tabPrivacyBtn">
+          <i class="fa-solid fa-shield-halved"></i> Политика конфиденциальности (Privacy)
+        </button>
+      </div>
 
+      <div class="legal-modal-body">
+        <!-- Tab 1: Terms of Service -->
+        <div id="termsDocPane" class="legal-doc-pane active">
+          <div class="legal-article">
+            <h3><i class="fa-solid fa-gavel text-cyan"></i> 1. Общие положения и принятие Соглашения</h3>
+            <p>
+              Настоящие Условия использования («Условия», «Соглашение») представляют собой юридически обязывающее соглашение между Вами («Пользователь») и командой разработчиков <strong>Musicium Team</strong> («Администрация», «Разработчик»), определяющее порядок и правила эксплуатации музыкального бота «Musicium» и встроенного веб-приложения Discord Activity (Mini App).
+            </p>
+            <p>
+              Взаимодействуя с Сервисом (добавление бота на сервер Discord, вызов слеш-команд, запуск воспроизведения или открытие веб-интерфейса), Пользователь подтверждает полное и безоговорочное согласие с настоящими Условиями, а также с <a href="https://discord.com/terms" target="_blank" class="legal-link-inline">Условиями обслуживания платформы Discord</a>.
+            </p>
+          </div>
+
+          <div class="legal-article">
+            <h3><i class="fa-solid fa-microchip text-cyan"></i> 2. Характер Сервиса и отказ от ответственности по контенту</h3>
+            <p>
+              Сервис «Musicium» является исключительно программно-техническим медиа-шлюзом («Media Relay Gateway»), преобразующим общедоступные аудиопотоки из открытых источников сети Интернет в реальном времени для воспроизведения в голосовых каналах Discord.
+            </p>
+            <div class="legal-alert-box">
+              <strong>Уведомление об авторских правах (DMCA):</strong> Сервис не хранит, не скачивает на долговременные носители, не тиражирует, не архивирует и не продает музыкальные файлы и фонограммы. Все права на музыкальные произведения, торговые марки, названия треков и обложки альбомов принадлежат их законным авторам и правообладателям (YouTube, SoundCloud и др.).
+            </div>
+          </div>
+
+          <div class="legal-article">
+            <h3><i class="fa-solid fa-ban text-cyan"></i> 3. Правила допустимого использования (AUP)</h3>
+            <p>Пользователю категорически запрещается:</p>
+            <ul>
+              <li>Использовать Сервис для распространения противоправных, экстремистских материалов или призывов к насилию;</li>
+              <li>Осуществлять намеренный акустический спам (earrape/деструктивный шум с целью помешать общению участников канала);</li>
+              <li>Предпринимать попытки декомпиляции кода, взлома API, перехвата токенов или проведения DoS/DDoS атак;</li>
+              <li>Нарушать действующие <a href="https://discord.com/guidelines" target="_blank" class="legal-link-inline">Правила сообщества Discord</a>.</li>
+            </ul>
+          </div>
+
+          <div class="legal-article">
+            <h3><i class="fa-solid fa-shield-virus text-cyan"></i> 4. Ограничение ответственности («AS IS»)</h3>
+            <p>
+              Сервис предоставляется по принципу «КАК ЕСТЬ» («AS IS») и «ПО МЕРЕ ДОСТУПНОСТИ» («AS AVAILABLE»). Musicium Team не гарантирует бесперебойную и безошибочную работу при сбоях внешних поставщиков (Discord Gateway, YouTube API, SoundCloud CDN), блокировках хостинга или сетевых разрывах. Разработчики не несут ответственности за любые прямые или косвенные убытки, возникшие вследствие использования Сервиса.
+            </p>
+          </div>
+        </div>
+
+        <!-- Tab 2: Privacy Policy -->
+        <div id="privacyDocPane" class="legal-doc-pane" style="display: none;">
+          <div class="legal-article">
+            <h3><i class="fa-solid fa-shield-heart text-cyan"></i> 1. Принцип минимизации данных (Privacy by Design)</h3>
+            <p>
+              Команда <strong>Musicium Team</strong> придерживается строгой политики защиты конфиденциальности в соответствии с положениями GDPR и применимого законодательства. Мы обрабатываем исключительно минимальный объем технических метаданных, критически необходимых для работы бота в голосовом канале Discord.
+            </p>
+          </div>
+
+          <div class="legal-article">
+            <h3><i class="fa-solid fa-database text-cyan"></i> 2. Категории обрабатываемых данных</h3>
+            <ul>
+              <li><strong>Discord User ID:</strong> уникальный идентификатор пользователя для авторизации прав на добавление треков, перемотку и учет голосов при скипе (`vote_skip`).</li>
+              <li><strong>Guild ID и Voice Channel ID:</strong> технические номера сервера и голосового канала для подключения голосового клиента бота и изоляции плееров между разными серверами.</li>
+              <li><strong>Отображаемое имя и аватар:</strong> считываются локально через Discord Embedded App SDK для визуализации текущего пользователя в шапке приложения.</li>
+              <li><strong>Очередь треков:</strong> названия и ссылки на воспроизводимые треки сохраняются только в оперативной памяти (RAM) на период воспроизведения.</li>
+            </ul>
+          </div>
+
+          <div class="legal-article">
+            <h3><i class="fa-solid fa-microphone-slash text-cyan"></i> 3. Что мы КАТЕГОРИЧЕСКИ НЕ собираем</h3>
+            <div class="legal-alert-box alert-danger">
+              <strong>Абсолютный запрет на запись речи:</strong> Бот работает исключительно на трансляцию аудио в канал (Output). Сервис <strong>НЕ ЗАПИСЫВАЕТ, НЕ ПРОСЛУШИВАЕТ И НЕ СОХРАНЯЕТ ГОЛОСА И РАЗГОВОРЫ</strong> участников в голосовых каналах Discord.
+            </div>
+            <ul>
+              <li>Мы НЕ собираем пароли, адреса электронной почты, телефоны, банковские реквизиты или IP-адреса;</li>
+              <li>Мы НЕ используем рекламные трекеры и не профилируем пользователей;</li>
+              <li>Мы НИКОГДА НЕ ПРОДАЕМ и не передаем пользовательские данные третьим лицам.</li>
+            </ul>
+          </div>
+
+          <div class="legal-article">
+            <h3><i class="fa-solid fa-cookie text-cyan"></i> 4. Локальное хранилище браузера (LocalStorage)</h3>
+            <p>
+              В веб-интерфейсе Mini App используется клиентское хранилище LocalStorage исключительно для запоминания ваших персональных предпочтений: уровня громкости, режима повтора треков и кэша отображения профиля. Эти данные хранятся локально на вашем компьютере/смартфоне.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="legal-modal-footer">
+        <span class="legal-modal-footer-note">Musicium • <strong>Developed by Musicium Team</strong></span>
+        <button type="button" class="btn-primary-legal" id="closeLegalModalBtnBottom">Понятно</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Toast Notification Container -->
   <div class="toast-container" id="toastContainer"></div>
