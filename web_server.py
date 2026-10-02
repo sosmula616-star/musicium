@@ -211,6 +211,7 @@ class WebServer:
                 "channel_name": channel.name,
                 "guild_name": guild.name,
                 "track": track.to_dict(),
+                "player": player.get_state(),
             })
 
         except Exception as e:
@@ -242,52 +243,57 @@ class WebServer:
             return web.json_response({"success": False, "error": "Плеер не найден или не активен"}, status=404)
 
         try:
+            res_data = {"success": True}
             if action == "play_pause":
                 paused = await player.toggle_play_pause()
-                return web.json_response({"success": True, "is_paused": paused})
+                res_data["is_paused"] = paused
 
             elif action == "pause":
                 await player.pause()
-                return web.json_response({"success": True, "is_paused": True})
+                res_data["is_paused"] = True
 
             elif action == "resume":
                 await player.resume()
-                return web.json_response({"success": True, "is_paused": False})
+                res_data["is_paused"] = False
 
             elif action in ("skip", "vote_skip"):
                 forced = bool(data.get("forced", False))
                 result = await player.skip(forced=forced, user_id=user_id)
-                return web.json_response({"success": True, **result})
+                res_data.update(result)
 
             elif action == "stop":
                 await player.stop()
-                return web.json_response({"success": True, "message": "Остановлено"})
+                res_data["message"] = "Остановлено"
 
             elif action == "volume":
                 vol_val = float(data.get("value", 100)) / 100.0
                 new_vol = player.set_volume(vol_val)
-                return web.json_response({"success": True, "volume": int(new_vol * 100)})
+                res_data["volume"] = int(new_vol * 100)
 
             elif action == "loop":
                 mode = data.get("mode", "")
                 new_mode = player.set_loop_mode(mode)
-                return web.json_response({"success": True, "loop_mode": new_mode})
+                res_data["loop_mode"] = new_mode
 
             elif action == "shuffle":
                 count = player.shuffle_queue()
-                return web.json_response({"success": True, "queue_size": count})
+                res_data["queue_size"] = count
 
             elif action == "remove":
                 idx = int(data.get("index", -1))
                 removed = player.remove_from_queue(idx)
-                return web.json_response({"success": bool(removed), "removed": removed.to_dict() if removed else None})
+                res_data["success"] = bool(removed)
+                res_data["removed"] = removed.to_dict() if removed else None
 
             elif action == "clear":
                 player.clear_queue()
-                return web.json_response({"success": True, "message": "Очередь очищена"})
+                res_data["message"] = "Очередь очищена"
 
             else:
                 return web.json_response({"success": False, "error": f"Unknown action '{action}'"}, status=400)
+
+            res_data["player"] = player.get_state()
+            return web.json_response(res_data)
 
         except Exception as e:
             logger.error(f"Error executing action {action}: {e}", exc_info=True)
