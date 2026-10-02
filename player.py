@@ -121,6 +121,7 @@ class GuildPlayer:
 
         self.audio_source: Optional[discord.PCMVolumeTransformer] = None
         self._is_seeking: bool = False
+        self._play_generation: int = 0
         self._lock = asyncio.Lock()
 
     @property
@@ -209,8 +210,15 @@ class GuildPlayer:
                 await self._play_next()
                 return
 
+            self._play_generation += 1
+            current_gen = self._play_generation
+
             if self.voice_client.is_playing() or self.voice_client.is_paused():
                 self.voice_client.stop()
+                for _ in range(25):
+                    if not self.voice_client.is_playing() and not self.voice_client.is_paused():
+                        break
+                    await asyncio.sleep(0.02)
 
             # Create audio source
             ffmpeg_opts = {
@@ -241,14 +249,23 @@ class GuildPlayer:
             self.total_paused_duration = 0.0
 
             def _after_play(err):
-                if self._is_seeking:
+                if current_gen != self._play_generation:
                     return
                 if err:
                     logger.error(f"Playback error: {err}")
                 coro = self._on_track_finished()
                 asyncio.run_coroutine_threadsafe(coro, self.bot.loop)
 
-            self.voice_client.play(self.audio_source, after=_after_play)
+            for _ in range(10):
+                try:
+                    self.voice_client.play(self.audio_source, after=_after_play)
+                    break
+                except discord.ClientException as ce:
+                    if "Already playing" in str(ce):
+                        await asyncio.sleep(0.03)
+                    else:
+                        raise
+
             logger.info(f"Started playing: {track.title} in {self.guild.name}")
 
             await self._notify_change(track_started=True)
@@ -320,11 +337,11 @@ class GuildPlayer:
         is_solo = len(listeners) <= 1
 
         if forced or is_requester or is_solo or user_id is None:
+            self._play_generation += 1
             self.vote_skips.clear()
             if self.voice_client and (self.voice_client.is_playing() or self.voice_client.is_paused()):
                 self.voice_client.stop()
-            else:
-                await self._play_next()
+            await self._play_next()
             return {
                 "skipped": True,
                 "forced": True,
@@ -338,11 +355,11 @@ class GuildPlayer:
         current_votes = len(self.vote_skips)
 
         if current_votes >= required_votes:
+            self._play_generation += 1
             self.vote_skips.clear()
             if self.voice_client and (self.voice_client.is_playing() or self.voice_client.is_paused()):
                 self.voice_client.stop()
-            else:
-                await self._play_next()
+            await self._play_next()
             return {
                 "skipped": True,
                 "forced": False,
@@ -376,9 +393,15 @@ class GuildPlayer:
             if not stream_url:
                 return False
 
-            self._is_seeking = True
+            self._play_generation += 1
+            current_gen = self._play_generation
+
             if self.voice_client.is_playing() or self.voice_client.is_paused():
                 self.voice_client.stop()
+                for _ in range(25):
+                    if not self.voice_client.is_playing() and not self.voice_client.is_paused():
+                        break
+                    await asyncio.sleep(0.02)
 
             seek_before = f"{FFMPEG_BEFORE_OPTIONS} -ss {seconds}"
             ffmpeg_opts = {
@@ -407,15 +430,23 @@ class GuildPlayer:
             self.total_paused_duration = 0.0
 
             def _after_play(err):
-                if self._is_seeking:
+                if current_gen != self._play_generation:
                     return
                 if err:
                     logger.error(f"Playback error after seek: {err}")
                 coro = self._on_track_finished()
                 asyncio.run_coroutine_threadsafe(coro, self.bot.loop)
 
-            self.voice_client.play(self.audio_source, after=_after_play)
-            self._is_seeking = False
+            for _ in range(10):
+                try:
+                    self.voice_client.play(self.audio_source, after=_after_play)
+                    break
+                except discord.ClientException as ce:
+                    if "Already playing" in str(ce):
+                        await asyncio.sleep(0.03)
+                    else:
+                        raise
+
             logger.info(f"Seeked to {seconds}s in track: {self.current_track.title}")
             await self._notify_change()
             return True
