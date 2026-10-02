@@ -129,6 +129,13 @@ async function preparePython() {
     }
   }
 
+  // Step 5: On Linux, attempt to install system opus if apk is available
+  if (process.platform === 'linux') {
+    try {
+      execSync('apk add --no-cache opus opus-tools 2>/dev/null || apt-get install -y libopus0 2>/dev/null || true', { stdio: 'ignore' });
+    } catch (_) {}
+  }
+
   return activePy;
 }
 
