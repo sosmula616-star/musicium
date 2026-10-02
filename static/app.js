@@ -29,6 +29,8 @@
     searchTimeout: null,
     isScrubbing: false,
     isAdjustingVolume: false,
+    lang: localStorage.getItem('musicium_lang') || 'ru',
+    lastTracks: [],
   };
 
   const SVG_ICONS = {
@@ -40,6 +42,241 @@
     volumeLow: '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>',
     volumeMute: '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>',
   };
+
+  const I18N = {
+    ru: {
+      'app.miniBadge': 'Discord Mini App',
+      'voice.searching': 'Поиск голосового канала...',
+      'voice.notConnected': 'Не подключен',
+      'voice.connected': 'Подключен',
+      'voice.channelTitle': 'Статус голосового канала',
+      'voice.refreshTitle': 'Обновить статус канала',
+      'user.profileTitle': 'Ваш профиль Discord',
+      'user.loggingIn': 'Вход...',
+      'user.defaultName': 'Пользователь Discord',
+      'user.clickToSelect': 'Нажмите для выбора',
+      'user.loggedInAs': 'Вы вошли как: {name}',
+      'user.profileActive': 'Discord профиль активен',
+      'search.placeholder': 'Поиск треков, артистов или вставьте ссылку...',
+      'search.clearTitle': 'Очистить поиск',
+      'search.btn': 'Найти',
+      'source.all': 'Все треки',
+      'source.yt': 'YouTube Music',
+      'source.sc': 'SoundCloud',
+      'source.yt_albums': 'Альбомы YouTube',
+      'source.sc_albums': 'Альбомы SoundCloud',
+      'source.albumYt': 'Альбом YouTube',
+      'source.albumSc': 'Альбом SoundCloud',
+      'results.popular': 'Популярные рекомендации',
+      'results.query': 'Результаты для «{query}»',
+      'results.found': '{count} найдено',
+      'results.tracksCount': '{count} треков',
+      'results.loading': 'Ищем лучшую музыку на всех источниках...',
+      'results.emptyTitle': 'Ничего не найдено',
+      'results.emptyDesc': 'Попробуйте изменить поисковый запрос или выбрать другой источник',
+      'track.play': 'Играть',
+      'track.playNowTitle': 'Включить прямо сейчас',
+      'track.addQueue': 'В очередь',
+      'track.addQueueTitle': 'Добавить в конец очереди',
+      'sidebar.queue': 'Очередь',
+      'sidebar.history': 'История',
+      'queue.title': 'Предстоящие треки',
+      'queue.shuffle': 'Перемешать',
+      'queue.shuffleTitle': 'Перемешать очередь',
+      'queue.clear': 'Очистить',
+      'queue.clearTitle': 'Очистить очередь',
+      'queue.emptyTitle': 'Очередь пуста',
+      'queue.emptySubtitle': 'Найдите трек и нажмите «+ В очередь»',
+      'queue.removeTitle': 'Удалить из очереди',
+      'history.title': 'Недавно играли',
+      'history.emptyTitle': 'История пуста',
+      'history.replayTitle': 'Включить снова',
+      'player.noTrack': 'Трек не выбран',
+      'player.selectSong': 'Выберите песню для воспроизведения',
+      'player.queueFinished': 'Очередь завершена',
+      'player.addNewTracks': 'Добавьте новые треки',
+      'player.shuffleTitle': 'Перемешать',
+      'player.prevTitle': 'Предыдущий / В начало',
+      'player.playPauseTitle': 'Воспроизведение / Пауза',
+      'player.nextTitle': 'Следующий трек',
+      'player.voteSkipTitle': 'Голосовать за пропуск песни',
+      'player.voteSkipLabel': 'Скип',
+      'player.loopTitle': 'Повтор',
+      'player.loopOff': 'Повтор: Выключен',
+      'player.loopTrack': 'Повтор: Один трек',
+      'player.loopQueue': 'Повтор: Вся очередь',
+      'player.volumeTitle': 'Громкость',
+      'player.stopTitle': 'Остановить и отключить бота',
+      'player.stopLabel': 'Стоп',
+      'modal.closeTitle': 'Закрыть',
+      'toast.langSwitched': 'Язык интерфейса: Русский',
+      'toast.channelRefreshed': 'Статус канала обновлен',
+      'toast.voiceUpdated': 'Голосовой статус обновлен',
+      'toast.queueShuffled': 'Очередь перемешана ({count} треков)',
+      'toast.queueCleared': 'Очередь очищена',
+      'toast.trackRemoved': 'Трек удален из очереди',
+      'toast.trackSkipped': 'Трек пропущен!',
+      'toast.voteRecorded': 'Голос учтён!',
+      'toast.rewound': 'Перемотка в начало трека',
+      'toast.stopped': 'Плеер остановлен, бот отключился от канала',
+      'toast.searchError': 'Ошибка при поиске треков',
+      'toast.networkError': 'Ошибка сетевого соединения с ботом',
+      'toast.commandError': 'Ошибка отправки команды плееру',
+      'toast.request': 'Запрос: {title}',
+      'toast.nowPlaying': '🎶 Играет: {title} в канале {channel}',
+      'toast.addedQueue': '➕ Добавлено в очередь: {title}',
+      'toast.albumAdded': '💿 Альбом добавлен в очередь ({count} треков)',
+      'toast.profileConnected': 'Подключен профиль: {name} ({channel})',
+    },
+    en: {
+      'app.miniBadge': 'Discord Mini App',
+      'voice.searching': 'Searching voice channel...',
+      'voice.notConnected': 'Not connected',
+      'voice.connected': 'Connected',
+      'voice.channelTitle': 'Voice channel status',
+      'voice.refreshTitle': 'Refresh channel status',
+      'user.profileTitle': 'Your Discord profile',
+      'user.loggingIn': 'Logging in...',
+      'user.defaultName': 'Discord User',
+      'user.clickToSelect': 'Click to select',
+      'user.loggedInAs': 'Signed in as: {name}',
+      'user.profileActive': 'Discord profile active',
+      'search.placeholder': 'Search tracks, artists, or paste a link...',
+      'search.clearTitle': 'Clear search',
+      'search.btn': 'Search',
+      'source.all': 'All tracks',
+      'source.yt': 'YouTube Music',
+      'source.sc': 'SoundCloud',
+      'source.yt_albums': 'YouTube Albums',
+      'source.sc_albums': 'SoundCloud Albums',
+      'source.albumYt': 'YouTube Album',
+      'source.albumSc': 'SoundCloud Album',
+      'results.popular': 'Trending Recommendations',
+      'results.query': 'Results for «{query}»',
+      'results.found': '{count} found',
+      'results.tracksCount': '{count} tracks',
+      'results.loading': 'Searching the best music across all sources...',
+      'results.emptyTitle': 'Nothing found',
+      'results.emptyDesc': 'Try changing your search query or selecting another source',
+      'track.play': 'Play',
+      'track.playNowTitle': 'Play right now',
+      'track.addQueue': 'Queue',
+      'track.addQueueTitle': 'Add to end of queue',
+      'sidebar.queue': 'Queue',
+      'sidebar.history': 'History',
+      'queue.title': 'Upcoming Tracks',
+      'queue.shuffle': 'Shuffle',
+      'queue.shuffleTitle': 'Shuffle queue',
+      'queue.clear': 'Clear',
+      'queue.clearTitle': 'Clear queue',
+      'queue.emptyTitle': 'Queue is empty',
+      'queue.emptySubtitle': 'Find a track and click «+ Queue»',
+      'queue.removeTitle': 'Remove from queue',
+      'history.title': 'Recently Played',
+      'history.emptyTitle': 'History is empty',
+      'history.replayTitle': 'Play again',
+      'player.noTrack': 'No track selected',
+      'player.selectSong': 'Choose a song to play',
+      'player.queueFinished': 'Queue ended',
+      'player.addNewTracks': 'Add new tracks',
+      'player.shuffleTitle': 'Shuffle',
+      'player.prevTitle': 'Previous / Restart',
+      'player.playPauseTitle': 'Play / Pause',
+      'player.nextTitle': 'Next track',
+      'player.voteSkipTitle': 'Vote to skip song',
+      'player.voteSkipLabel': 'Skip',
+      'player.loopTitle': 'Repeat',
+      'player.loopOff': 'Repeat: Off',
+      'player.loopTrack': 'Repeat: Single track',
+      'player.loopQueue': 'Repeat: Entire queue',
+      'player.volumeTitle': 'Volume',
+      'player.stopTitle': 'Stop and disconnect bot',
+      'player.stopLabel': 'Stop',
+      'modal.closeTitle': 'Close',
+      'toast.langSwitched': 'Interface language: English',
+      'toast.channelRefreshed': 'Channel status refreshed',
+      'toast.voiceUpdated': 'Voice status updated',
+      'toast.queueShuffled': 'Queue shuffled ({count} tracks)',
+      'toast.queueCleared': 'Queue cleared',
+      'toast.trackRemoved': 'Track removed from queue',
+      'toast.trackSkipped': 'Track skipped!',
+      'toast.voteRecorded': 'Vote recorded!',
+      'toast.rewound': 'Rewound to start of track',
+      'toast.stopped': 'Player stopped, bot disconnected',
+      'toast.searchError': 'Error searching tracks',
+      'toast.networkError': 'Network error connecting to bot',
+      'toast.commandError': 'Error sending command to player',
+      'toast.request': 'Request: {title}',
+      'toast.nowPlaying': '🎶 Now playing: {title} in {channel}',
+      'toast.addedQueue': '➕ Added to queue: {title}',
+      'toast.albumAdded': '💿 Album added to queue ({count} tracks)',
+      'toast.profileConnected': 'Profile connected: {name} ({channel})',
+    }
+  };
+
+  function t(key, params = {}) {
+    const lang = state.lang || 'ru';
+    let text = (I18N[lang] && I18N[lang][key]) || (I18N['ru'] && I18N['ru'][key]) || key;
+    for (const [k, v] of Object.entries(params)) {
+      text = text.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v));
+    }
+    return text;
+  }
+
+  function setLanguage(lang, showNotification = false) {
+    if (lang !== 'ru' && lang !== 'en') lang = 'ru';
+    state.lang = lang;
+    localStorage.setItem('musicium_lang', lang);
+    document.documentElement.setAttribute('data-lang', lang);
+    document.documentElement.setAttribute('lang', lang);
+
+    const langBtnRu = document.getElementById('langBtnRu');
+    const langBtnEn = document.getElementById('langBtnEn');
+    if (langBtnRu && langBtnEn) {
+      if (lang === 'ru') {
+        langBtnRu.classList.add('active');
+        langBtnEn.classList.remove('active');
+      } else {
+        langBtnRu.classList.remove('active');
+        langBtnEn.classList.add('active');
+      }
+    }
+
+    document.querySelectorAll('[data-i18n]').forEach(elem => {
+      const key = elem.getAttribute('data-i18n');
+      if (key) {
+        elem.textContent = t(key);
+      }
+    });
+
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(elem => {
+      const key = elem.getAttribute('data-i18n-placeholder');
+      if (key) {
+        elem.placeholder = t(key);
+      }
+    });
+
+    document.querySelectorAll('[data-i18n-title]').forEach(elem => {
+      const key = elem.getAttribute('data-i18n-title');
+      if (key) {
+        elem.title = t(key);
+      }
+    });
+
+    if (state.lastTracks && state.lastTracks.length > 0) {
+      renderTracks(state.lastTracks);
+    }
+    if (state.player) {
+      updatePlayerUI(state.player);
+    } else {
+      updatePlayerUI(null);
+    }
+    updateUserUI();
+
+    if (showNotification) {
+      showToast(t('toast.langSwitched'), 'info', 'fa-globe');
+    }
+  }
 
   // DOM Elements
   const el = {
@@ -206,8 +443,8 @@
   }
 
   function updateUserUI() {
-    el.userName.textContent = state.userName || 'Пользователь Discord';
-    el.userTag.textContent = state.userId ? `ID: ${state.userId.slice(-6)}` : 'Нажмите для выбора';
+    el.userName.textContent = state.userName || t('user.defaultName');
+    el.userTag.textContent = state.userId ? `ID: ${state.userId.slice(-6)}` : t('user.clickToSelect');
     el.userAvatar.src = getSafeImageUrl(state.userAvatar);
     el.userAvatar.onerror = function() { this.src = '/static/activity_icon.jpg'; };
   }
@@ -229,7 +466,7 @@
           state.channelName = data.channel_name || state.channelName;
 
           el.voiceIndicator.className = 'status-indicator connected';
-          el.voiceLabel.textContent = state.guildName;
+          el.voiceLabel.textContent = state.guildName || t('voice.channelTitle');
           el.voiceChannelName.textContent = `🔊 ${state.channelName}`;
           el.voiceStatusPill.classList.add('active');
           sendWsSubscribe();
@@ -243,8 +480,8 @@
     // If current user is not in voice, scan server voice channels
     state.inVoice = false;
     el.voiceIndicator.className = 'status-indicator';
-    el.voiceLabel.textContent = state.guildName || 'Голосовой канал';
-    el.voiceChannelName.textContent = 'Не подключен';
+    el.voiceLabel.textContent = state.guildName || t('voice.channelTitle');
+    el.voiceChannelName.textContent = t('voice.notConnected');
     el.voiceStatusPill.classList.remove('active');
 
     try {
@@ -259,7 +496,7 @@
           state.userName = u.display_name;
           state.userAvatar = u.avatar;
           saveUser();
-          showToast(`Подключен профиль: ${u.display_name} (${u.channel_name})`, 'success');
+          showToast(t('toast.profileConnected', { name: u.display_name, channel: u.channel_name }), 'success');
           // Update status with channel info
           state.inVoice = true;
           state.guildId = u.guild_id;
@@ -306,7 +543,7 @@
     el.loadingState.style.display = 'flex';
     el.emptyState.style.display = 'none';
     el.tracksGrid.innerHTML = '';
-    el.resultsHeading.innerHTML = `<i class="fa-solid fa-magnifying-glass text-accent"></i><span>Результаты для «${escapeHtml(q)}»</span>`;
+    el.resultsHeading.innerHTML = `<i class="fa-solid fa-magnifying-glass text-accent"></i><span>${t('results.query', { query: escapeHtml(q) })}</span>`;
 
     try {
       const resp = await fetch(`/api/search?q=${encodeURIComponent(q)}&source=${state.currentSource}&limit=35`);
@@ -319,15 +556,15 @@
 
       if (!data.tracks || data.tracks.length === 0) {
         el.emptyState.style.display = 'flex';
-        el.resultsCount.textContent = '0 найдено';
+        el.resultsCount.textContent = t('results.found', { count: 0 });
       } else {
-        el.resultsCount.textContent = `${data.tracks.length} найдено`;
+        el.resultsCount.textContent = t('results.found', { count: data.tracks.length });
         renderTracks(data.tracks);
       }
     } catch (err) {
       el.loadingState.style.display = 'none';
       el.emptyState.style.display = 'flex';
-      showToast('Ошибка при поиске треков', 'error');
+      showToast(t('toast.searchError'), 'error');
     }
   }
 
@@ -336,14 +573,14 @@
     el.loadingState.style.display = 'flex';
     el.emptyState.style.display = 'none';
     el.tracksGrid.innerHTML = '';
-    el.resultsHeading.innerHTML = `<i class="fa-solid fa-fire text-accent"></i><span>Популярные рекомендации</span>`;
+    el.resultsHeading.innerHTML = `<i class="fa-solid fa-fire text-accent"></i><span>${t('results.popular')}</span>`;
 
     try {
       const resp = await fetch(`/api/search?q=топ+хиты+2025&source=${state.currentSource}&limit=35`);
       const data = await resp.json();
       el.loadingState.style.display = 'none';
       if (data.tracks && data.tracks.length > 0) {
-        el.resultsCount.textContent = `${data.tracks.length} треков`;
+        el.resultsCount.textContent = t('results.tracksCount', { count: data.tracks.length });
         renderTracks(data.tracks);
       } else {
         el.emptyState.style.display = 'flex';
@@ -355,6 +592,7 @@
 
   // Render Track Cards
   function renderTracks(tracks) {
+    state.lastTracks = tracks;
     el.tracksGrid.innerHTML = '';
     tracks.forEach(track => {
       const card = document.createElement('div');
@@ -364,15 +602,15 @@
       const sourceLabels = {
         youtube: 'YouTube',
         soundcloud: 'SoundCloud',
-        yt_albums: 'Альбом YouTube',
-        sc_albums: 'Альбом SoundCloud',
+        yt_albums: t('source.albumYt'),
+        sc_albums: t('source.albumSc'),
       };
 
       card.innerHTML = `
         <div class="card-top">
           <div class="card-thumb-wrapper">
             <img src="${getSafeImageUrl(track.thumbnail)}" alt="${escapeHtml(track.title)}" class="card-thumb" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null; this.src='/static/activity_icon.jpg';">
-            <div class="card-play-overlay" title="Включить сейчас">
+            <div class="card-play-overlay" title="${t('track.playNowTitle')}">
               <i class="fa-solid fa-play"></i>
             </div>
           </div>
@@ -388,11 +626,11 @@
           </div>
         </div>
         <div class="card-actions">
-          <button class="btn-card-action btn-play-now" title="Включить прямо сейчас">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Играть
+          <button class="btn-card-action btn-play-now" title="${t('track.playNowTitle')}">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> ${t('track.play')}
           </button>
-          <button class="btn-card-action btn-add-queue" title="Добавить в конец очереди">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg> В очередь
+          <button class="btn-card-action btn-add-queue" title="${t('track.addQueueTitle')}">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg> ${t('track.addQueue')}
           </button>
         </div>
       `;
@@ -422,7 +660,7 @@
       await checkUserVoice();
     }
 
-    showToast(`Запрос: ${track.title}`, 'info', 'fa-music');
+    showToast(t('toast.request', { title: track.title }), 'info', 'fa-music');
 
     try {
       const resp = await fetch('/api/play', {
@@ -439,16 +677,16 @@
 
       const data = await resp.json();
       if (!data.success) {
-        showToast(data.error || 'Ошибка при воспроизведении', 'error');
+        showToast(data.error || 'Error', 'error');
         return;
       }
 
       if (data.action === 'album_enqueued') {
-        showToast(`💿 Альбом добавлен в очередь (${data.tracks_count} треков)`, 'success');
+        showToast(t('toast.albumAdded', { count: data.tracks_count }), 'success');
       } else if (data.action === 'started' || data.action === 'playing_now') {
-        showToast(`🎶 Играет: ${track.title} в канале ${data.channel_name}`, 'success');
+        showToast(t('toast.nowPlaying', { title: track.title, channel: data.channel_name }), 'success');
       } else {
-        showToast(`➕ Добавлено в очередь: ${track.title}`, 'success');
+        showToast(t('toast.addedQueue', { title: track.title }), 'success');
       }
 
       // Immediately sync player state and queue
@@ -462,7 +700,7 @@
       checkUserVoice();
 
     } catch (err) {
-      showToast('Ошибка сетевого соединения с ботом', 'error');
+      showToast(t('toast.networkError'), 'error');
     }
   }
 
@@ -487,7 +725,7 @@
       }
       return data;
     } catch (e) {
-      showToast('Ошибка отправки команды плееру', 'error');
+      showToast(t('toast.commandError'), 'error');
       return null;
     }
   }
@@ -517,9 +755,9 @@
     }
 
     if (!playerState) {
-      el.dockTitle.textContent = 'Трек не выбран';
+      el.dockTitle.textContent = t('player.noTrack');
       el.dockTitle.removeAttribute('href');
-      el.dockArtist.textContent = 'Выберите песню для воспроизведения';
+      el.dockArtist.textContent = t('player.selectSong');
       el.dockSourceBadge.textContent = 'DISCORD';
       el.dockArt.src = '/static/activity_icon.jpg';
       setVinylSpinning(false);
@@ -568,8 +806,8 @@
         stopProgressTicker();
       }
     } else {
-      el.dockTitle.textContent = 'Очередь завершена';
-      el.dockArtist.textContent = 'Добавьте новые треки';
+      el.dockTitle.textContent = t('player.queueFinished');
+      el.dockArtist.textContent = t('player.addNewTracks');
       setVinylSpinning(false);
       const playBtn = el.playIconSvg || el.btnPlayPause;
       playBtn.innerHTML = SVG_ICONS.play;
@@ -589,13 +827,13 @@
     el.btnLoop.className = `control-btn btn-sm ${playerState.loop_mode !== 'off' ? 'active' : ''}`;
     if (playerState.loop_mode === 'track') {
       el.btnLoop.innerHTML = '<i class="fa-solid fa-repeat"></i><span style="font-size:9px;position:absolute;margin-top:10px">1</span>';
-      el.btnLoop.title = 'Повтор: Один трек';
+      el.btnLoop.title = t('player.loopTrack');
     } else if (playerState.loop_mode === 'queue') {
       el.btnLoop.innerHTML = '<i class="fa-solid fa-repeat"></i>';
-      el.btnLoop.title = 'Повтор: Вся очередь';
+      el.btnLoop.title = t('player.loopQueue');
     } else {
       el.btnLoop.innerHTML = '<i class="fa-solid fa-repeat"></i>';
-      el.btnLoop.title = 'Повтор: Выключен';
+      el.btnLoop.title = t('player.loopOff');
     }
 
     // Update Volume UI
@@ -628,8 +866,8 @@
       el.queueList.innerHTML = `
         <div class="queue-empty">
           <i class="fa-solid fa-compact-disc"></i>
-          <p>Очередь пуста</p>
-          <span>Найдите трек и нажмите «+ В очередь»</span>
+          <p data-i18n="queue.emptyTitle">${t('queue.emptyTitle')}</p>
+          <span data-i18n="queue.emptySubtitle">${t('queue.emptySubtitle')}</span>
         </div>
       `;
       return;
@@ -646,7 +884,7 @@
           <div class="queue-item-title">${escapeHtml(track.title)}</div>
           <div class="queue-item-sub">${escapeHtml(track.artist)} • ${track.duration_str}</div>
         </div>
-        <button class="queue-item-remove" title="Удалить из очереди" data-index="${idx}">
+        <button class="queue-item-remove" title="${t('queue.removeTitle')}" data-index="${idx}">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
         </button>
       `;
@@ -655,7 +893,7 @@
         e.stopPropagation();
         const res = await sendPlayerAction('remove', { index: idx });
         if (res && res.success) {
-          showToast('Трек удален из очереди', 'info');
+          showToast(t('toast.trackRemoved'), 'info');
         }
       });
 
@@ -668,7 +906,7 @@
       el.historyList.innerHTML = `
         <div class="queue-empty">
           <i class="fa-regular fa-clock"></i>
-          <p>История пуста</p>
+          <p data-i18n="history.emptyTitle">${t('history.emptyTitle')}</p>
         </div>
       `;
       return;
@@ -684,7 +922,7 @@
           <div class="queue-item-title">${escapeHtml(track.title)}</div>
           <div class="queue-item-sub">${escapeHtml(track.artist)} • ${track.duration_str}</div>
         </div>
-        <button class="btn-text-subtle" title="Включить снова">
+        <button class="btn-text-subtle" title="${t('history.replayTitle')}">
           <i class="fa-solid fa-rotate-right"></i>
         </button>
       `;
@@ -836,18 +1074,24 @@
     el.refreshVoiceBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       checkUserVoice();
-      showToast('Статус канала обновлен', 'info');
+      showToast(t('toast.channelRefreshed'), 'info');
     });
 
     el.voiceStatusPill.addEventListener('click', () => {
       checkUserVoice();
-      showToast('Голосовой статус обновлен', 'info');
+      showToast(t('toast.voiceUpdated'), 'info');
     });
 
     // User badge (Informational)
     el.userBadge.addEventListener('click', () => {
-      showToast(state.userName ? `Вы вошли как: ${state.userName}` : 'Discord профиль активен', 'info', 'fa-user');
+      showToast(state.userName ? t('user.loggedInAs', { name: state.userName }) : t('user.profileActive'), 'info', 'fa-user');
     });
+
+    // Language switcher buttons
+    const langBtnRu = document.getElementById('langBtnRu');
+    const langBtnEn = document.getElementById('langBtnEn');
+    if (langBtnRu) langBtnRu.addEventListener('click', () => setLanguage('ru', true));
+    if (langBtnEn) langBtnEn.addEventListener('click', () => setLanguage('en', true));
 
     // Legal Documentation Modal & Tabs
     const legalModal = document.getElementById('legalModal');
@@ -912,14 +1156,14 @@
     el.shuffleQueueBtn.addEventListener('click', async () => {
       const res = await sendPlayerAction('shuffle');
       if (res && res.success) {
-        showToast(`Очередь перемешана (${res.queue_size} треков)`, 'info', 'fa-shuffle');
+        showToast(t('toast.queueShuffled', { count: res.queue_size }), 'info', 'fa-shuffle');
       }
     });
 
     el.clearQueueBtn.addEventListener('click', async () => {
       const res = await sendPlayerAction('clear');
       if (res && res.success) {
-        showToast('Очередь очищена', 'info', 'fa-trash-can');
+        showToast(t('toast.queueCleared'), 'info', 'fa-trash-can');
       }
     });
 
@@ -946,7 +1190,7 @@
     el.btnSkip.addEventListener('click', async () => {
       const res = await sendPlayerAction('skip', { forced: true });
       if (res && res.success) {
-        showToast(res.message || 'Трек пропущен!', 'info', 'fa-forward-step');
+        showToast(t('toast.trackSkipped'), 'info', 'fa-forward-step');
       }
     });
 
@@ -955,7 +1199,7 @@
       const res = await sendPlayerAction('vote_skip');
       if (res && res.success) {
         updateVoteBadge(res.votes, res.required);
-        showToast(res.message || 'Голос учтён!', 'info', 'fa-person-booth');
+        showToast(t('toast.voteRecorded'), 'info', 'fa-person-booth');
       }
     });
 
@@ -965,7 +1209,7 @@
       el.timeElapsed.textContent = '00:00';
       el.progressFill.style.width = '0%';
       await sendPlayerAction('seek', { seconds: 0 });
-      showToast('Перемотка в начало трека', 'info');
+      showToast(t('toast.rewound'), 'info');
     });
 
     // Scrubber / Seek on Progress Bar (Click & Drag)
@@ -1024,8 +1268,8 @@
     el.btnLoop.addEventListener('click', async () => {
       const res = await sendPlayerAction('loop');
       if (res && res.success) {
-        const modeLabels = { off: 'Выключен', track: 'Повтор трека', queue: 'Повтор очереди' };
-        showToast(`Режим повтора: ${modeLabels[res.loop_mode]}`, 'info', 'fa-repeat');
+        const modeLabels = { off: t('player.loopOff'), track: t('player.loopTrack'), queue: t('player.loopQueue') };
+        showToast(modeLabels[res.loop_mode] || t('player.loopOff'), 'info', 'fa-repeat');
       }
     });
 
@@ -1033,7 +1277,7 @@
     el.btnShuffle.addEventListener('click', async () => {
       const res = await sendPlayerAction('shuffle');
       if (res && res.success) {
-        showToast(`Очередь перемешана (${res.queue_size} треков)`, 'info', 'fa-shuffle');
+        showToast(t('toast.queueShuffled', { count: res.queue_size }), 'info', 'fa-shuffle');
       }
     });
 
@@ -1041,7 +1285,7 @@
     el.btnStop.addEventListener('click', async () => {
       const res = await sendPlayerAction('stop');
       if (res && res.success) {
-        showToast('Плеер остановлен, бот отключился от канала', 'info', 'fa-stop');
+        showToast(t('toast.stopped'), 'info', 'fa-stop');
         updatePlayerUI(null);
       }
     });
@@ -1094,6 +1338,7 @@
 
   // Boot
   async function init() {
+    setLanguage(state.lang, false);
     updateUserUI();
     attachEvents();
     await initDiscordSdk();
