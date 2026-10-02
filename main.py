@@ -1,5 +1,15 @@
 import os
 import sys
+import glob
+
+# Ensure user-installed packages are on sys.path in isolated hosting containers
+for p in glob.glob(os.path.expanduser("~/.local/lib/python*/site-packages")):
+    if p not in sys.path:
+        sys.path.insert(0, p)
+deps_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "deps")
+if os.path.exists(deps_dir) and deps_dir not in sys.path:
+    sys.path.insert(0, deps_dir)
+
 import asyncio
 import logging
 from dotenv import load_dotenv
