@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Discord Music Player • Mini App</title>
+  <meta name="description" content="Discord Music Activity & Web Player with YouTube, SoundCloud, and Yandex Music support.">
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- Discord Embedded App SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@discord/embedded-app-sdk@1.1.0/output/index.min.js"></script>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <!-- Ambient glow backdrop -->
+  <div class="ambient-glow" id="ambientGlow"></div>
+
+  <div class="app-container">
+    <!-- Top Header -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-logo">
+          <i class="fa-solid fa-compact-disc fa-spin-pulse"></i>
+        </div>
+        <div class="brand-text">
+          <h1>Musicium</h1>
+          <span class="badge-mini">Discord Mini App</span>
+        </div>
+      </div>
+
+      <!-- Voice Channel Status Bar -->
+      <div class="voice-status-pill" id="voiceStatusPill" title="Статус голосового канала">
+        <div class="status-indicator" id="voiceIndicator"></div>
+        <div class="voice-info">
+          <span class="voice-label" id="voiceLabel">Поиск голосового канала...</span>
+          <span class="voice-channel-name" id="voiceChannelName">Не подключен</span>
+        </div>
+        <button class="btn-icon-subtle" id="refreshVoiceBtn" title="Обновить статус канала">
+          <i class="fa-solid fa-arrows-rotate"></i>
+        </button>
+      </div>
+
+      <!-- Active User Profile / Switcher -->
+      <div class="user-profile-badge" id="userBadge" title="Нажмите для смены профиля">
+        <img src="https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png" alt="Avatar" id="userAvatar" class="user-avatar">
+        <div class="user-details">
+          <span class="user-name" id="userName">Вход...</span>
+          <span class="user-tag" id="userTag">ID: —</span>
+        </div>
+        <i class="fa-solid fa-chevron-down user-chevron"></i>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="main-layout">
+      <!-- Search & Discovery Section -->
+      <section class="search-section">
+        <div class="search-box-wrapper">
+          <div class="search-input-container">
+            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+            <input 
+              type="text" 
+              id="searchInput" 
+              placeholder="Поиск треков, артистов или вставьте ссылку..." 
+              autocomplete="off"
+            >
+            <button class="search-clear-btn" id="searchClearBtn" style="display: none;">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+            <button class="search-action-btn" id="searchSubmitBtn">
+              <span>Найти</span>
+              <i class="fa-solid fa-arrow-right"></i>
+            </button>
+          </div>
+
+          <!-- Source Filter Chips -->
+          <div class="source-chips">
+            <button class="source-chip active" data-source="all">
+              <i class="fa-solid fa-border-all"></i>
+              <span>Все платформы</span>
+            </button>
+            <button class="source-chip" data-source="youtube">
+              <i class="fa-brands fa-youtube icon-yt"></i>
+              <span>YouTube Music</span>
+            </button>
+            <button class="source-chip" data-source="soundcloud">
+              <i class="fa-brands fa-soundcloud icon-sc"></i>
+              <span>SoundCloud</span>
+            </button>
+            <button class="source-chip" data-source="yandex" id="chipYandex">
+              <i class="fa-solid fa-music icon-ym"></i>
+              <span>Яндекс Музыка</span>
+              <span class="chip-status-dot" id="yandexStatusDot" title="Проверка токена"></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Search Status / Notice -->
+        <div class="notification-bar" id="notificationBar" style="display: none;">
+          <i class="fa-solid fa-circle-info notif-icon"></i>
+          <span class="notif-text" id="notifText"></span>
+          <button class="notif-close" id="notifClose"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <!-- Results / Suggestions View -->
+        <div class="results-container">
+          <div class="section-title-row">
+            <h2 id="resultsHeading">
+              <i class="fa-solid fa-fire text-accent"></i>
+              <span>Популярные рекомендации</span>
+            </h2>
+            <span class="results-count" id="resultsCount">0 найдено</span>
+          </div>
+
+          <!-- Loading Spinner -->
+          <div class="loading-state" id="loadingState" style="display: none;">
+            <div class="loader-waves">
+              <span></span><span></span><span></span><span></span><span></span>
+            </div>
+            <p>Ищем лучшую музыку на всех источниках...</p>
+          </div>
+
+          <!-- Empty State -->
+          <div class="empty-state" id="emptyState" style="display: none;">
+            <div class="empty-icon"><i class="fa-solid fa-music"></i></div>
+            <h3>Ничего не найдено</h3>
+            <p>Попробуйте изменить поисковый запрос или выбрать другой источник</p>
+          </div>
+
+          <!-- Tracks Grid -->
+          <div class="tracks-grid" id="tracksGrid">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </section>
+
+      <!-- Sidebar: Queue & Active Session -->
+      <aside class="sidebar-section">
+        <!-- Tab Switcher -->
+        <div class="sidebar-tabs">
+          <button class="sidebar-tab active" data-tab="queue">
+            <i class="fa-solid fa-list-ul"></i>
+            <span>Очередь (<span id="queueCount">0</span>)</span>
+          </button>
+          <button class="sidebar-tab" data-tab="history">
+            <i class="fa-solid fa-clock-rotate-left"></i>
+            <span>История</span>
+          </button>
+        </div>
+
+        <!-- Queue Panel -->
+        <div class="tab-panel active" id="queuePanel">
+          <div class="queue-toolbar">
+            <span class="toolbar-title">Предстоящие треки</span>
+            <div class="toolbar-actions">
+              <button class="btn-text-subtle" id="shuffleQueueBtn" title="Перемешать очередь">
+                <i class="fa-solid fa-shuffle"></i> Перемешать
+              </button>
+              <button class="btn-text-danger" id="clearQueueBtn" title="Очистить очередь">
+                <i class="fa-solid fa-trash-can"></i> Очистить
+              </button>
+            </div>
+          </div>
+          <div class="queue-list" id="queueList">
+            <div class="queue-empty">
+              <i class="fa-solid fa-compact-disc"></i>
+              <p>Очередь пуста</p>
+              <span>Найдите трек и нажмите «+ В очередь»</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- History Panel -->
+        <div class="tab-panel" id="historyPanel" style="display: none;">
+          <div class="queue-toolbar">
+            <span class="toolbar-title">Недавно играли</span>
+          </div>
+          <div class="queue-list" id="historyList">
+            <div class="queue-empty">
+              <i class="fa-regular fa-clock"></i>
+              <p>История пуста</p>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <!-- Bottom Dock / Music Player Bar -->
+    <footer class="player-dock" id="playerDock">
+      <div class="player-inner">
+        <!-- Left: Track info & Visualizer -->
+        <div class="dock-track-info">
+          <div class="album-art-wrapper">
+            <img src="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop&q=60" alt="Cover" id="dockArt" class="dock-art">
+            <div class="playing-equalizer-bars" id="equalizerBars">
+              <span></span><span></span><span></span><span></span>
+            </div>
+          </div>
+          <div class="dock-meta">
+            <div class="dock-title-marquee">
+              <a href="#" target="_blank" id="dockTitle" class="dock-title">Трек не выбран</a>
+            </div>
+            <div class="dock-submeta">
+              <span id="dockArtist" class="dock-artist">Выберите песню для воспроизведения</span>
+              <span class="dock-source-badge" id="dockSourceBadge">DISCORD</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Center: Playback Controls & Progress Bar -->
+        <div class="dock-controls-center">
+          <div class="controls-buttons-row">
+            <!-- Shuffle -->
+            <button class="control-btn btn-sm" id="btnShuffle" title="Перемешать">
+              <i class="fa-solid fa-shuffle"></i>
+            </button>
+            <!-- Previous -->
+            <button class="control-btn" id="btnPrev" title="Предыдущий / В начало">
+              <i class="fa-solid fa-backward-step"></i>
+            </button>
+            <!-- Play/Pause -->
+            <button class="control-btn btn-play-main" id="btnPlayPause" title="Воспроизведение / Пауза">
+              <i class="fa-solid fa-play" id="playIcon"></i>
+            </button>
+            <!-- Next / Skip -->
+            <button class="control-btn" id="btnSkip" title="Следующий трек">
+              <i class="fa-solid fa-forward-step"></i>
+            </button>
+            <!-- Vote Skip Button -->
+            <button class="control-btn btn-vote-skip" id="btnVoteSkip" title="Голосовать за пропуск песни">
+              <i class="fa-solid fa-person-booth"></i>
+              <span class="vote-label" id="voteSkipLabel">Скип</span>
+              <span class="vote-counter" id="voteCountBadge">0/1</span>
+            </button>
+            <!-- Loop Mode -->
+            <button class="control-btn btn-sm" id="btnLoop" title="Повтор">
+              <i class="fa-solid fa-repeat"></i>
+            </button>
+          </div>
+
+          <!-- Scrubber Progress Bar -->
+          <div class="progress-bar-container">
+            <span class="time-label" id="timeElapsed">00:00</span>
+            <div class="progress-track" id="progressTrack">
+              <div class="progress-fill" id="progressFill"></div>
+              <div class="progress-handle" id="progressHandle"></div>
+            </div>
+            <span class="time-label" id="timeDuration">00:00</span>
+          </div>
+        </div>
+
+        <!-- Right: Volume & Stop / Leave -->
+        <div class="dock-extra-controls">
+          <!-- Volume Group -->
+          <div class="volume-group">
+            <button class="btn-icon-subtle" id="btnMute" title="Громкость">
+              <i class="fa-solid fa-volume-high" id="volumeIcon"></i>
+            </button>
+            <div class="volume-slider-wrapper">
+              <input type="range" id="volumeSlider" min="0" max="150" value="100" class="custom-slider">
+            </div>
+            <span class="volume-value" id="volumeVal">100%</span>
+          </div>
+
+          <!-- Stop / Disconnect -->
+          <button class="btn-danger-dock" id="btnStop" title="Остановить и отключить бота">
+            <i class="fa-solid fa-stop"></i>
+            <span class="btn-text-hide-mobile">Стоп</span>
+          </button>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- User Selector Modal (For direct browser access) -->
+  <div class="modal-overlay" id="userModal" style="display: none;">
+    <div class="modal-box glass-panel">
+      <div class="modal-header">
+        <h3><i class="fa-brands fa-discord text-blurple"></i> Выберите ваш профиль Discord</h3>
+        <button class="btn-close-modal" id="closeUserModalBtn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-hint">
+          Выберите участника, который сейчас находится в голосовом канале Discord, или введите ваш Discord ID:
+        </p>
+
+        <!-- Active Voice Users List -->
+        <div class="voice-users-list" id="voiceUsersList">
+          <div class="loading-state-sm">
+            <i class="fa-solid fa-spinner fa-spin"></i> Поиск пользователей в голосовых каналах...
+          </div>
+        </div>
+
+        <div class="modal-divider"><span>ИЛИ ВВЕДИТЕ ID ВРУЧНУЮ</span></div>
+
+        <div class="manual-id-input">
+          <input type="text" id="manualUserIdInput" placeholder="Ваш Discord User ID (например 410432175373156352)">
+          <button class="btn-primary" id="saveManualIdBtn">Сохранить</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
