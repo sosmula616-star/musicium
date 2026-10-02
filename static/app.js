@@ -23,40 +23,12 @@
     } catch (_) {}
   }
 
-  // Initial custom playlists if none exist (matching Screenshot 2: GTA 5)
-  const defaultPlaylists = [
-    {
-      id: 'pl_gta5',
-      name: 'GTA 5',
-      author: 'Benzo',
-      tracks: [
-        {
-          title: 'Passengers & Pilots',
-          artist: 'Big Baby Tape',
-          duration_str: '2:15',
-          thumbnail: 'https://i.ytimg.com/vi/pgPpgquGemg/hqdefault.jpg',
-          source: 'youtube',
-          url: 'https://music.youtube.com/watch?v=pgPpgquGemg'
-        },
-        {
-          title: 'Malo 2.0',
-          artist: 'ЕГОР КРИД, OG Buda, Toxi$',
-          duration_str: '2:38',
-          thumbnail: 'https://i.ytimg.com/vi/tP3h0iP8OY8/hqdefault.jpg',
-          source: 'youtube',
-          url: 'https://music.youtube.com/watch?v=tP3h0iP8OY8'
-        },
-        {
-          title: 'Overseas',
-          artist: 'D-Block Europe & Central Cee',
-          duration_str: '3:42',
-          thumbnail: 'https://i.ytimg.com/vi/I4Ra4z2Arqg/hqdefault.jpg',
-          source: 'youtube',
-          url: 'https://music.youtube.com/watch?v=I4Ra4z2Arqg'
-        }
-      ]
-    }
-  ];
+  // Clean start for user playlists (no personal pre-filled playlists)
+  let loadedCustom = loadJson('musicium_custom_playlists', []);
+  if (Array.isArray(loadedCustom)) {
+    loadedCustom = loadedCustom.filter(p => p && p.id !== 'pl_gta5' && p.name !== 'GTA 5');
+  }
+  saveJson('musicium_custom_playlists', loadedCustom);
 
   // State
   const state = {
@@ -87,7 +59,7 @@
     lang: localStorage.getItem('musicium_lang') || 'ru',
     lastTracks: [],
     likedTracks: loadJson('musicium_liked_tracks', []),
-    customPlaylists: loadJson('musicium_custom_playlists', defaultPlaylists),
+    customPlaylists: loadedCustom,
     historyTracks: loadJson('musicium_history_tracks', []),
   };
 
@@ -135,8 +107,8 @@
       'source.yt_albums': 'Альбомы',
       'source.albumYt': 'Альбом YouTube',
       'home.recommended': 'Рекомендуем',
-      'home.longTimeNoListen': 'Вы давно не слушали',
-      'home.albumsForYou': 'Альбомы для вас',
+      'home.quickPicks': 'Хиты SoundCloud & YouTube',
+      'home.albums': 'Популярные альбомы',
       'results.searchTitle': 'Результаты поиска',
       'results.popular': 'Популярные рекомендации',
       'results.query': 'Результаты для «{query}»',
@@ -251,8 +223,8 @@
       'source.yt_albums': 'Albums',
       'source.albumYt': 'YouTube Album',
       'home.recommended': 'Recommended',
-      'home.longTimeNoListen': 'Listen again',
-      'home.albumsForYou': 'Albums for you',
+      'home.quickPicks': 'SoundCloud & YouTube Hits',
+      'home.albums': 'Popular Albums',
       'results.searchTitle': 'Search Results',
       'results.popular': 'Trending Recommendations',
       'results.query': 'Results for «{query}»',
@@ -336,38 +308,38 @@
     }
   };
 
-  // Curated items with verified YouTube thumbnails (HTTP 200)
+  // Curated neutral hits from YouTube & SoundCloud
   let CURATED_RECOMMENDED = [
-    { title: 'Passengers & Pilots', artist: 'Big Baby Tape', duration_str: '2:15', thumbnail: 'https://i.ytimg.com/vi/pgPpgquGemg/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=pgPpgquGemg' },
-    { title: 'Ova', artist: 'Lyov и Xudo', duration_str: '3:04', thumbnail: 'https://i.ytimg.com/vi/P8EYqmmeae8/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=P8EYqmmeae8' },
-    { title: 'Slimed Out', artist: 'Mamba Cinco & Zahsosaa', duration_str: '2:40', thumbnail: 'https://i.ytimg.com/vi/TQSHNV3mCfU/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=TQSHNV3mCfU' },
-    { title: 'Malo 2.0', artist: 'ЕГОР КРИД, OG Buda, Toxi$', duration_str: '2:38', thumbnail: 'https://i.ytimg.com/vi/tP3h0iP8OY8/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=tP3h0iP8OY8' },
-    { title: 'Venom (Music From The Motion Picture)', artist: 'Eminem', duration_str: '4:29', thumbnail: 'https://i.ytimg.com/vi/8CdcCD5V-d8/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=8CdcCD5V-d8' },
-    { title: 'Spasi L', artist: 'Dav', duration_str: '2:52', thumbnail: 'https://i.ytimg.com/vi/EsmFmcpdybU/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=EsmFmcpdybU' },
-    { title: 'Alors on danse (Radio Edit)', artist: 'Stromae', duration_str: '3:28', thumbnail: 'https://i.ytimg.com/vi/VHoT4N43jK8/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=VHoT4N43jK8' },
-    { title: 'Overseas', artist: 'D-Block Europe & Central Cee', duration_str: '3:42', thumbnail: 'https://i.ytimg.com/vi/I4Ra4z2Arqg/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=I4Ra4z2Arqg' },
-    { title: 'Държавен Кючек', artist: 'Leo Band', duration_str: '3:15', thumbnail: 'https://i.ytimg.com/vi/UYSciD1u7sE/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=UYSciD1u7sE' },
-    { title: 'Party Funk', artist: 'Young Madz & MC Zudo Bo', duration_str: '2:12', thumbnail: 'https://i.ytimg.com/vi/xqkGMZCYbrY/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=xqkGMZCYbrY' },
-    { title: 'Pour It Up', artist: 'Rihanna', duration_str: '2:41', thumbnail: 'https://i.ytimg.com/vi/ehcVomMexkY/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=ehcVomMexkY' },
-    { title: 'Layli', artist: 'Jamshid Ximmatov', duration_str: '3:30', thumbnail: 'https://i.ytimg.com/vi/K0CEBXmehSg/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=K0CEBXmehSg' }
+    { title: 'Blinding Lights', artist: 'The Weeknd', duration_str: '3:20', thumbnail: 'https://i.ytimg.com/vi/4NRXx6U8ABQ/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=4NRXx6U8ABQ' },
+    { title: 'Get Lucky', artist: 'Daft Punk ft. Pharrell Williams', duration_str: '4:08', thumbnail: 'https://i.ytimg.com/vi/5NV6Rdv1a3I/hqdefault.jpg', source: 'soundcloud', url: 'https://api.soundcloud.com/tracks/soundcloud%3Atracks%3A88335161' },
+    { title: 'Starboy', artist: 'The Weeknd ft. Daft Punk', duration_str: '3:50', thumbnail: 'https://i.ytimg.com/vi/34Na4j8AVgA/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=34Na4j8AVgA' },
+    { title: 'Levitating', artist: 'Dua Lipa', duration_str: '3:23', thumbnail: 'https://i.ytimg.com/vi/TUVcZfQe-Kw/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=TUVcZfQe-Kw' },
+    { title: 'Believer', artist: 'Imagine Dragons', duration_str: '3:24', thumbnail: 'https://i.ytimg.com/vi/7wtfhZwyrcc/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=7wtfhZwyrcc' },
+    { title: 'Alone', artist: 'Marshmello', duration_str: '3:19', thumbnail: 'https://i.ytimg.com/vi/ALZHF5UqnU4/hqdefault.jpg', source: 'soundcloud', url: 'https://soundcloud.com/marshmellomusic/marshmello-alone' },
+    { title: 'Faded', artist: 'Alan Walker', duration_str: '3:32', thumbnail: 'https://i.ytimg.com/vi/60ItHLz5WEA/hqdefault.jpg', source: 'soundcloud', url: 'https://soundcloud.com/alanwalker/faded' },
+    { title: 'Bad Guy', artist: 'Billie Eilish', duration_str: '3:14', thumbnail: 'https://i.ytimg.com/vi/DyDfgMOUjCI/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=DyDfgMOUjCI' },
+    { title: 'Animals', artist: 'Martin Garrix', duration_str: '2:56', thumbnail: 'https://i.ytimg.com/vi/gCYcYZW45Uk/hqdefault.jpg', source: 'soundcloud', url: 'https://soundcloud.com/martingarrix/martin-garrix-animals' },
+    { title: 'Stay', artist: 'The Kid LAROI & Justin Bieber', duration_str: '2:21', thumbnail: 'https://i.ytimg.com/vi/kTJczUoc268/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=kTJczUoc268' },
+    { title: 'Midnight City', artist: 'M83', duration_str: '4:03', thumbnail: 'https://i.ytimg.com/vi/dX3k_QDnzHE/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=dX3k_QDnzHE' },
+    { title: 'The Nights', artist: 'Avicii', duration_str: '2:56', thumbnail: 'https://i.ytimg.com/vi/UtF6Jej8yb4/hqdefault.jpg', source: 'soundcloud', url: 'https://soundcloud.com/aviciiofficial/the-nights' }
   ];
 
   let CURATED_QUICK_PICKS = [
-    { title: 'ДИНАСТИЯ', artist: 'VILLIAN & madk1d', thumbnail: 'https://i.ytimg.com/vi/J7NFL-eOxiQ/hqdefault.jpg', source: 'youtube' },
-    { title: 'Caramelldansen (Speedy Mixes)', artist: 'Caramella Girls', thumbnail: 'https://i.ytimg.com/vi/PDJLvF1dUek/hqdefault.jpg', source: 'youtube' },
-    { title: 'все хотят меня', artist: 'gotlib', thumbnail: 'https://i.ytimg.com/vi/DXoOqDf8o3k/hqdefault.jpg', source: 'youtube' },
-    { title: 'Там ревели горы', artist: 'Miyagi & Эндшпиль', thumbnail: 'https://i.ytimg.com/vi/MzI_CIYSsfQ/hqdefault.jpg', source: 'youtube' },
-    { title: 'Sweater Weather', artist: 'The Neighbourhood', thumbnail: 'https://i.ytimg.com/vi/GCdwKhTtNNw/hqdefault.jpg', source: 'youtube' },
-    { title: 'Где прошла ты', artist: 'Кравц & Гио Пика', thumbnail: 'https://i.ytimg.com/vi/I6dXiJ8r5jM/hqdefault.jpg', source: 'youtube' }
+    { title: 'Bangarang', artist: 'Skrillex', thumbnail: 'https://i.ytimg.com/vi/YJVmu6yttiw/hqdefault.jpg', source: 'soundcloud' },
+    { title: 'First of the Year (Equinox)', artist: 'Skrillex', thumbnail: 'https://i.ytimg.com/vi/2cXDgFwE13g/hqdefault.jpg', source: 'soundcloud' },
+    { title: 'Strobe', artist: 'deadmau5', thumbnail: 'https://i.ytimg.com/vi/tKi9Z-f6qX4/hqdefault.jpg', source: 'soundcloud' },
+    { title: 'One More Time', artist: 'Daft Punk', thumbnail: 'https://i.ytimg.com/vi/FGBhQbmMxH8/hqdefault.jpg', source: 'youtube' },
+    { title: 'Wake Me Up', artist: 'Avicii', thumbnail: 'https://i.ytimg.com/vi/IcrbM1l_BoI/hqdefault.jpg', source: 'youtube' },
+    { title: 'Counting Stars', artist: 'OneRepublic', thumbnail: 'https://i.ytimg.com/vi/hT_nvWreIhg/hqdefault.jpg', source: 'youtube' }
   ];
 
   let CURATED_ALBUMS = [
-    { title: 'Viva La Vida', artist: 'SODA LUV', subtitle: 'Альбом • SODA LUV', thumbnail: 'https://i.ytimg.com/vi/9_wwDPM1OFE/hqdefault.jpg', source: 'yt_albums' },
-    { title: 'АРТЁМ', artist: 'SLAVA MARLOW', subtitle: 'EP • SLAVA MARLOW', thumbnail: 'https://i.ytimg.com/vi/ABow8gM1UI4/hqdefault.jpg', source: 'yt_albums' },
-    { title: 'SODA LUV', artist: 'SODA LUV', subtitle: 'Альбом • SODA LUV', thumbnail: 'https://i.ytimg.com/vi/a39YBPPpmI4/hqdefault.jpg', source: 'yt_albums' },
-    { title: "BOYS DON'T CRY", artist: 'GONE.Fludd', subtitle: 'Альбом • GONE.Fludd', thumbnail: 'https://i.ytimg.com/vi/pomoFf4PUXE/hqdefault.jpg', source: 'yt_albums' },
-    { title: 'DUMMY BOY', artist: '6ix9ine', subtitle: 'Альбом • 6ix9ine', thumbnail: 'https://i.ytimg.com/vi/6cRTU8lpSMA/hqdefault.jpg', source: 'yt_albums' },
-    { title: 'Whenever You Need Somebody', artist: 'Rick Astley', subtitle: 'Альбом • Rick Astley', thumbnail: 'https://i.ytimg.com/vi/BeyEGebJ1l4/hqdefault.jpg', source: 'yt_albums' }
+    { title: 'Discovery', artist: 'Daft Punk', subtitle: 'Альбом • Daft Punk', thumbnail: 'https://i.ytimg.com/vi/A2VpR8HahKc/hqdefault.jpg', source: 'yt_albums' },
+    { title: 'After Hours', artist: 'The Weeknd', subtitle: 'Альбом • The Weeknd', thumbnail: 'https://i.ytimg.com/vi/ygTZZpVkm3o/hqdefault.jpg', source: 'yt_albums' },
+    { title: 'Random Access Memories', artist: 'Daft Punk', subtitle: 'Альбом • Daft Punk', thumbnail: 'https://i.ytimg.com/vi/IhnqEw70vGQ/hqdefault.jpg', source: 'yt_albums' },
+    { title: 'Future Nostalgia', artist: 'Dua Lipa', subtitle: 'Альбом • Dua Lipa', thumbnail: 'https://i.ytimg.com/vi/njbmwfndFH8/hqdefault.jpg', source: 'yt_albums' },
+    { title: 'Night Visions', artist: 'Imagine Dragons', subtitle: 'Альбом • Imagine Dragons', thumbnail: 'https://i.ytimg.com/vi/4m2pknR3k-4/hqdefault.jpg', source: 'yt_albums' },
+    { title: 'Scary Monsters and Nice Sprites', artist: 'Skrillex', subtitle: 'EP • Skrillex', thumbnail: 'https://i.ytimg.com/vi/WSeNSzJ2-Jw/hqdefault.jpg', source: 'yt_albums' }
   ];
 
   function t(key, params = {}) {
