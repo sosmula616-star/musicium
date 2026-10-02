@@ -358,7 +358,46 @@
 
         <!-- ================= VIEW 1: HOME (Главная, like Screenshot 2) ================= -->
         <section class="ytm-view active" id="viewHome">
-          <!-- Section 1: Рекомендуем (3-column layout like Screenshot 2) -->
+          <!-- Section 1: Сейчас слушают на серверах (Live Now across Discord servers) -->
+          <div class="ytm-shelf" id="liveServersShelf">
+            <div class="ytm-shelf-header">
+              <div class="shelf-brand-title">
+                <div class="shelf-avatar-badge" style="background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.4);">
+                  <span class="live-dot-pulse"></span>
+                </div>
+                <h2><span>Сейчас слушают на серверах</span></h2>
+                <span class="live-badge-pill"><i class="fa-solid fa-tower-broadcast"></i> LIVE</span>
+              </div>
+              <div class="shelf-nav-arrows">
+                <button class="shelf-arrow-btn" id="liveArrowLeft" title="Назад"><i class="fa-solid fa-chevron-left"></i></button>
+                <button class="shelf-arrow-btn" id="liveArrowRight" title="Вперед"><i class="fa-solid fa-chevron-right"></i></button>
+              </div>
+            </div>
+            <div class="live-cards-row" id="liveServersRow">
+              <!-- Dynamically populated from /api/feed/discovery -->
+            </div>
+          </div>
+
+          <!-- Section 2: Недавние прослушивания (Global recent picks across users) -->
+          <div class="ytm-shelf" id="globalRecentShelf">
+            <div class="ytm-shelf-header">
+              <div class="shelf-brand-title">
+                <div class="shelf-avatar-badge" style="background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.15);">
+                  <i class="fa-solid fa-clock-rotate-left" style="color: #ff4d4d; font-size: 13px;"></i>
+                </div>
+                <h2><span>Недавние прослушивания</span></h2>
+              </div>
+              <div class="shelf-nav-arrows">
+                <button class="shelf-arrow-btn" id="recentArrowLeft" title="Назад"><i class="fa-solid fa-chevron-left"></i></button>
+                <button class="shelf-arrow-btn" id="recentArrowRight" title="Вперед"><i class="fa-solid fa-chevron-right"></i></button>
+              </div>
+            </div>
+            <div class="recent-cards-row" id="globalRecentRow">
+              <!-- Dynamically populated from /api/feed/discovery -->
+            </div>
+          </div>
+
+          <!-- Section 3: Рекомендуем (3-column layout like Screenshot 2) -->
           <div class="ytm-shelf">
             <div class="ytm-shelf-header">
               <div class="shelf-brand-title">
