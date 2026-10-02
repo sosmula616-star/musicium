@@ -119,3 +119,19 @@ class PlayerManager:
         for dead_ws in disconnected:
             self.ws_clients.discard(dead_ws)
             self.ws_subscriptions.pop(dead_ws, None)
+
+    def get_all_active_streams(self) -> list:
+        active = []
+        for guild_id, player in self.players.items():
+            if player.is_playing and player.current_track:
+                listeners = player.get_non_bot_listeners()
+                active.append({
+                    "guild_id": str(guild_id),
+                    "guild_name": player.guild.name,
+                    "channel_name": player.voice_client.channel.name if player.voice_client and player.voice_client.channel else None,
+                    "listeners_count": len(listeners),
+                    "track": player.current_track.to_dict(),
+                    "elapsed_seconds": player.get_elapsed_seconds(),
+                    "duration": player.current_track.duration,
+                })
+        return active
