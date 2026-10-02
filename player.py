@@ -20,19 +20,45 @@ FFMPEG_EXECUTABLE = shutil.which("ffmpeg") or "ffmpeg"
 # Ensure Opus is loaded for Discord voice streaming
 def ensure_opus_loaded():
     if not discord.opus.is_loaded():
-        for path in [
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), "opus.dll"),
-            os.path.join(os.path.dirname(discord.__file__), "bin", "libopus-0.x64.dll"),
-            "opus.dll",
-            "libopus-0.dll"
-        ]:
-            if os.path.exists(path):
+        if sys.platform == "win32":
+            for path in [
+                os.path.join(os.path.dirname(os.path.abspath(__file__)), "opus.dll"),
+                os.path.join(os.path.dirname(discord.__file__), "bin", "libopus-0.x64.dll"),
+                "opus.dll",
+                "libopus-0.dll"
+            ]:
+                if os.path.exists(path):
+                    try:
+                        discord.opus.load_opus(path)
+                        logger.info(f"Loaded Opus voice encoder from: {path}")
+                        break
+                    except Exception as e:
+                        logger.warning(f"Could not load opus from {path}: {e}")
+        else:
+            import ctypes.util
+            lib = ctypes.util.find_library("opus")
+            if lib:
                 try:
-                    discord.opus.load_opus(path)
-                    logger.info(f"Loaded Opus voice encoder from: {path}")
-                    break
+                    discord.opus.load_opus(lib)
+                    logger.info(f"Loaded Opus voice encoder via find_library: {lib}")
+                    return
                 except Exception as e:
-                    logger.warning(f"Could not load opus from {path}: {e}")
+                    logger.warning(f"Could not load opus from find_library ({lib}): {e}")
+
+            for path in [
+                "libopus.so.0",
+                "libopus.so",
+                "/usr/lib/libopus.so.0",
+                "/usr/lib/libopus.so",
+                "/usr/lib/x86_64-linux-gnu/libopus.so.0"
+            ]:
+                if os.path.exists(path):
+                    try:
+                        discord.opus.load_opus(path)
+                        logger.info(f"Loaded Opus voice encoder from: {path}")
+                        break
+                    except Exception as e:
+                        logger.warning(f"Could not load opus from {path}: {e}")
 
 ensure_opus_loaded()
 
