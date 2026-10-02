@@ -195,8 +195,11 @@ class MusicService:
 
         title = entry.get("title") or "Неизвестный трек"
         artist = entry.get("uploader") or entry.get("channel") or entry.get("artist") or "Неизвестный автор"
-        duration = int(entry.get("duration") or 0)
-        thumbnail = entry.get("thumbnail") or DEFAULT_THUMBNAIL
+        vid_id = str(entry.get("id") or "")
+        if source == "youtube" and vid_id:
+            thumbnail = f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg"
+        else:
+            thumbnail = entry.get("thumbnail") or DEFAULT_THUMBNAIL
         stream_url = entry.get("url") if entry.get("acodec") != "none" else None
 
         return Track(
@@ -232,13 +235,14 @@ class MusicService:
         artist = entry.get("uploader") or entry.get("channel") or entry.get("artist") or "Неизвестный автор"
         duration = int(entry.get("duration") or 0)
         
-        thumbnail = entry.get("thumbnail")
-        if not thumbnail and entry.get("thumbnails"):
-            thumbnail = entry["thumbnails"][-1].get("url")
-        if not thumbnail and source == "youtube" and entry_id:
+        if source == "youtube" and entry_id:
             thumbnail = f"https://i.ytimg.com/vi/{entry_id}/hqdefault.jpg"
-        if not thumbnail:
-            thumbnail = DEFAULT_THUMBNAIL
+        else:
+            thumbnail = entry.get("thumbnail")
+            if not thumbnail and entry.get("thumbnails"):
+                thumbnail = entry["thumbnails"][-1].get("url")
+            if not thumbnail:
+                thumbnail = DEFAULT_THUMBNAIL
 
         return Track(
             id=f"{source}_{entry_id}",
