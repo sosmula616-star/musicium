@@ -541,7 +541,17 @@ class MusicService:
                         "extract_flat": False,
                         "noplaylist": True,
                     }
-                    search_query = f"{track.title} {track.artist}".strip()
+                    # Clean search query for fallback (strip emojis, hashtags, pipes, bracketed suffixes)
+                    clean_title = re.sub(r'[\U00010000-\U0010ffff]', '', track.title)
+                    clean_title = re.sub(r'#\w+', '', clean_title)
+                    clean_title = re.sub(r'\|.*', '', clean_title)
+                    clean_title = re.sub(r'\[.*?\]|\(.*?\)', '', clean_title)
+                    clean_artist = track.artist if track.artist and track.artist != "Неизвестный автор" else ""
+                    search_query = f"{clean_title} {clean_artist}".strip()
+                    search_query = ' '.join(search_query.split())
+                    if not search_query:
+                        search_query = track.title
+
                     with yt_dlp.YoutubeDL(sc_opts) as ydl:
                         sc_info = ydl.extract_info(f"scsearch1:{search_query}", download=False)
                         if sc_info and "entries" in sc_info and sc_info["entries"]:
