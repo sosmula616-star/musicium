@@ -174,11 +174,12 @@ async def slash_player(interaction: discord.Interaction):
     embed.set_image(url=f"{PUBLIC_URL}/static/activity_banner.jpg")
     embed.set_footer(text=f"Вызвал: {interaction.user.display_name}")
 
+    player_url = f"{PUBLIC_URL}?guild_id={interaction.guild.id}" if interaction.guild else PUBLIC_URL
     view = discord.ui.View()
     view.add_item(discord.ui.Button(
         label="✨ Открыть Mini App Плеер",
         style=discord.ButtonStyle.link,
-        url=PUBLIC_URL,
+        url=player_url,
     ))
 
     await interaction.followup.send(embed=embed, view=view)
