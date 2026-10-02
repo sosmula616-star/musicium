@@ -43,7 +43,7 @@ class Track:
         self.duration_str = format_duration(duration)
         self.thumbnail = thumbnail or DEFAULT_THUMBNAIL
         self.url = url
-        self.source = source  # 'youtube', 'soundcloud', 'yandex'
+        self.source = source  # 'youtube', 'soundcloud'
         self.stream_url = stream_url
         self.requester_id = requester_id
         self.requester_name = requester_name or "Пользователь"
@@ -81,11 +81,7 @@ class Track:
 
 class MusicService:
     def __init__(self):
-        self.yandex_client = None
-        self.yandex_token = os.getenv("YANDEX_MUSIC_TOKEN", "").strip()
-        self._init_yandex_client()
-
-        # yt-dlp configuration for fast and reliable searching & streaming
+        # yt-dlp configuration for fast searching
         self.ydl_opts = {
             "format": "bestaudio/best",
             "noplaylist": False,
@@ -96,18 +92,10 @@ class MusicService:
             "extract_flat": False,
             "ignoreerrors": True,
             "source_address": "0.0.0.0",
-            "extractor_args": {
-                "youtube": {
-                    "player_client": ["android"],
-                    "player_skip": ["webpage", "configs"],
-                },
-                "youtubetab": {
-                    "skip": ["webpage"],
-                },
-            },
         }
 
-        # Check cookies from env var, custom path or default cookies.txt
+        # YouTube cookie path strictly for YouTube playback
+        self.youtube_cookie_path = None
         cookie_path = os.getenv("YOUTUBE_COOKIES_PATH") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt")
         env_cookies = os.getenv("YOUTUBE_COOKIES", "").strip()
         env_cookies_b64 = os.getenv("YOUTUBE_COOKIES_BASE64", "").strip()
@@ -134,28 +122,8 @@ class MusicService:
                 logger.warning(f"Could not write YOUTUBE_COOKIES to cookies.txt: {ce}")
 
         if os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
-            self.ydl_opts["cookiefile"] = cookie_path
-            logger.info(f"Using YouTube cookies from: {cookie_path}")
-
-    def _init_yandex_client(self):
-        if not self.yandex_token:
-            logger.info("YANDEX_MUSIC_TOKEN is not configured in .env yet.")
-            return
-
-        try:
-            from yandex_music import Client
-            self.yandex_client = Client(self.yandex_token).init()
-            logger.info("Yandex Music client initialized successfully!")
-        except Exception as e:
-            logger.error(f"Failed to initialize Yandex Music client: {e}")
-            self.yandex_client = None
-
-    def reload_yandex_token(self, token: Optional[str] = None):
-        if token:
-            self.yandex_token = token.strip()
-        else:
-            self.yandex_token = os.getenv("YANDEX_MUSIC_TOKEN", "").strip()
-        self._init_yandex_client()
+            self.youtube_cookie_path = cookie_path
+            logger.info(f"YouTube cookies configured from: {cookie_path}")
 
     async def search(self, query: str, source: str = "all", limit: int = 10) -> List[Track]:
         query = query.strip()
@@ -190,12 +158,7 @@ class MusicService:
         return all_tracks
 
     async def _resolve_direct_url(self, url: str) -> List[Track]:
-        # Handle Yandex Music track link
-        if "music.yandex" in url:
-            track = await asyncio.to_thread(self._resolve_yandex_url, url)
-            return [track] if track else []
-
-        # Otherwise yt-dlp handles YouTube, SoundCloud, and hundreds of other sites
+        # yt-dlp handles YouTube, SoundCloud, and hundreds of other sites
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, self._extract_url_info, url)
 
@@ -223,8 +186,6 @@ class MusicService:
         source = "youtube"
         if "soundcloud" in extractor or "soundcloud.com" in webpage_url:
             source = "soundcloud"
-        elif "yandex" in extractor:
-            source = "yandex"
 
         title = entry.get("title") or "Неизвестный трек"
         artist = entry.get("uploader") or entry.get("channel") or entry.get("artist") or "Неизвестный автор"
@@ -262,8 +223,6 @@ class MusicService:
         extractor = (entry.get("extractor") or entry.get("extractor_key") or "").lower()
         if "soundcloud" in extractor or "soundcloud" in webpage_url:
             source = "soundcloud"
-        elif "yandex" in extractor:
-            source = "yandex"
 
         title = entry.get("title") or "Неизвестный трек"
         artist = entry.get("uploader") or entry.get("channel") or entry.get("artist") or "Неизвестный автор"
@@ -365,114 +324,71 @@ class MusicService:
 
         return await asyncio.to_thread(_search)
 
-    async def _search_yandex(self, query: str, limit: int = 6) -> List[Track]:
-        if not self.yandex_client:
-            logger.debug("Yandex client not initialized, skipping Yandex Music search.")
-            return []
-
-        def _search():
-            try:
-                res = self.yandex_client.search(query, type_="track")
-                if not res or not res.tracks or not res.tracks.results:
-                    return []
-
-                tracks = []
-                for item in res.tracks.results[:limit]:
-                    artists_names = ", ".join([a.name for a in item.artists]) if item.artists else "Неизвестный исполнитель"
-                    thumbnail = DEFAULT_THUMBNAIL
-                    if item.cover_uri:
-                        thumbnail = "https://" + item.cover_uri.replace("%%", "400x400")
-
-                    duration_sec = int((item.duration_ms or 0) / 1000)
-                    url = f"https://music.yandex.ru/track/{item.id}"
-                    track = Track(
-                        id=f"yandex_{item.id}",
-                        title=item.title,
-                        artist=artists_names,
-                        duration=duration_sec,
-                        thumbnail=thumbnail,
-                        url=url,
-                        source="yandex",
-                        raw_info={"yandex_id": item.id},
-                    )
-                    tracks.append(track)
-                return tracks
-            except Exception as e:
-                logger.error(f"Yandex Music search error: {e}")
-                return []
-
-        return await asyncio.to_thread(_search)
-
-    def _resolve_yandex_url(self, url: str) -> Optional[Track]:
-        if not self.yandex_client:
-            return None
-        try:
-            # extract track id from e.g. https://music.yandex.ru/album/123/track/456 or /track/456
-            parts = url.rstrip("/").split("/")
-            if "track" in parts:
-                idx = parts.index("track")
-                if idx + 1 < len(parts):
-                    track_id = parts[idx + 1]
-                    tracks = self.yandex_client.tracks([track_id])
-                    if tracks:
-                        item = tracks[0]
-                        artists_names = ", ".join([a.name for a in item.artists]) if item.artists else "Неизвестный исполнитель"
-                        thumbnail = "https://" + item.cover_uri.replace("%%", "400x400") if item.cover_uri else DEFAULT_THUMBNAIL
-                        duration_sec = int((item.duration_ms or 0) / 1000)
-                        return Track(
-                            id=f"yandex_{item.id}",
-                            title=item.title,
-                            artist=artists_names,
-                            duration=duration_sec,
-                            thumbnail=thumbnail,
-                            url=url,
-                            source="yandex",
-                            raw_info={"yandex_id": item.id},
-                        )
-        except Exception as e:
-            logger.error(f"Error resolving Yandex URL: {e}")
-        return None
-
     async def get_stream_url(self, track: Track) -> Optional[str]:
         """Resolves the direct playable audio stream URL for a Track."""
-        if track.source == "yandex":
-            return await self._get_yandex_stream(track)
-        else:
-            return await self._get_ytdlp_stream(track)
+        if track.source == "soundcloud" or (track.url and "soundcloud.com" in track.url) or (track.id and track.id.startswith("soundcloud_")):
+            return await self._get_soundcloud_stream(track)
+        return await self._get_youtube_stream(track)
 
-    async def _get_yandex_stream(self, track: Track) -> Optional[str]:
-        if not self.yandex_client:
-            logger.error("Cannot resolve Yandex stream: Yandex Music client is not authenticated.")
-            return None
-
+    async def _get_soundcloud_stream(self, track: Track) -> Optional[str]:
         def _get():
-            try:
-                track_id = track.raw_info.get("yandex_id")
-                if not track_id and "_" in track.id:
-                    track_id = track.id.split("_", 1)[1]
+            target_url = track.url
+            if not target_url or not target_url.startswith("http"):
+                target_url = track.raw_info.get("webpage_url") or track.raw_info.get("url")
+            if not target_url or not str(target_url).startswith("http"):
+                if track.id and "_" in track.id and track.id.split("_", 1)[1].isdigit():
+                    target_url = f"https://api.soundcloud.com/tracks/soundcloud%3Atracks%3A{track.id.split('_', 1)[1]}"
+                else:
+                    target_url = f"scsearch1:{track.title} {track.artist}"
 
-                tracks = self.yandex_client.tracks([track_id])
-                if not tracks:
-                    return None
-                t = tracks[0]
-                download_info = t.get_download_info()
-                if not download_info:
-                    return None
-                # Prefer mp3 or highest bitrate
-                best_info = max(download_info, key=lambda d: d.bitrate_in_kbps or 0)
-                return best_info.get_direct_link()
+            sc_opts = {
+                "format": "bestaudio/best",
+                "quiet": True,
+                "no_warnings": True,
+                "extract_flat": False,
+                "noplaylist": True,
+                "source_address": "0.0.0.0",
+            }
+
+            try:
+                with yt_dlp.YoutubeDL(sc_opts) as ydl:
+                    info = ydl.extract_info(target_url, download=False)
+                    if info:
+                        if "entries" in info and info["entries"]:
+                            info = info["entries"][0]
+                        stream = info.get("url")
+                        if stream:
+                            return stream
             except Exception as e:
-                logger.error(f"Error getting Yandex download link: {e}")
-                return None
+                logger.warning(f"Direct SoundCloud extraction failed for {target_url}: {e}")
+
+            # Fallback search on SoundCloud
+            try:
+                clean_title = re.sub(r'[\U00010000-\U0010ffff]', '', track.title)
+                clean_title = re.sub(r'#\w+', '', clean_title)
+                clean_title = re.sub(r'\|.*', '', clean_title)
+                clean_title = re.sub(r'\[.*?\]|\(.*?\)', '', clean_title).strip()
+                clean_artist = track.artist if track.artist and track.artist != "Неизвестный автор" else ""
+                search_q = f"scsearch1:{clean_title} {clean_artist}".strip()
+                with yt_dlp.YoutubeDL(sc_opts) as ydl:
+                    info = ydl.extract_info(search_q, download=False)
+                    if info and "entries" in info and info["entries"]:
+                        sc_entry = info["entries"][0]
+                        return sc_entry.get("url")
+            except Exception as e2:
+                logger.error(f"SoundCloud fallback search failed: {e2}")
+
+            return None
 
         return await asyncio.to_thread(_get)
 
-    async def _get_ytdlp_stream(self, track: Track) -> Optional[str]:
+    async def _get_youtube_stream(self, track: Track) -> Optional[str]:
         def _get():
             target_url = track.url
-            if not target_url:
-                if track.id and "_" in track.id and not track.id.startswith("yandex_"):
-                    target_url = f"https://www.youtube.com/watch?v={track.id.split('_', 1)[1]}"
+            if not target_url or not target_url.startswith("http"):
+                if track.id and "_" in track.id:
+                    vid_id = track.id.split("_", 1)[1]
+                    target_url = f"https://www.youtube.com/watch?v={vid_id}"
                 else:
                     target_url = f"ytsearch1:{track.title} {track.artist}"
 
@@ -494,8 +410,9 @@ class MusicService:
                 },
             }
 
-            if "cookiefile" in self.ydl_opts:
-                opts["cookiefile"] = self.ydl_opts["cookiefile"]
+            # STRICT RULE: Cookies are ONLY used for YouTube stream playback to avoid bot detection
+            if self.youtube_cookie_path and os.path.exists(self.youtube_cookie_path):
+                opts["cookiefile"] = self.youtube_cookie_path
 
             try:
                 with yt_dlp.YoutubeDL(opts) as ydl:
@@ -532,8 +449,7 @@ class MusicService:
                 except Exception:
                     pass
 
-                logger.warning(f"YouTube stream extraction failed, attempting SoundCloud fallback...")
-                # Automatic fallback: search track title on SoundCloud
+                logger.warning("YouTube stream extraction failed, attempting SoundCloud fallback...")
                 try:
                     sc_opts = {
                         "format": "bestaudio/best",
@@ -541,14 +457,12 @@ class MusicService:
                         "extract_flat": False,
                         "noplaylist": True,
                     }
-                    # Clean search query for fallback (strip emojis, hashtags, pipes, bracketed suffixes)
                     clean_title = re.sub(r'[\U00010000-\U0010ffff]', '', track.title)
                     clean_title = re.sub(r'#\w+', '', clean_title)
                     clean_title = re.sub(r'\|.*', '', clean_title)
-                    clean_title = re.sub(r'\[.*?\]|\(.*?\)', '', clean_title)
+                    clean_title = re.sub(r'\[.*?\]|\(.*?\)', '', clean_title).strip()
                     clean_artist = track.artist if track.artist and track.artist != "Неизвестный автор" else ""
                     search_query = f"{clean_title} {clean_artist}".strip()
-                    search_query = ' '.join(search_query.split())
                     if not search_query:
                         search_query = track.title
 
