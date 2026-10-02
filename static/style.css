@@ -1187,44 +1187,67 @@ body {
   font-variant-numeric: tabular-nums;
   width: 38px;
   text-align: center;
+  user-select: none;
 }
 
 .progress-track {
   flex: 1;
-  height: 5px;
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: var(--radius-full);
+  height: 20px;
+  display: flex;
+  align-items: center;
   position: relative;
   cursor: pointer;
-  transition: height 0.15s ease;
+  user-select: none;
 }
 
-.progress-track:hover {
+.progress-track::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-full);
+  transition: height 0.15s ease, background 0.15s ease;
+}
+
+.progress-track:hover::before,
+.progress-track.seeking::before {
   height: 7px;
+  background: rgba(255, 255, 255, 0.28);
 }
 
 .progress-fill {
-  height: 100%;
+  height: 5px;
   width: 0%;
   background: linear-gradient(90deg, #5865f2, #00f5d4);
   border-radius: var(--radius-full);
   position: relative;
+  pointer-events: none;
+  transition: height 0.15s ease;
+}
+
+.progress-track:hover .progress-fill,
+.progress-track.seeking .progress-fill {
+  height: 7px;
 }
 
 .progress-handle {
   position: absolute;
   top: 50%;
-  right: -5px;
+  right: -6px;
   transform: translateY(-50%) scale(0);
-  width: 12px;
-  height: 12px;
-  background: #fff;
+  width: 13px;
+  height: 13px;
+  background: #ffffff;
   border-radius: 50%;
-  box-shadow: 0 0 8px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
   transition: transform 0.15s ease;
+  pointer-events: none;
 }
 
-.progress-track:hover .progress-handle {
+.progress-track:hover .progress-handle,
+.progress-track.seeking .progress-handle {
   transform: translateY(-50%) scale(1);
 }
 
@@ -1232,7 +1255,7 @@ body {
 .dock-extra-controls {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
   min-width: 220px;
   justify-content: flex-end;
 }
@@ -1250,6 +1273,9 @@ body {
   cursor: pointer;
   padding: 6px;
   font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: color 0.2s;
 }
 
@@ -1258,40 +1284,83 @@ body {
 }
 
 .volume-slider-wrapper {
-  width: 85px;
+  width: 90px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  position: relative;
 }
 
 .custom-slider {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: var(--radius-full);
+  height: 24px;
+  background: transparent;
   outline: none;
+  cursor: pointer;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+/* Chrome / Safari / Edge / Discord WebKit Track */
+.custom-slider::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: var(--radius-full);
   cursor: pointer;
 }
 
+/* Chrome / Safari / Edge / Discord WebKit Thumb - Vertically centered! */
 .custom-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: #fff;
+  background: #ffffff;
   cursor: pointer;
-  transition: transform 0.15s ease;
+  margin-top: -4px; /* (4px track - 12px thumb) / 2 = -4px -> PERFECT VERTICAL CENTER! */
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  transition: transform 0.15s ease, background 0.15s ease;
 }
 
 .custom-slider::-webkit-slider-thumb:hover {
-  transform: scale(1.3);
+  transform: scale(1.25);
+  background: var(--accent-blurple);
+}
+
+/* Firefox Track */
+.custom-slider::-moz-range-track {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+}
+
+/* Firefox Thumb */
+.custom-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
 }
 
 .volume-value {
-  font-size: 11px;
-  color: var(--text-muted);
-  width: 32px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  min-width: 38px;
+  text-align: right;
   font-variant-numeric: tabular-nums;
+  user-select: none;
+  line-height: 1;
 }
 
 .btn-danger-dock {
