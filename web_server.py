@@ -307,6 +307,11 @@ class WebServer:
                 headers = {"Content-Type": "application/x-www-form-urlencoded"}
                 async with session.post(token_url, data=payload, headers=headers) as resp:
                     resp_data = await resp.json()
+                    return web.json_response(resp_data, status=resp.status)
+        except Exception as e:
+            logger.error(f"Error exchanging discord token: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+
     async def handle_proxy_image(self, request: web.Request) -> web.Response:
         """Proxies external image requests (YouTube, SoundCloud, Discord) to bypass iframe CSP & referer restrictions."""
         url = request.query.get("url")
