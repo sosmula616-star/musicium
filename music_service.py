@@ -88,7 +88,7 @@ class MusicService:
         # yt-dlp configuration for fast and reliable searching & streaming
         self.ydl_opts = {
             "format": "bestaudio/best",
-            "noplaylist": True,
+            "noplaylist": False,
             "quiet": True,
             "no_warnings": True,
             "default_search": "ytsearch",
@@ -139,19 +139,17 @@ class MusicService:
         source = source.lower()
         tasks = []
 
-        if source == "all":
-            yt_limit = min(limit, 35)
-            sc_limit = min(limit, 20)
-            ym_limit = min(limit, 20)
+        if source == "yt_albums":
+            tasks.append(self._search_youtube_albums(query, limit=limit))
+        elif source == "sc_albums":
+            tasks.append(self._search_soundcloud_albums(query, limit=limit))
+        elif source == "youtube":
+            tasks.append(self._search_youtube(query, limit=limit))
+        elif source == "soundcloud":
+            tasks.append(self._search_soundcloud(query, limit=limit))
         else:
-            yt_limit = sc_limit = ym_limit = limit
-
-        if source in ("all", "youtube"):
-            tasks.append(self._search_youtube(query, limit=yt_limit))
-        if source in ("all", "soundcloud"):
-            tasks.append(self._search_soundcloud(query, limit=sc_limit))
-        if source in ("all", "yandex"):
-            tasks.append(self._search_yandex(query, limit=ym_limit))
+            tasks.append(self._search_youtube(query, limit=min(limit, 30)))
+            tasks.append(self._search_soundcloud(query, limit=min(limit, 20)))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
         all_tracks: List[Track] = []
@@ -181,7 +179,7 @@ class MusicService:
                     return []
                 if "entries" in info:
                     tracks = []
-                    for entry in info["entries"][:10]:
+                    for entry in info["entries"][:50]:
                         if entry:
                             tracks.append(self._parse_ytdlp_entry(entry))
                     return tracks
@@ -306,6 +304,60 @@ class MusicService:
                         else:
                             filtered_tracks.append(t)
                 return filtered_tracks if filtered_tracks else all_sc_tracks
+
+        return await asyncio.to_thread(_search)
+
+    async def _search_youtube_albums(self, query: str, limit: int = 15) -> List[Track]:
+        def _search():
+            opts = dict(self.ydl_opts)
+            opts["extract_flat"] = True
+            opts["noplaylist"] = False
+            search_query = f"ytsearchplaylist{limit}:{query}"
+            info = None
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                try:
+                    info = ydl.extract_info(search_query, download=False)
+                except Exception:
+                    info = None
+                if not info or "entries" not in info or not info["entries"]:
+                    try:
+                        search_query = f"ytsearch{limit}:{query} album"
+                        info = ydl.extract_info(search_query, download=False)
+                    except Exception:
+                        info = None
+                if not info or "entries" not in info:
+                    return []
+                tracks = []
+                for entry in info["entries"]:
+                    if entry:
+                        t = self._parse_flat_entry(entry, default_source="youtube")
+                        t.title = f"💿 {t.title}"
+                        tracks.append(t)
+                return tracks
+
+        return await asyncio.to_thread(_search)
+
+    async def _search_soundcloud_albums(self, query: str, limit: int = 15) -> List[Track]:
+        def _search():
+            opts = dict(self.ydl_opts)
+            opts["extract_flat"] = True
+            opts["noplaylist"] = False
+            search_query = f"scsearch{limit}:{query} album"
+            info = None
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                try:
+                    info = ydl.extract_info(search_query, download=False)
+                except Exception:
+                    info = None
+                if not info or "entries" not in info:
+                    return []
+                tracks = []
+                for entry in info["entries"]:
+                    if entry:
+                        t = self._parse_flat_entry(entry, default_source="soundcloud")
+                        t.title = f"💿 {t.title}"
+                        tracks.append(t)
+                return tracks
 
         return await asyncio.to_thread(_search)
 
