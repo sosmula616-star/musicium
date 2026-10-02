@@ -11,12 +11,19 @@ from player_manager import PlayerManager
 
 logger = logging.getLogger("web_server")
 
+@web.middleware
+async def cache_control_middleware(request: web.Request, handler):
+    response = await handler(request)
+    if request.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
+    return response
+
 class WebServer:
     def __init__(self, bot, player_manager: PlayerManager, music_service: MusicService):
         self.bot = bot
         self.player_manager = player_manager
         self.music_service = music_service
-        self.app = web.Application()
+        self.app = web.Application(middlewares=[cache_control_middleware])
         self.runner = None
         self.site = None
 
