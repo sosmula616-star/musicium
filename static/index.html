@@ -52,14 +52,13 @@
         </button>
       </div>
 
-      <!-- Active User Profile / Switcher -->
-      <div class="user-profile-badge" id="userBadge" title="Нажмите для смены профиля">
-        <img src="https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png" alt="Avatar" id="userAvatar" class="user-avatar">
+      <!-- Active User Profile (Display Only) -->
+      <div class="user-profile-badge" id="userBadge" title="Ваш профиль Discord">
+        <img src="/static/activity_icon.jpg" alt="Avatar" id="userAvatar" class="user-avatar">
         <div class="user-details">
           <span class="user-name" id="userName">Вход...</span>
           <span class="user-tag" id="userTag">ID: —</span>
         </div>
-        <i class="fa-solid fa-chevron-down user-chevron"></i>
       </div>
     </header>
 
@@ -205,10 +204,13 @@
       <div class="player-inner">
         <!-- Left: Track info & Visualizer -->
         <div class="dock-track-info">
-          <div class="album-art-wrapper">
-            <img src="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop&q=60" alt="Cover" id="dockArt" class="dock-art">
-            <div class="playing-equalizer-bars" id="equalizerBars">
-              <span></span><span></span><span></span><span></span>
+          <div class="vinyl-wrapper">
+            <div class="vinyl-disc" id="dockArtDisc">
+              <div class="vinyl-groove-rings"></div>
+              <div class="vinyl-label">
+                <img src="/static/activity_icon.jpg" alt="Cover" id="dockArt" class="dock-art">
+                <div class="vinyl-spindle-hole"></div>
+              </div>
             </div>
           </div>
           <div class="dock-meta">
@@ -216,6 +218,9 @@
               <a href="#" target="_blank" id="dockTitle" class="dock-title">Трек не выбран</a>
             </div>
             <div class="dock-submeta">
+              <div class="playing-equalizer-bars" id="equalizerBars">
+                <span></span><span></span><span></span><span></span>
+              </div>
               <span id="dockArtist" class="dock-artist">Выберите песню для воспроизведения</span>
               <span class="dock-source-badge" id="dockSourceBadge">DISCORD</span>
             </div>
@@ -288,34 +293,7 @@
     </footer>
   </div>
 
-  <!-- User Selector Modal (For direct browser access) -->
-  <div class="modal-overlay" id="userModal" style="display: none;">
-    <div class="modal-box glass-panel">
-      <div class="modal-header">
-        <h3><i class="fa-brands fa-discord text-blurple"></i> Выберите ваш профиль Discord</h3>
-        <button class="btn-close-modal" id="closeUserModalBtn"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-      <div class="modal-body">
-        <p class="modal-hint">
-          Выберите участника, который сейчас находится в голосовом канале Discord, или введите ваш Discord ID:
-        </p>
 
-        <!-- Active Voice Users List -->
-        <div class="voice-users-list" id="voiceUsersList">
-          <div class="loading-state-sm">
-            <i class="fa-solid fa-spinner fa-spin"></i> Поиск пользователей в голосовых каналах...
-          </div>
-        </div>
-
-        <div class="modal-divider"><span>ИЛИ ВВЕДИТЕ ID ВРУЧНУЮ</span></div>
-
-        <div class="manual-id-input">
-          <input type="text" id="manualUserIdInput" placeholder="Ваш Discord User ID (например 410432175373156352)">
-          <button class="btn-primary" id="saveManualIdBtn">Сохранить</button>
-        </div>
-      </div>
-    </div>
-  </div>
 
   <!-- Toast Notification Container -->
   <div class="toast-container" id="toastContainer"></div>
