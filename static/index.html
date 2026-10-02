@@ -21,7 +21,14 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <!-- Discord Embedded App SDK -->
   <script src="https://cdn.jsdelivr.net/npm/@discord/embedded-app-sdk@1.1.0/output/index.min.js"></script>
-  <link rel="stylesheet" href="/static/style.css?v=2.5">
+  <link rel="stylesheet" href="/static/style.css?v=3.2">
+  <style>
+    /* Critical inline guards: Guarantee mini vinyl sizing regardless of cache */
+    .vinyl-wrapper { width: 50px !important; height: 50px !important; min-width: 50px !important; max-width: 50px !important; min-height: 50px !important; max-height: 50px !important; flex-shrink: 0 !important; overflow: hidden !important; border-radius: 50% !important; display: flex !important; align-items: center !important; justify-content: center !important; }
+    .vinyl-disc { width: 50px !important; height: 50px !important; min-width: 50px !important; max-width: 50px !important; border-radius: 50% !important; overflow: hidden !important; flex-shrink: 0 !important; }
+    .vinyl-label { width: 28px !important; height: 28px !important; min-width: 28px !important; max-width: 28px !important; border-radius: 50% !important; overflow: hidden !important; flex-shrink: 0 !important; }
+    .dock-art { width: 100% !important; height: 100% !important; max-width: 28px !important; max-height: 28px !important; object-fit: cover !important; border-radius: 50% !important; display: block !important; }
+  </style>
 </head>
 <body>
   <!-- Ambient glow backdrop -->
@@ -199,32 +206,85 @@
       </aside>
     </main>
 
-    <!-- Bottom App Legal Footer -->
-    <footer class="app-legal-footer">
+    <!-- Bottom App Legal & Usage Footer -->
+    <footer class="app-legal-footer" id="appLegalFooter">
       <div class="legal-footer-inner">
+        <!-- Top: Brand, Glow Badge & Tech Pills -->
         <div class="legal-brand-block">
           <div class="legal-brand-name">
             <span class="legal-brand-dot"></span>
             <strong>Musicium</strong>
           </div>
-          <span class="legal-badge-team">Developed by Musicium Team</span>
+          <span class="legal-badge-team">
+            <i class="fa-solid fa-bolt"></i> Developed by Musicium Team
+          </span>
+          <div class="legal-tech-pills">
+            <span class="legal-tech-chip"><i class="fa-brands fa-discord"></i> Discord Gateway</span>
+            <span class="legal-tech-chip"><i class="fa-solid fa-shield-halved"></i> Zero-Logs Voice</span>
+            <span class="legal-tech-chip"><i class="fa-solid fa-music"></i> YouTube • SoundCloud • Яндекс</span>
+          </div>
         </div>
+
+        <!-- 3-Card Policy & Important Usage Grid -->
+        <div class="legal-info-grid">
+          <div class="legal-info-card">
+            <div class="legal-info-card-header">
+              <i class="fa-solid fa-user-shield text-blurple"></i>
+              <h4>Конфиденциальность (Privacy by Design)</h4>
+            </div>
+            <p>
+              Сервис работает исключительно на отдачу звука (Audio Output). Мы гарантированно <strong>не записываем</strong>, не анализируем и не храним голоса участников в каналах Discord.
+            </p>
+          </div>
+
+          <div class="legal-info-card">
+            <div class="legal-info-card-header">
+              <i class="fa-solid fa-scale-balanced text-cyan"></i>
+              <h4>Правила сервиса & DMCA</h4>
+            </div>
+            <p>
+              Бот не сохраняет аудиофайлы на сервере. Контент воспроизводится в реальном времени из открытых источников. Запрещены спам, флуд и деструктивный шум в голосовых каналах.
+            </p>
+          </div>
+
+          <div class="legal-info-card">
+            <div class="legal-info-card-header">
+              <i class="fa-solid fa-sliders text-amber"></i>
+              <h4>Функции и управление</h4>
+            </div>
+            <p>
+              Интерактивная очередь, перемотка по таймлайну, перемешивание, режим повтора и система демократического пропуска треков (Vote Skip) для вашего сообщества.
+            </p>
+          </div>
+        </div>
+
+        <!-- Interactive Legal Links & Action Buttons -->
         <div class="legal-nav-links">
           <button type="button" class="legal-link-btn" id="openTermsBtn">
-            <i class="fa-solid fa-file-contract"></i> Условия использования
+            <i class="fa-solid fa-file-contract"></i>
+            <span>Условия использования</span>
           </button>
           <span class="legal-bullet">•</span>
           <button type="button" class="legal-link-btn" id="openPrivacyBtn">
-            <i class="fa-solid fa-shield-halved"></i> Политика конфиденциальности
+            <i class="fa-solid fa-shield-halved"></i>
+            <span>Политика конфиденциальности</span>
           </button>
           <span class="legal-bullet">•</span>
-          <a href="/terms" target="_blank" class="legal-link-btn legal-link-ext" title="Открыть в новой вкладке">
-            <i class="fa-solid fa-arrow-up-right-from-square"></i> Web
+          <a href="/terms" target="_blank" class="legal-link-btn legal-link-ext" title="Открыть ToS в отдельной вкладке">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i>
+            <span>Веб ToS</span>
+          </a>
+          <span class="legal-bullet">•</span>
+          <a href="/privacy" target="_blank" class="legal-link-btn legal-link-ext" title="Открыть Privacy в отдельной вкладке">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i>
+            <span>Веб Privacy</span>
           </a>
         </div>
+
+        <!-- Bottom Copyright Row -->
         <div class="legal-copyright-row">
-          <span>© 2025–2026 Musicium. Все права защищены. <strong>Developed by Musicium Team</strong>.</span>
-          <span class="legal-disclaimer-sub">Не аффилировано с Discord Inc., YouTube (Google LLC) или SoundCloud Ltd.</span>
+          <span>© 2025–2026 Musicium. Все права защищены. <strong class="legal-highlight-team">Developed by Musicium Team</strong>.</span>
+          <span class="legal-disclaimer-sub">Musicium не связан и не аффилирован с Discord Inc., YouTube (Google LLC) или SoundCloud Ltd. Все торговые марки принадлежат правообладателям.</span>
         </div>
       </div>
     </footer>
@@ -234,11 +294,11 @@
       <div class="player-inner">
         <!-- Left: Track info & Visualizer -->
         <div class="dock-track-info">
-          <div class="vinyl-wrapper">
-            <div class="vinyl-disc" id="dockArtDisc">
+          <div class="vinyl-wrapper" style="width: 50px !important; height: 50px !important; min-width: 50px !important; max-width: 50px !important; min-height: 50px !important; max-height: 50px !important; overflow: hidden !important; border-radius: 50% !important;">
+            <div class="vinyl-disc" id="dockArtDisc" style="width: 50px !important; height: 50px !important; min-width: 50px !important; max-width: 50px !important; border-radius: 50% !important; overflow: hidden !important;">
               <div class="vinyl-groove-rings"></div>
-              <div class="vinyl-label">
-                <img src="/static/activity_icon.jpg" alt="Cover" id="dockArt" class="dock-art">
+              <div class="vinyl-label" style="width: 28px !important; height: 28px !important; min-width: 28px !important; max-width: 28px !important; border-radius: 50% !important; overflow: hidden !important;">
+                <img src="/static/activity_icon.jpg" alt="Cover" id="dockArt" class="dock-art" width="28" height="28" style="width: 28px !important; height: 28px !important; max-width: 28px !important; max-height: 28px !important; object-fit: cover !important; border-radius: 50% !important; display: block !important;">
                 <div class="vinyl-spindle-hole"></div>
               </div>
             </div>
@@ -442,6 +502,6 @@
   <!-- Toast Notification Container -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="/static/app.js?v=2.5"></script>
+  <script src="/static/app.js?v=3.2"></script>
 </body>
 </html>
