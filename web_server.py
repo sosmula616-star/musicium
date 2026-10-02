@@ -124,6 +124,20 @@ class WebServer:
 
         return web.json_response({"voice_users": voice_members})
 
+    def _serialize_channel_members(self, channel):
+        if not channel or not hasattr(channel, "members"):
+            return []
+        members_data = []
+        for m in channel.members:
+            members_data.append({
+                "id": str(m.id),
+                "name": m.name,
+                "display_name": m.display_name,
+                "avatar": m.display_avatar.url if hasattr(m, "display_avatar") else None,
+                "bot": m.bot,
+            })
+        return members_data
+
     async def handle_user_voice(self, request: web.Request) -> web.Response:
         user_id_str = request.query.get("user_id")
         guild_id_str = request.query.get("guild_id")
@@ -168,6 +182,7 @@ class WebServer:
                         "guild_name": guild.name,
                         "channel_id": str(channel.id),
                         "channel_name": channel.name,
+                        "channel_members": self._serialize_channel_members(channel),
                         "player_active": player.is_playing if player else False,
                     })
             except Exception as e:
@@ -192,6 +207,7 @@ class WebServer:
             "guild_name": guild.name,
             "channel_id": str(channel.id),
             "channel_name": channel.name,
+            "channel_members": self._serialize_channel_members(channel),
             "player_active": player.is_playing if player else False,
         })
 
@@ -367,6 +383,16 @@ class WebServer:
 
         if not player:
             return web.json_response({"success": False, "error": "Плеер не найден или не активен"}, status=404)
+
+        # Enforce that only members in the bot's voice channel can control the player
+        if player.voice_client and player.voice_client.channel:
+            bot_channel = player.voice_client.channel
+            member_ids = {m.id for m in bot_channel.members}
+            if user_id and user_id not in member_ids:
+                return web.json_response({
+                    "success": False,
+                    "error": "Управлять плеером могут только участники голосового канала!",
+                }, status=403)
 
         try:
             res_data = {"success": True}
