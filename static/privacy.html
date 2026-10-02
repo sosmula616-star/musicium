@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Политика конфиденциальности — Musicium</title>
+  <link rel="icon" type="image/jpeg" href="/static/activity_icon.jpg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    :root {
+      --bg-dark: #0b0c10;
+      --bg-card: rgba(22, 24, 34, 0.75);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --accent-blurple: #5865f2;
+      --accent-cyan: #00d2ff;
+      --text-main: #f3f4f6;
+      --text-secondary: #9ca3af;
+      --text-muted: #6b7280;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(circle at 10% 20%, rgba(88, 101, 242, 0.12) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(0, 210, 255, 0.08) 0%, transparent 40%);
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      line-height: 1.6;
+      padding: 40px 20px 80px;
+    }
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+    }
+    .header-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid var(--border-subtle);
+      border-radius: 20px;
+      padding: 32px;
+      margin-bottom: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .brand-logo {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+    }
+    h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 26px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #fff, #a5b4fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .meta-tag {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+    .badge-dev {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(88, 101, 242, 0.15);
+      border: 1px solid rgba(88, 101, 242, 0.3);
+      color: #c7d2fe;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .btn-back {
+      color: var(--text-main);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.06);
+      transition: all 0.2s;
+    }
+    .btn-back:hover {
+      background: rgba(255,255,255,0.12);
+    }
+    .content-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid var(--border-subtle);
+      border-radius: 20px;
+      padding: 40px;
+    }
+    .section-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 19px;
+      font-weight: 700;
+      color: #fff;
+      margin: 32px 0 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section-title:first-child { margin-top: 0; }
+    .section-title i { color: var(--accent-cyan); font-size: 17px; }
+    p, li {
+      color: #d1d5db;
+      font-size: 14.5px;
+      margin-bottom: 12px;
+    }
+    ul {
+      padding-left: 20px;
+      margin-bottom: 16px;
+    }
+    li { margin-bottom: 6px; }
+    .highlight-box {
+      background: rgba(0, 210, 255, 0.08);
+      border-left: 3px solid var(--accent-cyan);
+      padding: 14px 18px;
+      border-radius: 0 12px 12px 0;
+      margin: 18px 0;
+      font-size: 13.5px;
+      color: #e0f2fe;
+    }
+    .footer-credits {
+      text-align: center;
+      margin-top: 40px;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+    .footer-credits strong {
+      color: #e5e7eb;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header-card">
+      <div class="brand-title">
+        <img src="/static/activity_icon.jpg" alt="Logo" class="brand-logo">
+        <div>
+          <h1>Политика конфиденциальности</h1>
+          <div class="meta-tag">Musicium Bot & Discord Mini App • Редакция от 2 октября 2026 г.</div>
+        </div>
+      </div>
+      <div>
+        <a href="/" class="btn-back"><i class="fa-solid fa-arrow-left"></i> В плеер</a>
+      </div>
+    </div>
+
+    <div class="content-card">
+      <div class="badge-dev" style="margin-bottom: 20px;">
+        <i class="fa-solid fa-shield-halved"></i> Developed by Musicium Team
+      </div>
+
+      <h2 class="section-title"><i class="fa-solid fa-shield-heart"></i> 1. Введение и базовые принципы</h2>
+      <p>
+        Команда разработчиков <strong>Musicium Team</strong> («Мы», «Наш Сервис») с максимальной ответственностью относится к приватности и конфиденциальности данных каждого пользователя Discord.
+      </p>
+      <p>
+        Настоящая Политика конфиденциальности («Политика») разъясняет, какие технические данные обрабатываются при использовании бота «Musicium» и встроенного веб-приложения Discord Activity (Mini App), каким образом они защищены и на каких принципах строится их использование.
+      </p>
+      <div class="highlight-box">
+        <strong>Фундаментальный принцип минимизации данных (Privacy by Design):</strong><br>
+        Мы собираем и обрабатываем исключительно минимально необходимый технический объем информации, без которого технически невозможно подключение бота к голосовому каналу, трансляция звука и отображение очереди воспроизведения.
+      </div>
+
+      <h2 class="section-title"><i class="fa-solid fa-database"></i> 2. Категории обрабатываемых технических данных</h2>
+      <p>Сервис оперирует исключительно следующими общедоступными техническими метаданными платформы Discord:</p>
+      <ul>
+        <li><strong>Discord User ID (Идентификатор пользователя):</strong> публичный уникальный числовой идентификатор учетной записи Discord. Используется для привязки добавленного трека к автору запроса, отображения ника заказчика в очереди и обработки голосов в механизме пропуска (`vote_skip`).</li>
+        <li><strong>Guild ID и Voice Channel ID (Идентификаторы сервера и голосового канала):</strong> технические номера, позволяющие Discord-клиенту бота подключиться к правильному голосовому каналу на конкретном сервере и адресовать WebSocket-события именно участникам данной гильдии.</li>
+        <li><strong>Отображаемое имя (Display Name) и аватар:</strong> публичные элементы профиля пользователя, запрашиваемые локально через официальный протокол Discord Embedded App SDK для персонализации веб-интерфейса Mini App во время текущей сессии.</li>
+        <li><strong>Служебные данные очереди (Play Queue & History):</strong> названия треков, ссылки на источники и продолжительность песен, находящихся в текущей очереди сервера. Хранятся исключительно в оперативной памяти процесса (In-Memory RAM).</li>
+      </ul>
+
+      <h2 class="section-title"><i class="fa-solid fa-user-lock"></i> 3. Что Сервис КАТЕГОРИЧЕСКИ НЕ собирает и НЕ сохраняет</h2>
+      <div class="highlight-box" style="border-left-color: #ef4444; background: rgba(239, 68, 68, 0.08); color: #fee2e2;">
+        <strong>Абсолютный запрет на перехват голоса:</strong><br>
+        Сервис «Musicium» осуществляет трансляцию аудиопотока в голосовой канал исключительно в ОДНОСТОРОННЕМ порядке (Output Only). Бот <strong>НИКОГДА НЕ ЗАПИСЫВАЕТ, НЕ ПРОСЛУШИВАЕТ, НЕ РАСПОЗНАЕТ И НЕ СОХРАНЯЕТ</strong> голоса участников, микрофонные потоки или частные разговоры в голосовых каналах Discord.
+      </div>
+      <ul>
+        <li>Мы НЕ собираем персональные данные реального мира: адреса электронной почты, пароли от учетных записей, номера телефонов, паспортные данные, платежные реквизиты, банковские карты или физическую геолокацию;</li>
+        <li>Мы НЕ храним историю сообщений текстовых каналов, переписку или логи чата;</li>
+        <li>Мы НЕ используем рекламные шпионские модули, трекеры отслеживания поведенческой аналитики или сторонние профилировщики;</li>
+        <li>Мы **НИ ПРИ КАКИХ ОБСТОЯТЕЛЬСТВАХ НЕ ПРОДАЕМ**, не сдаем в аренду и не передаем пользовательские технические данные коммерческим рекламным сетям или аналитическим брокерам данных.</li>
+      </ul>
+
+      <h2 class="section-title"><i class="fa-solid fa-cookie-bite"></i> 4. Локальное хранилище браузера (LocalStorage)</h2>
+      <p>
+        Интерактивный плеер Mini App использует технологию веб-хранилища браузера (`localStorage`) исключительно для сохранения удобных для вас локальных клиентских настроек:
+      </p>
+      <ul>
+        <li>Выбранный уровень громкости воспроизведения (0–100%);</li>
+        <li>Последний выбранный режим повтора (off / track / queue);</li>
+        <li>Активный поисковый фильтр (YouTube, SoundCloud, Альбомы);</li>
+        <li>Кэшированные метаданные профиля Discord (для мгновенной отрисовки интерфейса без мигания при повторном открытии).</li>
+      </ul>
+      <p>Эти параметры хранятся локально на вашем устройстве и никогда не отсылаются во внешние аналитические системы.</p>
+
+      <h2 class="section-title"><i class="fa-solid fa-network-wired"></i> 5. Сторонние интеграции и безопасность</h2>
+      <p>
+        Сервис взаимодействует со следующими внешними инфраструктурными поставщиками:
+      </p>
+      <ul>
+        <li><strong>Discord Inc. (Discord API & Activities):</strong> инфраструктура авторизации и голосового протокола. Обработка данных подчиняется Политике конфиденциальности Discord.</li>
+        <li><strong>YouTube (Google LLC) & SoundCloud Ltd.:</strong> общедоступные медиа-платформы, к публичным API которых отправляются текстовые поисковые запросы названий песен.</li>
+      </ul>
+      <p>
+        Все каналы передачи данных между клиентом, сервером и голосовыми шлюзами Discord защищены современным протоколом криптографического шифрования TLS/SSL (HTTPS и безопасные WebSockets WSS).
+      </p>
+
+      <h2 class="section-title"><i class="fa-solid fa-user-gear"></i> 6. Права пользователей и удаление данных</h2>
+      <p>
+        Каждый пользователь и администратор сервера Discord обладает полным контролем:
+      </p>
+      <ul>
+        <li><strong>Очистка очереди:</strong> нажатие кнопки «Очистить очередь» в веб-интерфейсе либо остановка плеера немедленно стирает список треков из оперативной памяти сервера;</li>
+        <li><strong>Сброс локальных данных:</strong> вы можете в любой момент удалить локальные настройки, очистив кэш и хранилище браузера в настройках Discord;</li>
+        <li><strong>Отзыв доступа:</strong> удаление бота с сервера немедленно прекращает любые процессы взаимодействия с данным сервером.</li>
+      </ul>
+
+      <h2 class="section-title"><i class="fa-solid fa-envelope-open-text"></i> 7. Обратная связь и контактная информация</h2>
+      <p>
+        Если у вас возникли вопросы, связанные с безопасностью данных или настоящей Политикой конфиденциальности, вы можете связаться непосредственно с разработчиками Сервиса.
+      </p>
+    </div>
+
+    <div class="footer-credits">
+      <p>© 2025–2026 Musicium. Все права защищены.</p>
+      <p><strong>Developed by Musicium Team</strong></p>
+    </div>
+  </div>
+</body>
+</html>
