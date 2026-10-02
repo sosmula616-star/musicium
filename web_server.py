@@ -54,21 +54,21 @@ class WebServer:
         static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
         index_file = os.path.join(static_dir, "index.html")
         if os.path.exists(index_file):
-            return web.FileResponse(index_file)
+            return web.FileResponse(index_file, headers={"Cache-Control": "no-cache, must-revalidate"})
         return web.Response(text="<h1>Discord Music Mini App</h1><p>Frontend loading...</p>", content_type="text/html")
 
     async def handle_terms(self, request: web.Request) -> web.Response:
         static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
         terms_file = os.path.join(static_dir, "terms.html")
         if os.path.exists(terms_file):
-            return web.FileResponse(terms_file)
+            return web.FileResponse(terms_file, headers={"Cache-Control": "no-cache, must-revalidate"})
         return web.Response(text="<h1>Terms of Service</h1><p>Musicium Terms of Service</p>", content_type="text/html")
 
     async def handle_privacy(self, request: web.Request) -> web.Response:
         static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
         privacy_file = os.path.join(static_dir, "privacy.html")
         if os.path.exists(privacy_file):
-            return web.FileResponse(privacy_file)
+            return web.FileResponse(privacy_file, headers={"Cache-Control": "no-cache, must-revalidate"})
         return web.Response(text="<h1>Privacy Policy</h1><p>Musicium Privacy Policy</p>", content_type="text/html")
 
     async def handle_status(self, request: web.Request) -> web.Response:
