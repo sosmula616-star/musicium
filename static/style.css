@@ -452,9 +452,31 @@ body {
   color: #fff;
 }
 
-.icon-yt { color: var(--source-yt); }
-.icon-sc { color: var(--source-sc); }
-.icon-ym { color: var(--source-ym); }
+.chip-svg {
+  flex-shrink: 0;
+  display: inline-block;
+  vertical-align: middle;
+  transition: transform 0.2s ease;
+}
+
+.source-chip:hover .chip-svg {
+  transform: scale(1.15);
+}
+
+.icon-yt {
+  color: var(--source-yt);
+  fill: var(--source-yt) !important;
+}
+
+.icon-sc {
+  color: var(--source-sc);
+  fill: var(--source-sc) !important;
+}
+
+.icon-ym {
+  color: var(--source-ym);
+  fill: var(--source-ym) !important;
+}
 
 .chip-status-dot {
   width: 6px;
