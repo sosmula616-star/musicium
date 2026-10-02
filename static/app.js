@@ -34,25 +34,25 @@
           title: 'Passengers & Pilots',
           artist: 'Big Baby Tape',
           duration_str: '2:15',
-          thumbnail: 'https://i.ytimg.com/vi/aL3XGq4JgT4/hqdefault.jpg',
+          thumbnail: 'https://i.ytimg.com/vi/pgPpgquGemg/hqdefault.jpg',
           source: 'youtube',
-          url: 'https://music.youtube.com/search?q=Big+Baby+Tape+Passengers+Pilots'
+          url: 'https://music.youtube.com/watch?v=pgPpgquGemg'
         },
         {
           title: 'Malo 2.0',
           artist: 'ЕГОР КРИД, OG Buda, Toxi$',
           duration_str: '2:38',
-          thumbnail: 'https://i.ytimg.com/vi/X_6Yq3Zp1Mo/hqdefault.jpg',
+          thumbnail: 'https://i.ytimg.com/vi/tP3h0iP8OY8/hqdefault.jpg',
           source: 'youtube',
-          url: 'https://music.youtube.com/search?q=Егор+Крид+OG+Buda+Toxi$+Malo+2.0'
+          url: 'https://music.youtube.com/watch?v=tP3h0iP8OY8'
         },
         {
           title: 'Overseas',
           artist: 'D-Block Europe & Central Cee',
           duration_str: '3:42',
-          thumbnail: 'https://i.ytimg.com/vi/v5uL7Y92Z6g/hqdefault.jpg',
+          thumbnail: 'https://i.ytimg.com/vi/I4Ra4z2Arqg/hqdefault.jpg',
           source: 'youtube',
-          url: 'https://music.youtube.com/search?q=D-Block+Europe+Overseas'
+          url: 'https://music.youtube.com/watch?v=I4Ra4z2Arqg'
         }
       ]
     }
@@ -60,7 +60,7 @@
 
   // State
   const state = {
-    userId: localStorage.getItem('music_user_id') || '',
+    userId: urlParams.get('user_id') || localStorage.getItem('music_user_id') || '',
     userName: localStorage.getItem('music_user_name') || 'Пользователь Discord',
     userAvatar: localStorage.getItem('music_user_avatar') || '/static/activity_icon.jpg',
     currentSource: 'all',
@@ -336,38 +336,38 @@
     }
   };
 
-  // Curated items from Screenshot 2
-  const CURATED_RECOMMENDED = [
-    { title: 'Passengers & Pilots', artist: 'Big Baby Tape', duration_str: '2:15', thumbnail: 'https://i.ytimg.com/vi/aL3XGq4JgT4/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/search?q=Big+Baby+Tape+Passengers+Pilots' },
-    { title: 'Ova', artist: 'Lyov и Xudo', duration_str: '3:04', thumbnail: 'https://i.ytimg.com/vi/qfV0N_9mS2Y/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/search?q=Lyov+Xudo+Ova' },
-    { title: 'Slimed Out', artist: 'Mamba Cinco и Zahsosaa', duration_str: '2:40', thumbnail: 'https://i.ytimg.com/vi/fJ9m_X6gI8k/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/search?q=Mamba+Cinco+Slimed+Out' },
-    { title: 'Malo 2.0', artist: 'ЕГОР КРИД, OG Buda, Toxi$', duration_str: '2:38', thumbnail: 'https://i.ytimg.com/vi/X_6Yq3Zp1Mo/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/search?q=Егор+Крид+OG+Buda+Toxi$+Malo+2.0' },
-    { title: 'Venom (Music From The Motion Picture)', artist: 'Eminem', duration_str: '4:29', thumbnail: 'https://i.ytimg.com/vi/8CdcCD5V-d8/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/search?q=Eminem+Venom' },
-    { title: 'Spasi L', artist: 'Dav', duration_str: '2:52', thumbnail: 'https://i.ytimg.com/vi/pZ5NsG3JB2M/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/search?q=Dav+Spasi+L' },
-    { title: 'Alors on danse (Radio Edit)', artist: 'Stromae', duration_str: '3:28', thumbnail: 'https://i.ytimg.com/vi/VHoT4N43jK8/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/search?q=Stromae+Alors+on+danse' },
-    { title: 'Overseas', artist: 'D-Block Europe & Central Cee', duration_str: '3:42', thumbnail: 'https://i.ytimg.com/vi/v5uL7Y92Z6g/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/search?q=D-Block+Europe+Overseas' },
-    { title: 'Държавен Кючек', artist: 'Leo Band', duration_str: '3:15', thumbnail: 'https://i.ytimg.com/vi/6p3pW2K7jQ8/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/search?q=Leo+Band+Държавен+Кючек' },
-    { title: 'Party Funk', artist: 'Young Madz & MC Zudo Bo', duration_str: '2:12', thumbnail: 'https://i.ytimg.com/vi/9B6g0s-W8yI/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/search?q=Young+Madz+Party+Funk' },
-    { title: 'Pour It Up', artist: 'Rihanna', duration_str: '2:41', thumbnail: 'https://i.ytimg.com/vi/ehcVomMexkY/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/search?q=Rihanna+Pour+It+Up' },
-    { title: 'Layli', artist: 'Jamshid Ximmatov', duration_str: '3:30', thumbnail: 'https://i.ytimg.com/vi/FjIThTV2-Dg/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/search?q=Jamshid+Ximmatov+Layli' }
+  // Curated items with verified YouTube thumbnails (HTTP 200)
+  let CURATED_RECOMMENDED = [
+    { title: 'Passengers & Pilots', artist: 'Big Baby Tape', duration_str: '2:15', thumbnail: 'https://i.ytimg.com/vi/pgPpgquGemg/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=pgPpgquGemg' },
+    { title: 'Ova', artist: 'Lyov и Xudo', duration_str: '3:04', thumbnail: 'https://i.ytimg.com/vi/P8EYqmmeae8/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=P8EYqmmeae8' },
+    { title: 'Slimed Out', artist: 'Mamba Cinco & Zahsosaa', duration_str: '2:40', thumbnail: 'https://i.ytimg.com/vi/TQSHNV3mCfU/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=TQSHNV3mCfU' },
+    { title: 'Malo 2.0', artist: 'ЕГОР КРИД, OG Buda, Toxi$', duration_str: '2:38', thumbnail: 'https://i.ytimg.com/vi/tP3h0iP8OY8/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=tP3h0iP8OY8' },
+    { title: 'Venom (Music From The Motion Picture)', artist: 'Eminem', duration_str: '4:29', thumbnail: 'https://i.ytimg.com/vi/8CdcCD5V-d8/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=8CdcCD5V-d8' },
+    { title: 'Spasi L', artist: 'Dav', duration_str: '2:52', thumbnail: 'https://i.ytimg.com/vi/EsmFmcpdybU/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=EsmFmcpdybU' },
+    { title: 'Alors on danse (Radio Edit)', artist: 'Stromae', duration_str: '3:28', thumbnail: 'https://i.ytimg.com/vi/VHoT4N43jK8/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=VHoT4N43jK8' },
+    { title: 'Overseas', artist: 'D-Block Europe & Central Cee', duration_str: '3:42', thumbnail: 'https://i.ytimg.com/vi/I4Ra4z2Arqg/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=I4Ra4z2Arqg' },
+    { title: 'Държавен Кючек', artist: 'Leo Band', duration_str: '3:15', thumbnail: 'https://i.ytimg.com/vi/UYSciD1u7sE/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=UYSciD1u7sE' },
+    { title: 'Party Funk', artist: 'Young Madz & MC Zudo Bo', duration_str: '2:12', thumbnail: 'https://i.ytimg.com/vi/xqkGMZCYbrY/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=xqkGMZCYbrY' },
+    { title: 'Pour It Up', artist: 'Rihanna', duration_str: '2:41', thumbnail: 'https://i.ytimg.com/vi/ehcVomMexkY/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=ehcVomMexkY' },
+    { title: 'Layli', artist: 'Jamshid Ximmatov', duration_str: '3:30', thumbnail: 'https://i.ytimg.com/vi/K0CEBXmehSg/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=K0CEBXmehSg' }
   ];
 
-  const CURATED_QUICK_PICKS = [
-    { title: 'ДИНАСТИЯ', artist: 'VILLIAN и madk1d', thumbnail: 'https://i.ytimg.com/vi/w7ejDZ8SWv8/hqdefault.jpg', source: 'youtube' },
-    { title: 'Caramelldansen (Speedy Mixes)', artist: 'Caramella Girls', thumbnail: 'https://i.ytimg.com/vi/A67ZkAd1wmI/hqdefault.jpg', source: 'youtube' },
-    { title: 'все хотят меня', artist: 'gotlib', thumbnail: 'https://i.ytimg.com/vi/y81Wz8f9jEU/hqdefault.jpg', source: 'youtube' },
-    { title: 'Там ревели горы', artist: 'Miyagi & Эндшпиль', thumbnail: 'https://i.ytimg.com/vi/q_VnS1Y97Jc/hqdefault.jpg', source: 'youtube' },
+  let CURATED_QUICK_PICKS = [
+    { title: 'ДИНАСТИЯ', artist: 'VILLIAN & madk1d', thumbnail: 'https://i.ytimg.com/vi/J7NFL-eOxiQ/hqdefault.jpg', source: 'youtube' },
+    { title: 'Caramelldansen (Speedy Mixes)', artist: 'Caramella Girls', thumbnail: 'https://i.ytimg.com/vi/PDJLvF1dUek/hqdefault.jpg', source: 'youtube' },
+    { title: 'все хотят меня', artist: 'gotlib', thumbnail: 'https://i.ytimg.com/vi/DXoOqDf8o3k/hqdefault.jpg', source: 'youtube' },
+    { title: 'Там ревели горы', artist: 'Miyagi & Эндшпиль', thumbnail: 'https://i.ytimg.com/vi/MzI_CIYSsfQ/hqdefault.jpg', source: 'youtube' },
     { title: 'Sweater Weather', artist: 'The Neighbourhood', thumbnail: 'https://i.ytimg.com/vi/GCdwKhTtNNw/hqdefault.jpg', source: 'youtube' },
-    { title: 'Где прошла ты', artist: 'Кравц & Гио Пика', thumbnail: 'https://i.ytimg.com/vi/7_Zp_Lw38yY/hqdefault.jpg', source: 'youtube' }
+    { title: 'Где прошла ты', artist: 'Кравц & Гио Пика', thumbnail: 'https://i.ytimg.com/vi/I6dXiJ8r5jM/hqdefault.jpg', source: 'youtube' }
   ];
 
-  const CURATED_ALBUMS = [
-    { title: 'Viva La Vida', artist: 'SODA LUV', subtitle: 'Альбом • SODA LUV', thumbnail: 'https://i.ytimg.com/vi/p8m8g1w_J4A/hqdefault.jpg', source: 'yt_albums' },
-    { title: 'АРТЁМ', artist: 'SLAVA MARLOW', subtitle: 'EP • SLAVA MARLOW', thumbnail: 'https://i.ytimg.com/vi/9xG2b3q5w6Y/hqdefault.jpg', source: 'yt_albums' },
-    { title: 'SODA LUV', artist: 'SODA LUV', subtitle: 'Альбом • SODA LUV', thumbnail: 'https://i.ytimg.com/vi/8CdcCD5V-d8/hqdefault.jpg', source: 'yt_albums' },
-    { title: "BOYS DON'T CRY", artist: 'GONE.Fludd', subtitle: 'Альбом • GONE.Fludd', thumbnail: 'https://i.ytimg.com/vi/6p3pW2K7jQ8/hqdefault.jpg', source: 'yt_albums' },
-    { title: 'DUMMY BOY', artist: '6ix9ine', subtitle: 'Альбом • 6ix9ine', thumbnail: 'https://i.ytimg.com/vi/fJ9m_X6gI8k/hqdefault.jpg', source: 'yt_albums' },
-    { title: 'Whenever You Need Somebody', artist: 'Rick Astley', subtitle: 'Альбом • Rick Astley', thumbnail: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg', source: 'yt_albums' }
+  let CURATED_ALBUMS = [
+    { title: 'Viva La Vida', artist: 'SODA LUV', subtitle: 'Альбом • SODA LUV', thumbnail: 'https://i.ytimg.com/vi/9_wwDPM1OFE/hqdefault.jpg', source: 'yt_albums' },
+    { title: 'АРТЁМ', artist: 'SLAVA MARLOW', subtitle: 'EP • SLAVA MARLOW', thumbnail: 'https://i.ytimg.com/vi/ABow8gM1UI4/hqdefault.jpg', source: 'yt_albums' },
+    { title: 'SODA LUV', artist: 'SODA LUV', subtitle: 'Альбом • SODA LUV', thumbnail: 'https://i.ytimg.com/vi/a39YBPPpmI4/hqdefault.jpg', source: 'yt_albums' },
+    { title: "BOYS DON'T CRY", artist: 'GONE.Fludd', subtitle: 'Альбом • GONE.Fludd', thumbnail: 'https://i.ytimg.com/vi/pomoFf4PUXE/hqdefault.jpg', source: 'yt_albums' },
+    { title: 'DUMMY BOY', artist: '6ix9ine', subtitle: 'Альбом • 6ix9ine', thumbnail: 'https://i.ytimg.com/vi/6cRTU8lpSMA/hqdefault.jpg', source: 'yt_albums' },
+    { title: 'Whenever You Need Somebody', artist: 'Rick Astley', subtitle: 'Альбом • Rick Astley', thumbnail: 'https://i.ytimg.com/vi/BeyEGebJ1l4/hqdefault.jpg', source: 'yt_albums' }
   ];
 
   function t(key, params = {}) {
@@ -488,6 +488,10 @@
     curatedTracksGrid: document.getElementById('curatedTracksGrid'),
     quickPicksRow: document.getElementById('quickPicksRow'),
     albumsRow: document.getElementById('albumsRow'),
+    communityPlaylistsShelf: document.getElementById('communityPlaylistsShelf'),
+    communityPlaylistsRow: document.getElementById('communityPlaylistsRow'),
+    commArrowLeft: document.getElementById('commArrowLeft'),
+    commArrowRight: document.getElementById('commArrowRight'),
 
     // Liked View
     likedTracksContainer: document.getElementById('likedTracksContainer'),
@@ -648,6 +652,9 @@
     localStorage.setItem('music_user_name', state.userName);
     localStorage.setItem('music_user_avatar', state.userAvatar);
     updateUserUI();
+    if (typeof loadUserDataFromDB === 'function') {
+      loadUserDataFromDB();
+    }
   }
 
   function updateUserUI() {
@@ -903,6 +910,226 @@
         el.albumsRow.appendChild(card);
       });
     }
+
+    // 4. Community Shared Playlists & Leaderboard Shelf
+    renderCommunityPlaylists();
+  }
+
+  // Community Playlists (Shared albums and leaderboard)
+  let communityPlaylistsCache = [];
+  async function fetchCommunityPlaylists() {
+    try {
+      const q = state.userId ? `?user_id=${encodeURIComponent(state.userId)}&sort=top` : '?sort=top';
+      const resp = await fetch(`/api/community/playlists${q}`);
+      const data = await resp.json();
+      if (data && Array.isArray(data.playlists)) {
+        communityPlaylistsCache = data.playlists;
+        if (state.currentView === 'home') {
+          renderCommunityPlaylists();
+        }
+      }
+    } catch (e) {
+      console.warn('Could not fetch community playlists:', e);
+    }
+  }
+
+  function renderCommunityPlaylists() {
+    if (!el.communityPlaylistsRow) return;
+    el.communityPlaylistsRow.innerHTML = '';
+
+    if (!communityPlaylistsCache || communityPlaylistsCache.length === 0) {
+      if (el.communityPlaylistsShelf) {
+        el.communityPlaylistsShelf.style.display = 'none';
+      }
+      return;
+    }
+
+    if (el.communityPlaylistsShelf) {
+      el.communityPlaylistsShelf.style.display = 'block';
+    }
+
+    communityPlaylistsCache.forEach((pl, index) => {
+      const rank = index + 1;
+      const card = document.createElement('div');
+      card.className = 'community-card';
+      const trackCount = pl.tracks ? pl.tracks.length : 0;
+      const isLiked = Boolean(pl.is_liked);
+      const likesCount = pl.likes_count || 0;
+      const coverUrl = pl.cover || (pl.tracks && pl.tracks[0] ? pl.tracks[0].thumbnail : '/static/activity_icon.jpg');
+
+      card.innerHTML = `
+        <div class="community-card-thumb-wrap">
+          <span class="community-rank-badge">#${rank}</span>
+          <img src="${getSafeImageUrl(coverUrl)}" alt="${escapeHtml(pl.title)}" class="community-card-thumb" loading="lazy" onerror="this.src='/static/activity_icon.jpg';">
+          <div class="square-card-play-btn" title="Слушать плейлист">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="#000"><path d="M8 5v14l11-7z"/></svg>
+          </div>
+        </div>
+        <span class="community-card-title" title="${escapeHtml(pl.title)}">${escapeHtml(pl.title)}</span>
+        <div class="community-author-row">
+          <img src="${getSafeImageUrl(pl.author_avatar || '/static/activity_icon.jpg')}" class="community-author-avatar" onerror="this.src='/static/activity_icon.jpg';">
+          <span class="community-author-name" title="${escapeHtml(pl.author_name || 'Пользователь')}">${escapeHtml(pl.author_name || 'Пользователь')}</span>
+        </div>
+        <div class="community-bottom-row">
+          <span class="community-track-count">${trackCount} треков</span>
+          <button class="community-like-btn ${isLiked ? 'liked' : ''}" title="${isLiked ? 'Убрать отметку' : 'Нравится плейлист'}">
+            <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+            <span class="likes-num">${likesCount}</span>
+          </button>
+        </div>
+      `;
+
+      // Play button on card thumb
+      const playBtn = card.querySelector('.square-card-play-btn');
+      playBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (pl.tracks && pl.tracks.length > 0) {
+          for (let i = 0; i < pl.tracks.length; i++) {
+            await playTrack(pl.tracks[i], i === 0);
+          }
+          showToast(`Воспроизведение плейлиста «${pl.title}»`, 'success');
+        } else {
+          showToast('В этом плейлисте пока нет треков', 'info');
+        }
+      });
+
+      // Like button
+      const likeBtn = card.querySelector('.community-like-btn');
+      likeBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (!state.userId) {
+          showToast('Войдите через Discord, чтобы ставить лайки', 'warning');
+          return;
+        }
+        try {
+          const resp = await fetch(`/api/community/playlists/${encodeURIComponent(pl.id)}/like`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: state.userId })
+          });
+          const data = await resp.json();
+          if (data && data.success) {
+            pl.is_liked = data.liked;
+            pl.likes_count = data.likes_count;
+            if (data.liked) {
+              likeBtn.classList.add('liked');
+              showToast(`Плейлист «${pl.title}» добавлен в понравившиеся!`, 'success');
+            } else {
+              likeBtn.classList.remove('liked');
+              showToast(`Отметка «Нравится» снята`, 'info');
+            }
+            likeBtn.querySelector('.likes-num').textContent = data.likes_count;
+          }
+        } catch (err) {
+          console.warn('Like toggle failed:', err);
+        }
+      });
+
+      // Click card -> Open playlist view
+      card.addEventListener('click', () => {
+        const existing = state.customPlaylists.find(p => String(p.id) === String(pl.id));
+        if (!existing) {
+          state.customPlaylists.push({
+            id: String(pl.id),
+            name: pl.title,
+            author: pl.author_name || 'Пользователь',
+            author_avatar: pl.author_avatar,
+            cover: pl.cover,
+            tracks: pl.tracks || []
+          });
+        }
+        switchView('playlist', String(pl.id));
+      });
+
+      el.communityPlaylistsRow.appendChild(card);
+    });
+  }
+
+  // Recommendations loader from server
+  let recommendationsLoaded = false;
+  async function fetchRecommendations() {
+    if (recommendationsLoaded) return;
+    try {
+      const resp = await fetch('/api/recommendations');
+      const data = await resp.json();
+      if (data) {
+        if (data.curated && data.curated.length) CURATED_RECOMMENDED = data.curated;
+        if (data.quick_picks && data.quick_picks.length) CURATED_QUICK_PICKS = data.quick_picks;
+        if (data.albums && data.albums.length) CURATED_ALBUMS = data.albums;
+        recommendationsLoaded = true;
+        if (state.currentView === 'home') renderHomeView();
+      }
+    } catch (e) {
+      console.warn('Could not fetch /api/recommendations:', e);
+    }
+  }
+
+  // Load User Data from PostgreSQL Database
+  async function loadUserDataFromDB() {
+    if (!state.userId) return;
+    try {
+      // 1. Liked Tracks
+      const likedResp = await fetch(`/api/user/liked?user_id=${encodeURIComponent(state.userId)}`);
+      const likedData = await likedResp.json();
+      if (likedData && Array.isArray(likedData.tracks)) {
+        state.likedTracks = likedData.tracks;
+        saveJson('musicium_liked_tracks', state.likedTracks);
+        if (state.currentView === 'liked') renderLikedView();
+        updateDockLikeBtn();
+      }
+
+      // 2. Playlists
+      const plResp = await fetch(`/api/user/playlists?user_id=${encodeURIComponent(state.userId)}`);
+      const plData = await plResp.json();
+      if (plData && Array.isArray(plData.playlists)) {
+        state.customPlaylists = plData.playlists.map(p => ({
+          id: String(p.id),
+          name: p.title,
+          cover: p.cover,
+          author: state.userName || 'Вы',
+          tracks: p.tracks || []
+        }));
+        saveJson('musicium_custom_playlists', state.customPlaylists);
+        renderSidebarPlaylists();
+        if (state.currentView === 'playlist') renderPlaylistView(state.selectedPlaylistId);
+      }
+
+      // 3. History
+      const histResp = await fetch(`/api/user/history?user_id=${encodeURIComponent(state.userId)}`);
+      const histData = await histResp.json();
+      if (histData && Array.isArray(histData.history)) {
+        state.historyTracks = histData.history;
+        saveJson('musicium_history_tracks', state.historyTracks);
+        if (state.currentView === 'history') renderHistoryView();
+      }
+    } catch (err) {
+      console.warn('Could not sync user data from PostgreSQL:', err);
+    }
+  }
+
+  // User History helper
+  function addToHistory(track) {
+    if (!track) return;
+    state.historyTracks = state.historyTracks.filter(t => t.url !== track.url && t.title !== track.title);
+    state.historyTracks.unshift({
+      title: track.title,
+      artist: track.artist || 'Неизвестный исполнитель',
+      thumbnail: track.thumbnail || '/static/activity_icon.jpg',
+      duration_str: track.duration_str || '3:00',
+      source: track.source || 'youtube',
+      url: track.url || '',
+      played_at: new Date().toISOString()
+    });
+    if (state.historyTracks.length > 50) state.historyTracks.pop();
+    saveJson('musicium_history_tracks', state.historyTracks);
+    if (state.userId) {
+      fetch('/api/user/history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: state.userId, track: track })
+      }).catch(() => {});
+    }
+    if (state.currentView === 'history') renderHistoryView();
   }
 
   // Liked Tracks Functions
@@ -913,13 +1140,21 @@
 
   function toggleLikeTrack(track) {
     if (!track) return;
+    const isLiked = isTrackLiked(track);
     const idx = state.likedTracks.findIndex(t => (t.url && t.url === track.url) || (t.title === track.title && t.artist === track.artist));
-    if (idx >= 0) {
+    if (isLiked && idx >= 0) {
       state.likedTracks.splice(idx, 1);
       saveJson('musicium_liked_tracks', state.likedTracks);
       showToast(t('toast.likedRemoved'), 'info', 'fa-heart-crack');
+      if (state.userId) {
+        fetch('/api/user/liked', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: state.userId, track: track, action: 'remove' })
+        }).catch(() => {});
+      }
     } else {
-      state.likedTracks.unshift({
+      const newTrack = {
         title: track.title,
         artist: track.artist || 'Неизвестный исполнитель',
         thumbnail: track.thumbnail || '/static/activity_icon.jpg',
@@ -927,9 +1162,17 @@
         source: track.source || 'youtube',
         url: track.url || `https://music.youtube.com/search?q=${encodeURIComponent(track.title + ' ' + (track.artist || ''))}`,
         added_at: Date.now()
-      });
+      };
+      state.likedTracks.unshift(newTrack);
       saveJson('musicium_liked_tracks', state.likedTracks);
       showToast(t('toast.likedAdded'), 'success', 'fa-heart');
+      if (state.userId) {
+        fetch('/api/user/liked', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: state.userId, track: newTrack, action: 'add' })
+        }).catch(() => {});
+      }
     }
     updateDockLikeBtn();
     if (state.currentView === 'liked') renderLikedView();
@@ -1077,8 +1320,15 @@
       });
       item.querySelector('.btn-remove-pl').addEventListener('click', (e) => {
         e.stopPropagation();
-        pl.tracks.splice(index, 1);
+        const removed = pl.tracks.splice(index, 1)[0];
         saveJson('musicium_custom_playlists', state.customPlaylists);
+        if (state.userId && removed && !isNaN(parseInt(pl.id, 10))) {
+          fetch(`/api/user/playlists/${encodeURIComponent(pl.id)}/tracks`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ track_url: removed.url })
+          }).catch(() => {});
+        }
         showToast(t('toast.trackRemovedFromPlaylist'), 'info');
         renderPlaylistView(playlistId);
       });
@@ -1111,7 +1361,7 @@
             showToast(t('toast.alreadyInPlaylist'), 'warning');
             return;
           }
-          pl.tracks.push({
+          const newTr = {
             title: track.title,
             artist: track.artist || 'Неизвестный исполнитель',
             thumbnail: track.thumbnail || '/static/activity_icon.jpg',
@@ -1119,8 +1369,16 @@
             source: track.source || 'youtube',
             url: track.url || `https://music.youtube.com/search?q=${encodeURIComponent(track.title + ' ' + (track.artist || ''))}`,
             added_at: Date.now()
-          });
+          };
+          pl.tracks.push(newTr);
           saveJson('musicium_custom_playlists', state.customPlaylists);
+          if (state.userId && !isNaN(parseInt(pl.id, 10))) {
+            fetch(`/api/user/playlists/${encodeURIComponent(pl.id)}/tracks`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ track: newTr })
+            }).catch(() => {});
+          }
           showToast(t('toast.trackAddedToPlaylist', { name: pl.name }), 'success');
           if (el.addToPlaylistModal) el.addToPlaylistModal.style.display = 'none';
           renderSidebarPlaylists();
@@ -1363,6 +1621,8 @@
         showToast(t('toast.addedQueue', { title: track.title }), 'success');
       }
 
+      addToHistory(track);
+
       if (data.player) {
         updatePlayerUI(data.player);
       } else {
@@ -1496,7 +1756,16 @@
     }
 
     if (playerState.volume !== undefined && !state.isAdjustingVolume) {
-      const vol = Math.round(playerState.volume * 100);
+      let rawVol = Number(playerState.volume);
+      let vol;
+      // If server sends a fraction 0.0 - 1.0 (e.g. 0.09 or 0.15), multiply by 100.
+      // If server sends already a percentage (e.g. 9 or 15 or 100), use as is.
+      if (rawVol > 0 && rawVol <= 1.0) {
+        vol = Math.round(rawVol * 100);
+      } else {
+        vol = Math.round(rawVol);
+      }
+      vol = Math.max(0, Math.min(200, vol));
       if (el.volumeSlider) el.volumeSlider.value = vol;
       if (el.volumeVal) el.volumeVal.textContent = `${vol}%`;
       updateVolumeIcon(vol);
@@ -1662,11 +1931,32 @@
     }
 
     if (el.saveNewPlaylistBtn) {
-      el.saveNewPlaylistBtn.addEventListener('click', () => {
+      el.saveNewPlaylistBtn.addEventListener('click', async () => {
         const name = (el.newPlaylistTitleInput.value || '').trim();
         if (!name) return;
+        let newId = 'pl_' + Date.now();
+        if (state.userId) {
+          try {
+            const resp = await fetch('/api/user/playlists', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                user_id: state.userId,
+                title: name,
+                author_name: state.userName || 'Пользователь',
+                author_avatar: state.userAvatar || '/static/activity_icon.jpg'
+              })
+            });
+            const data = await resp.json();
+            if (data.success && data.playlist) {
+              newId = String(data.playlist.id);
+            }
+          } catch (e) {
+            console.warn('Failed to create playlist in DB:', e);
+          }
+        }
         const newPl = {
-          id: 'pl_' + Date.now(),
+          id: newId,
           name: name,
           author: state.userName || 'Вы',
           tracks: []
@@ -1677,6 +1967,7 @@
         if (el.newPlaylistModal) el.newPlaylistModal.style.display = 'none';
         renderSidebarPlaylists();
         switchView('playlist', newPl.id);
+        fetchCommunityPlaylists();
       });
     }
 
@@ -1714,11 +2005,19 @@
     }
 
     if (el.btnDeleteCurrentPlaylist) {
-      el.btnDeleteCurrentPlaylist.addEventListener('click', () => {
-        const idx = state.customPlaylists.findIndex(p => p.id === state.selectedPlaylistId);
-        if (idx >= 0) {
-          state.customPlaylists.splice(idx, 1);
+      el.btnDeleteCurrentPlaylist.addEventListener('click', async () => {
+        const plId = state.selectedPlaylistId;
+        if (!plId) return;
+        const pl = state.customPlaylists.find(p => p.id === plId);
+        const name = pl ? pl.name : '';
+        if (confirm(`Удалить плейлист «${name}»?`)) {
+          state.customPlaylists = state.customPlaylists.filter(p => p.id !== plId);
           saveJson('musicium_custom_playlists', state.customPlaylists);
+          if (state.userId && !isNaN(parseInt(plId, 10))) {
+            fetch(`/api/user/playlists/${encodeURIComponent(plId)}?user_id=${encodeURIComponent(state.userId)}`, {
+              method: 'DELETE'
+            }).catch(() => {});
+          }
           showToast(t('toast.playlistDeleted'), 'info');
           renderSidebarPlaylists();
           switchView('home');
@@ -1728,10 +2027,19 @@
 
     // History actions
     if (el.btnClearHistoryBtn) {
-      el.btnClearHistoryBtn.addEventListener('click', () => {
-        state.historyTracks = [];
-        saveJson('musicium_history_tracks', []);
-        renderHistoryView();
+      el.btnClearHistoryBtn.addEventListener('click', async () => {
+        if (!state.historyTracks.length) return;
+        if (confirm('Очистить всю историю прослушанного?')) {
+          state.historyTracks = [];
+          saveJson('musicium_history_tracks', []);
+          if (state.userId) {
+            fetch(`/api/user/history?user_id=${encodeURIComponent(state.userId)}`, {
+              method: 'DELETE'
+            }).catch(() => {});
+          }
+          showToast('История очищена', 'info');
+          renderHistoryView();
+        }
       });
     }
 
@@ -1775,16 +2083,31 @@
       });
     });
 
-    // Mood chips (like Screenshot 2)
-    document.querySelectorAll('.mood-chip').forEach(chip => {
-      chip.addEventListener('click', () => {
-        document.querySelectorAll('.mood-chip').forEach(c => c.classList.remove('active'));
-        chip.classList.add('active');
-        const moodQuery = chip.dataset.mood;
-        if (el.searchInput) el.searchInput.value = moodQuery;
-        performSearch(moodQuery);
+    // Community Shelf Scroll Arrows
+    if (el.commArrowLeft && el.communityPlaylistsRow) {
+      el.commArrowLeft.addEventListener('click', () => {
+        el.communityPlaylistsRow.scrollBy({ left: -360, behavior: 'smooth' });
       });
-    });
+    }
+    if (el.commArrowRight && el.communityPlaylistsRow) {
+      el.commArrowRight.addEventListener('click', () => {
+        el.communityPlaylistsRow.scrollBy({ left: 360, behavior: 'smooth' });
+      });
+    }
+
+    // Curated Shelf Scroll Arrows
+    const shelfArrowLeft = document.getElementById('shelfArrowLeft');
+    const shelfArrowRight = document.getElementById('shelfArrowRight');
+    if (shelfArrowLeft && el.curatedTracksGrid) {
+      shelfArrowLeft.addEventListener('click', () => {
+        el.curatedTracksGrid.scrollBy({ left: -360, behavior: 'smooth' });
+      });
+    }
+    if (shelfArrowRight && el.curatedTracksGrid) {
+      shelfArrowRight.addEventListener('click', () => {
+        el.curatedTracksGrid.scrollBy({ left: 360, behavior: 'smooth' });
+      });
+    }
 
     // Voice status widget click & dropdown toggle (Requirement 2)
     el.voiceStatusPill.addEventListener('click', (e) => {
@@ -2055,7 +2378,11 @@
     renderSidebarPlaylists();
     renderHomeView();
     attachEvents();
+    fetchRecommendations();
+    fetchCommunityPlaylists();
+    loadUserDataFromDB();
     await initDiscordSdk();
+    loadUserDataFromDB();
     await checkSystemStatus();
     await checkUserVoice();
     setupWebSocket();
