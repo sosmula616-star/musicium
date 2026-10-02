@@ -22,6 +22,7 @@
     isMuted: false,
     savedVolume: 100,
     searchTimeout: null,
+    isScrubbing: false,
   };
 
   const SVG_ICONS = {
@@ -30,6 +31,7 @@
     skip: '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>',
     prev: '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>',
     volumeHigh: '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>',
+    volumeLow: '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>',
     volumeMute: '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>',
   };
 
@@ -96,11 +98,22 @@
     progressTrack: document.getElementById('progressTrack'),
     progressFill: document.getElementById('progressFill'),
     btnMute: document.getElementById('btnMute'),
-    volumeIcon: document.getElementById('volumeIcon'),
+    volumeIconSvg: document.getElementById('volumeIconSvg'),
     volumeSlider: document.getElementById('volumeSlider'),
     volumeVal: document.getElementById('volumeVal'),
     toastContainer: document.getElementById('toastContainer'),
   };
+
+  function updateVolumeIcon(vol) {
+    if (!el.volumeIconSvg) return;
+    if (vol <= 0) {
+      el.volumeIconSvg.innerHTML = SVG_ICONS.volumeMute;
+    } else if (vol <= 50) {
+      el.volumeIconSvg.innerHTML = SVG_ICONS.volumeLow;
+    } else {
+      el.volumeIconSvg.innerHTML = SVG_ICONS.volumeHigh;
+    }
+  }
 
   // Format seconds to mm:ss
   function formatTime(seconds) {
@@ -276,10 +289,10 @@
     el.loadingState.style.display = 'flex';
     el.emptyState.style.display = 'none';
     el.tracksGrid.innerHTML = '';
-    el.resultsHeading.innerHTML = `<i class="fa-solid fa-magnifying-glass text-accent"></i><span>Результаты для «${q}»</span>`;
+    el.resultsHeading.innerHTML = `<i class="fa-solid fa-magnifying-glass text-accent"></i><span>Результаты для «${escapeHtml(q)}»</span>`;
 
     try {
-      const resp = await fetch(`/api/search?q=${encodeURIComponent(q)}&source=${state.currentSource}`);
+      const resp = await fetch(`/api/search?q=${encodeURIComponent(q)}&source=${state.currentSource}&limit=35`);
       const data = await resp.json();
       el.loadingState.style.display = 'none';
 
@@ -309,7 +322,7 @@
     el.resultsHeading.innerHTML = `<i class="fa-solid fa-fire text-accent"></i><span>Популярные рекомендации</span>`;
 
     try {
-      const resp = await fetch(`/api/search?q=top+music+hits+2025&source=${state.currentSource}`);
+      const resp = await fetch(`/api/search?q=топ+хиты+2025&source=${state.currentSource}&limit=35`);
       const data = await resp.json();
       el.loadingState.style.display = 'none';
       if (data.tracks && data.tracks.length > 0) {
@@ -550,8 +563,10 @@
 
     // Update Volume UI
     if (!el.volumeSlider.matches(':active')) {
-      el.volumeSlider.value = playerState.volume || 100;
-      el.volumeVal.textContent = `${playerState.volume || 100}%`;
+      const vol = playerState.volume !== undefined ? playerState.volume : 100;
+      el.volumeSlider.value = vol;
+      el.volumeVal.textContent = `${vol}%`;
+      updateVolumeIcon(vol);
     }
 
     // Update Queue & History
@@ -647,7 +662,7 @@
   function startProgressTicker() {
     stopProgressTicker();
     state.progressTimer = setInterval(() => {
-      if (state.isPlaying && state.duration > 0) {
+      if (state.isPlaying && state.duration > 0 && !state.isScrubbing) {
         state.elapsed += 1;
         if (state.elapsed > state.duration) {
           state.elapsed = state.duration;
@@ -885,13 +900,14 @@
       const res = await sendPlayerAction('play_pause');
       if (res && res.success) {
         state.isPlaying = !res.is_paused;
+        const playBtn = el.playIconSvg || el.btnPlayPause;
         if (state.isPlaying) {
-          el.playIcon.className = 'fa-solid fa-pause';
+          playBtn.innerHTML = SVG_ICONS.pause;
           el.dockArt.classList.add('spinning');
           el.equalizerBars.classList.add('active');
           startProgressTicker();
         } else {
-          el.playIcon.className = 'fa-solid fa-play';
+          playBtn.innerHTML = SVG_ICONS.play;
           el.dockArt.classList.remove('spinning');
           el.equalizerBars.classList.remove('active');
           stopProgressTicker();
@@ -916,12 +932,65 @@
       }
     });
 
-    // Previous / Restart
-    el.btnPrev.addEventListener('click', () => {
+    // Previous / Restart track
+    el.btnPrev.addEventListener('click', async () => {
       state.elapsed = 0;
       el.timeElapsed.textContent = '00:00';
       el.progressFill.style.width = '0%';
+      await sendPlayerAction('seek', { seconds: 0 });
       showToast('Перемотка в начало трека', 'info');
+    });
+
+    // Scrubber / Seek on Progress Bar (Click & Drag)
+    function handleSeekFromEvent(e) {
+      if (!state.duration || state.duration <= 0) return 0;
+      const rect = el.progressTrack.getBoundingClientRect();
+      const clientX = (e.touches && e.touches.length > 0) ? e.touches[0].clientX : (e.clientX !== undefined ? e.clientX : 0);
+      const fraction = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      const targetSec = Math.floor(fraction * state.duration);
+      state.elapsed = targetSec;
+      el.timeElapsed.textContent = formatTime(targetSec);
+      updateProgressBar();
+      return targetSec;
+    }
+
+    el.progressTrack.addEventListener('mousedown', (e) => {
+      if (!state.duration || state.duration <= 0) return;
+      state.isScrubbing = true;
+      el.progressTrack.classList.add('seeking');
+      handleSeekFromEvent(e);
+    });
+
+    el.progressTrack.addEventListener('touchstart', (e) => {
+      if (!state.duration || state.duration <= 0) return;
+      state.isScrubbing = true;
+      el.progressTrack.classList.add('seeking');
+      handleSeekFromEvent(e);
+    }, { passive: true });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!state.isScrubbing) return;
+      handleSeekFromEvent(e);
+    });
+
+    document.addEventListener('touchmove', (e) => {
+      if (!state.isScrubbing) return;
+      handleSeekFromEvent(e);
+    }, { passive: true });
+
+    document.addEventListener('mouseup', async (e) => {
+      if (!state.isScrubbing) return;
+      state.isScrubbing = false;
+      el.progressTrack.classList.remove('seeking');
+      const targetSec = handleSeekFromEvent(e);
+      await sendPlayerAction('seek', { seconds: targetSec });
+    });
+
+    document.addEventListener('touchend', async (e) => {
+      if (!state.isScrubbing) return;
+      state.isScrubbing = false;
+      el.progressTrack.classList.remove('seeking');
+      await sendPlayerAction('seek', { seconds: state.elapsed });
     });
 
     // Loop
@@ -951,26 +1020,33 @@
     });
 
     // Volume Slider
+    let volDebounce = null;
     el.volumeSlider.addEventListener('input', (e) => {
-      const val = parseInt(e.target.value);
+      const val = parseInt(e.target.value) || 0;
       el.volumeVal.textContent = `${val}%`;
-      sendPlayerAction('volume', { value: val });
+      updateVolumeIcon(val);
+      state.isMuted = (val === 0);
+      clearTimeout(volDebounce);
+      volDebounce = setTimeout(() => {
+        sendPlayerAction('volume', { value: val });
+      }, 80);
     });
 
     // Mute toggle
     el.btnMute.addEventListener('click', () => {
       if (state.isMuted) {
         state.isMuted = false;
-        el.volumeSlider.value = state.savedVolume;
-        el.volumeVal.textContent = `${state.savedVolume}%`;
-        el.volumeIcon.className = 'fa-solid fa-volume-high';
-        sendPlayerAction('volume', { value: state.savedVolume });
+        const restoreVal = state.savedVolume > 0 ? state.savedVolume : 100;
+        el.volumeSlider.value = restoreVal;
+        el.volumeVal.textContent = `${restoreVal}%`;
+        updateVolumeIcon(restoreVal);
+        sendPlayerAction('volume', { value: restoreVal });
       } else {
         state.isMuted = true;
         state.savedVolume = parseInt(el.volumeSlider.value) || 100;
         el.volumeSlider.value = 0;
         el.volumeVal.textContent = '0%';
-        el.volumeIcon.className = 'fa-solid fa-volume-xmark';
+        updateVolumeIcon(0);
         sendPlayerAction('volume', { value: 0 });
       }
     });
