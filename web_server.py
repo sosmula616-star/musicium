@@ -130,7 +130,8 @@ class WebServer:
         if not q:
             return web.json_response({"tracks": []})
 
-        tracks = await self.music_service.search(query=q, source=source, limit=12)
+        limit_arg = int(request.query.get("limit", 35))
+        tracks = await self.music_service.search(query=q, source=source, limit=min(limit_arg, 50))
         notice = None
         if source == "yandex" and not tracks:
             notice = "Яндекс.Музыка недоступна на зарубежном хостинге (территориальные ограничения API 451). Используйте YouTube Music!"
@@ -288,6 +289,12 @@ class WebServer:
             elif action == "clear":
                 player.clear_queue()
                 res_data["message"] = "Очередь очищена"
+
+            elif action == "seek":
+                target_sec = int(data.get("seconds", 0))
+                ok = await player.seek(target_sec)
+                res_data["seeked"] = ok
+                res_data["seconds"] = target_sec
 
             else:
                 return web.json_response({"success": False, "error": f"Unknown action '{action}'"}, status=400)
