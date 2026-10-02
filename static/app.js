@@ -242,6 +242,14 @@
       }
     }
 
+    // Explicitly toggle display for all .lang-ru and .lang-en elements as a 100% guarantee
+    document.querySelectorAll('.lang-ru').forEach(elem => {
+      elem.style.setProperty('display', lang === 'ru' ? '' : 'none', 'important');
+    });
+    document.querySelectorAll('.lang-en').forEach(elem => {
+      elem.style.setProperty('display', lang === 'en' ? '' : 'none', 'important');
+    });
+
     document.querySelectorAll('[data-i18n]').forEach(elem => {
       const key = elem.getAttribute('data-i18n');
       if (key) {
