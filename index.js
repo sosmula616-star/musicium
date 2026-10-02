@@ -7,8 +7,21 @@ console.log('==============================================');
 console.log('  Discord Music Bot & Mini App Node.js Wrapper');
 console.log('==============================================');
 
-// Allow installing packages in externally managed environments (Alpine/Debian PEP 668)
+// Globally allow pip in externally-managed environments (PEP 668)
 process.env.PIP_BREAK_SYSTEM_PACKAGES = '1';
+
+// Write pip.conf to completely disable externally-managed checks
+try {
+  const homeDir = process.env.HOME || '/root';
+  const pipDir = path.join(homeDir, '.config', 'pip');
+  fs.mkdirSync(pipDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(pipDir, 'pip.conf'),
+    '[global]\nbreak-system-packages = true\n'
+  );
+} catch (e) {
+  // ignore
+}
 
 function getPythonCommand() {
   const commands = ['python3', 'python'];
@@ -30,25 +43,12 @@ if (!basePyCmd) {
 
 console.log(`System Python executable: ${basePyCmd}`);
 
-// Try setting up a virtual environment in .venv
+// Virtual environment path
 const isWindows = process.platform === 'win32';
 const venvDir = path.join(__dirname, '.venv');
 const venvPy = isWindows
   ? path.join(venvDir, 'Scripts', 'python.exe')
   : path.join(venvDir, 'bin', 'python');
-
-if (!fs.existsSync(venvPy)) {
-  try {
-    console.log('Creating virtual environment (.venv)...');
-    execSync(`${basePyCmd} -m venv "${venvDir}"`, { stdio: 'inherit' });
-    console.log('Virtual environment (.venv) created successfully!');
-  } catch (e) {
-    console.log('Virtual environment not supported by base image, using direct Python with break-system-packages.');
-  }
-}
-
-const activePy = fs.existsSync(venvPy) ? venvPy : basePyCmd;
-console.log(`Active Python: ${activePy}`);
 
 function downloadFile(url, dest) {
   return new Promise((resolve, reject) => {
@@ -69,67 +69,71 @@ function downloadFile(url, dest) {
   });
 }
 
-async function preparePythonEnvironment() {
-  let pipAvailable = false;
-  try {
-    execSync(`"${activePy}" -m pip --version`, { stdio: 'ignore' });
-    pipAvailable = true;
-  } catch (e) {
-    pipAvailable = false;
+async function preparePython() {
+  // Step 1: Try creating a virtual environment if not already present
+  if (!fs.existsSync(venvPy)) {
+    try {
+      console.log('Attempting to create isolated virtual environment (.venv)...');
+      execSync(`${basePyCmd} -m venv "${venvDir}"`, { stdio: 'inherit' });
+      console.log('Virtual environment created successfully!');
+    } catch (e) {
+      console.log('Virtual environment creation not supported by host image. Proceeding with system python...');
+    }
   }
 
-  if (!pipAvailable) {
-    console.log('pip is not present. Bootstrapping pip...');
-    let bootstrapSuccess = false;
+  const activePy = fs.existsSync(venvPy) ? venvPy : basePyCmd;
+  console.log(`Active Python engine: ${activePy}`);
 
-    // Try ensurepip with break-system-packages
+  // Step 2: Check if pip works
+  let pipWorking = false;
+  try {
+    execSync(`"${activePy}" -m pip --version`, { stdio: 'ignore' });
+    pipWorking = true;
+  } catch (e) {
+    pipWorking = false;
+  }
+
+  // Step 3: If pip is missing, bootstrap via get-pip.py (skip ensurepip as ensurepip fails on Alpine 3.12)
+  if (!pipWorking) {
+    console.log('pip is not available. Downloading and installing pip via get-pip.py...');
+    const getPipFile = path.join(__dirname, 'get-pip.py');
     try {
-      execSync(`"${activePy}" -m ensurepip --default-pip --break-system-packages`, {
+      await downloadFile('https://bootstrap.pypa.io/get-pip.py', getPipFile);
+      console.log('get-pip.py downloaded. Running installer...');
+      execSync(`"${activePy}" "${getPipFile}" --break-system-packages --no-warn-script-location`, {
         stdio: 'inherit',
         env: { ...process.env, PIP_BREAK_SYSTEM_PACKAGES: '1' }
       });
-      bootstrapSuccess = true;
-    } catch (e) {
-      console.log('ensurepip not available, downloading get-pip.py...');
-    }
-
-    if (!bootstrapSuccess) {
-      try {
-        const getPipPath = path.join(__dirname, 'get-pip.py');
-        await downloadFile('https://bootstrap.pypa.io/get-pip.py', getPipPath);
-        execSync(`"${activePy}" "${getPipPath}" --break-system-packages --no-warn-script-location`, {
-          stdio: 'inherit',
-          env: { ...process.env, PIP_BREAK_SYSTEM_PACKAGES: '1' }
-        });
-        if (fs.existsSync(getPipPath)) {
-          fs.unlinkSync(getPipPath);
-        }
-        bootstrapSuccess = true;
-        console.log('pip bootstrapped successfully!');
-      } catch (err) {
-        console.error('Error downloading/running get-pip.py:', err.message);
+      console.log('pip installed successfully!');
+    } catch (err) {
+      console.error('get-pip install notice:', err.message);
+    } finally {
+      if (fs.existsSync(getPipFile)) {
+        try { fs.unlinkSync(getPipFile); } catch (e) {}
       }
     }
   }
 
-  // Install requirements from requirements.txt
-  const reqPath = path.join(__dirname, 'requirements.txt');
-  if (fs.existsSync(reqPath)) {
+  // Step 4: Install dependencies from requirements.txt
+  const reqFile = path.join(__dirname, 'requirements.txt');
+  if (fs.existsSync(reqFile)) {
     console.log('Installing dependencies from requirements.txt...');
     try {
-      execSync(`"${activePy}" -m pip install --break-system-packages --no-warn-script-location -r "${reqPath}"`, {
+      execSync(`"${activePy}" -m pip install --break-system-packages --no-warn-script-location -r "${reqFile}"`, {
         stdio: 'inherit',
         env: { ...process.env, PIP_BREAK_SYSTEM_PACKAGES: '1' }
       });
-      console.log('Dependencies installed successfully!');
+      console.log('All Python dependencies installed successfully!');
     } catch (err) {
-      console.warn('Pip install notice:', err.message);
+      console.warn('Pip install warning:', err.message);
     }
   }
+
+  return activePy;
 }
 
-async function start() {
-  await preparePythonEnvironment();
+async function main() {
+  const activePy = await preparePython();
 
   console.log('Launching main.py...');
   const bot = spawn(activePy, ['main.py'], {
@@ -149,4 +153,4 @@ async function start() {
   });
 }
 
-start();
+main();
