@@ -432,7 +432,9 @@
         return;
       }
 
-      if (data.action === 'started' || data.action === 'playing_now') {
+      if (data.action === 'album_enqueued') {
+        showToast(`💿 Альбом добавлен в очередь (${data.tracks_count} треков)`, 'success');
+      } else if (data.action === 'started' || data.action === 'playing_now') {
         showToast(`🎶 Играет: ${track.title} в канале ${data.channel_name}`, 'success');
       } else {
         showToast(`➕ Добавлено в очередь: ${track.title}`, 'success');
@@ -489,7 +491,8 @@
       el.dockArt.src = 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop&q=60';
       el.dockArt.classList.remove('spinning');
       el.equalizerBars.classList.remove('active');
-      el.playIcon.className = 'fa-solid fa-play';
+      const playBtn = el.playIconSvg || el.btnPlayPause;
+      if (playBtn) playBtn.innerHTML = SVG_ICONS.play;
       state.isPlaying = false;
       stopProgressTicker();
       updateQueueUI([]);
