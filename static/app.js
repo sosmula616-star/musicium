@@ -457,6 +457,14 @@
     userTag: document.getElementById('userTag'),
 
     // Home Shelves
+    liveServersShelf: document.getElementById('liveServersShelf'),
+    liveServersRow: document.getElementById('liveServersRow'),
+    liveArrowLeft: document.getElementById('liveArrowLeft'),
+    liveArrowRight: document.getElementById('liveArrowRight'),
+    globalRecentShelf: document.getElementById('globalRecentShelf'),
+    globalRecentRow: document.getElementById('globalRecentRow'),
+    recentArrowLeft: document.getElementById('recentArrowLeft'),
+    recentArrowRight: document.getElementById('recentArrowRight'),
     curatedTracksGrid: document.getElementById('curatedTracksGrid'),
     quickPicksRow: document.getElementById('quickPicksRow'),
     albumsRow: document.getElementById('albumsRow'),
@@ -779,8 +787,130 @@
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  // Live on other servers & Global Recent Tracks
+  let liveFeedCache = [];
+  let recentFeedCache = [];
+
+  async function fetchFeedDiscovery() {
+    try {
+      const resp = await fetch('/api/feed/discovery');
+      const data = await resp.json();
+      if (data) {
+        if (Array.isArray(data.live_now)) {
+          liveFeedCache = data.live_now;
+          renderLiveServers();
+        }
+        if (Array.isArray(data.recent_history)) {
+          recentFeedCache = data.recent_history;
+          renderGlobalRecent();
+        }
+      }
+    } catch (e) {
+      console.warn('Could not fetch /api/feed/discovery:', e);
+    }
+  }
+
+  function renderLiveServers() {
+    if (!el.liveServersRow) return;
+    el.liveServersRow.innerHTML = '';
+
+    if (!liveFeedCache || liveFeedCache.length === 0) {
+      if (el.liveServersShelf) el.liveServersShelf.style.display = 'none';
+      return;
+    }
+    if (el.liveServersShelf) el.liveServersShelf.style.display = 'block';
+
+    liveFeedCache.forEach(item => {
+      const track = item.track || {};
+      const card = document.createElement('div');
+      card.className = 'live-card';
+      const listeners = item.listeners_count || 1;
+      const guildName = item.guild_name || 'Discord Сервер';
+      const channelName = item.channel_name || 'Голосовой';
+      const thumb = track.thumbnail || '/static/activity_icon.jpg';
+
+      card.innerHTML = `
+        <div class="live-card-server-bar">
+          <span class="live-card-badge"><span class="live-dot-pulse" style="width:6px;height:6px;"></span> LIVE</span>
+          <span class="live-card-listeners" title="Слушателей в канале">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+            ${listeners} в войсе
+          </span>
+        </div>
+        <div class="live-card-thumb-wrap">
+          <img src="${getSafeImageUrl(thumb)}" alt="${escapeHtml(track.title || '')}" class="live-card-thumb" loading="lazy" onerror="this.src='/static/activity_icon.jpg';">
+          <div class="square-card-play-btn" title="Включить этот трек">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="#000"><path d="M8 5v14l11-7z"/></svg>
+          </div>
+        </div>
+        <span class="live-card-title" title="${escapeHtml(track.title || 'Без названия')}">${escapeHtml(track.title || 'Без названия')}</span>
+        <span class="live-card-artist" title="${escapeHtml(track.artist || '')}">${escapeHtml(track.artist || '')}</span>
+        <div class="live-card-footer">
+          <span class="live-card-server-name" title="${escapeHtml(guildName)} • ${escapeHtml(channelName)}">
+            <i class="fa-brands fa-discord" style="color:#5865F2;margin-right:4px;"></i>${escapeHtml(guildName)}
+          </span>
+          <span style="font-size:10px;color:#888;">${escapeHtml(track.duration_str || '')}</span>
+        </div>
+      `;
+
+      card.addEventListener('click', () => {
+        if (track.url || track.title) {
+          playTrack(track, true);
+        }
+      });
+
+      el.liveServersRow.appendChild(card);
+    });
+  }
+
+  function renderGlobalRecent() {
+    if (!el.globalRecentRow) return;
+    el.globalRecentRow.innerHTML = '';
+
+    if (!recentFeedCache || recentFeedCache.length === 0) {
+      if (el.globalRecentShelf) el.globalRecentShelf.style.display = 'none';
+      return;
+    }
+    if (el.globalRecentShelf) el.globalRecentShelf.style.display = 'block';
+
+    recentFeedCache.forEach(track => {
+      const card = document.createElement('div');
+      card.className = 'recent-card';
+      const thumb = track.thumbnail || '/static/activity_icon.jpg';
+      const sourceIcon = track.source === 'soundcloud' ? '<i class="fa-brands fa-soundcloud" style="color:#ff5500;"></i>' : '<i class="fa-brands fa-youtube" style="color:#ff0000;"></i>';
+
+      card.innerHTML = `
+        <div class="recent-card-thumb-wrap">
+          <img src="${getSafeImageUrl(thumb)}" alt="${escapeHtml(track.title || '')}" class="recent-card-thumb" loading="lazy" onerror="this.src='/static/activity_icon.jpg';">
+          <div class="square-card-play-btn" title="Слушать">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="#000"><path d="M8 5v14l11-7z"/></svg>
+          </div>
+        </div>
+        <span class="recent-card-title" title="${escapeHtml(track.title || 'Без названия')}">${escapeHtml(track.title || 'Без названия')}</span>
+        <span class="recent-card-artist" title="${escapeHtml(track.artist || '')}">${escapeHtml(track.artist || '')}</span>
+        <div class="recent-card-time">
+          ${sourceIcon} <span>${escapeHtml(track.duration_str || '')}</span>
+        </div>
+      `;
+
+      card.addEventListener('click', () => {
+        if (track.url || track.title) {
+          playTrack(track, true);
+        }
+      });
+
+      el.globalRecentRow.appendChild(card);
+    });
+  }
+
   // Render Home View (Screenshot 2: Curated 3-column + Square cards + Albums)
   function renderHomeView() {
+    // 0. Live Servers Row
+    renderLiveServers();
+
+    // 0.1 Global Recent Row
+    renderGlobalRecent();
+
     // 1. Curated 3-column Grid
     if (el.curatedTracksGrid) {
       el.curatedTracksGrid.innerHTML = '';
@@ -1835,6 +1965,7 @@
             return;
           }
           updatePlayerUI(msg.data);
+          fetchFeedDiscovery();
         }
       } catch (e) {
         console.error('WS parse error:', e);
@@ -2054,6 +2185,30 @@
         }
       });
     });
+
+    // Live Servers Scroll Arrows
+    if (el.liveArrowLeft && el.liveServersRow) {
+      el.liveArrowLeft.addEventListener('click', () => {
+        el.liveServersRow.scrollBy({ left: -360, behavior: 'smooth' });
+      });
+    }
+    if (el.liveArrowRight && el.liveServersRow) {
+      el.liveArrowRight.addEventListener('click', () => {
+        el.liveServersRow.scrollBy({ left: 360, behavior: 'smooth' });
+      });
+    }
+
+    // Global Recent Scroll Arrows
+    if (el.recentArrowLeft && el.globalRecentRow) {
+      el.recentArrowLeft.addEventListener('click', () => {
+        el.globalRecentRow.scrollBy({ left: -360, behavior: 'smooth' });
+      });
+    }
+    if (el.recentArrowRight && el.globalRecentRow) {
+      el.recentArrowRight.addEventListener('click', () => {
+        el.globalRecentRow.scrollBy({ left: 360, behavior: 'smooth' });
+      });
+    }
 
     // Community Shelf Scroll Arrows
     if (el.commArrowLeft && el.communityPlaylistsRow) {
@@ -2352,6 +2507,7 @@
     attachEvents();
     fetchRecommendations();
     fetchCommunityPlaylists();
+    fetchFeedDiscovery();
     loadUserDataFromDB();
     await initDiscordSdk();
     loadUserDataFromDB();
@@ -2360,8 +2516,9 @@
     setupWebSocket();
     await fetchCurrentPlayer();
 
-    // Periodic voice check every 12s
+    // Periodic voice check every 12s, feed discovery every 25s
     setInterval(checkUserVoice, 12000);
+    setInterval(fetchFeedDiscovery, 25000);
   }
 
   init();
