@@ -169,7 +169,7 @@ class GuildPlayer:
         count = len(listeners)
         if count <= 1:
             return 1
-        return math.ceil(count / 2)  # Strict majority (e.g. 2 of 3, 2 of 2, 3 of 4)
+        return max(1, math.ceil(count * 0.6))  # 60% of listeners in room (excluding bot)
 
     async def connect_to_channel(self, channel: discord.VoiceChannel):
         guild_vc = self.guild.voice_client
