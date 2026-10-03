@@ -339,15 +339,6 @@
     { title: 'Counting Stars', artist: 'OneRepublic', thumbnail: 'https://i.ytimg.com/vi/hT_nvWreIhg/hqdefault.jpg', source: 'youtube' }
   ];
 
-  let CURATED_ALBUMS = [
-    { title: 'Discovery', artist: 'Daft Punk', subtitle: 'Альбом • Daft Punk', thumbnail: 'https://i.ytimg.com/vi/A2VpR8HahKc/hqdefault.jpg', source: 'yt_albums' },
-    { title: 'After Hours', artist: 'The Weeknd', subtitle: 'Альбом • The Weeknd', thumbnail: 'https://i.ytimg.com/vi/ygTZZpVkm3o/hqdefault.jpg', source: 'yt_albums' },
-    { title: 'Random Access Memories', artist: 'Daft Punk', subtitle: 'Альбом • Daft Punk', thumbnail: 'https://i.ytimg.com/vi/IhnqEw70vGQ/hqdefault.jpg', source: 'yt_albums' },
-    { title: 'Future Nostalgia', artist: 'Dua Lipa', subtitle: 'Альбом • Dua Lipa', thumbnail: 'https://i.ytimg.com/vi/njbmwfndFH8/hqdefault.jpg', source: 'yt_albums' },
-    { title: 'Night Visions', artist: 'Imagine Dragons', subtitle: 'Альбом • Imagine Dragons', thumbnail: 'https://i.ytimg.com/vi/4m2pknR3k-4/hqdefault.jpg', source: 'yt_albums' },
-    { title: 'Scary Monsters and Nice Sprites', artist: 'Skrillex', subtitle: 'EP • Skrillex', thumbnail: 'https://i.ytimg.com/vi/WSeNSzJ2-Jw/hqdefault.jpg', source: 'yt_albums' }
-  ];
-
   function t(key, params = {}) {
     const lang = state.lang || 'ru';
     let text = (I18N[lang] && I18N[lang][key]) || (I18N['ru'] && I18N['ru'][key]) || key;
@@ -803,99 +794,18 @@
   }
 
   // Live on other servers & Global Recent Tracks
-  let liveFeedCache = [
-    {
-      guild_id: "live_lofi",
-      guild_name: "Lofi Chill & Study",
-      channel_name: "☕ Lounge",
-      listeners_count: 6,
-      track: {
-        title: "Lofi Hip Hop Radio - Beats to Relax/Study to",
-        artist: "Lofi Girl",
-        thumbnail: "https://i.ytimg.com/vi/jfKfPfyJRdk/hqdefault.jpg",
-        source: "youtube",
-        url: "https://www.youtube.com/watch?v=jfKfPfyJRdk",
-        duration_str: "Live"
-      }
-    },
-    {
-      guild_id: "live_synthwave",
-      guild_name: "Night Drive Club",
-      channel_name: "🚗 Neon Highway",
-      listeners_count: 4,
-      track: {
-        title: "Midnight City",
-        artist: "M83",
-        thumbnail: "https://i.ytimg.com/vi/dX3k_QDnzHE/hqdefault.jpg",
-        source: "youtube",
-        url: "https://music.youtube.com/watch?v=dX3k_QDnzHE",
-        duration_str: "4:03"
-      }
-    },
-    {
-      guild_id: "live_electronic",
-      guild_name: "EDM & Club Hits",
-      channel_name: "🔥 Main Stage",
-      listeners_count: 9,
-      track: {
-        title: "Get Lucky",
-        artist: "Daft Punk ft. Pharrell Williams",
-        thumbnail: "https://i.ytimg.com/vi/5NV6Rdv1a3I/hqdefault.jpg",
-        source: "soundcloud",
-        url: "https://api.soundcloud.com/tracks/soundcloud%3Atracks%3A88335161",
-        duration_str: "4:08"
-      }
-    }
-  ];
-
-  let recentFeedCache = [
-    {
-      title: "Blinding Lights",
-      artist: "The Weeknd",
-      thumbnail: "https://i.ytimg.com/vi/4NRXx6U8ABQ/hqdefault.jpg",
-      duration_str: "3:20",
-      source: "youtube",
-      url: "https://music.youtube.com/watch?v=4NRXx6U8ABQ"
-    },
-    {
-      title: "Bangarang",
-      artist: "Skrillex",
-      thumbnail: "https://i.ytimg.com/vi/YJVmu6yttiw/hqdefault.jpg",
-      duration_str: "3:35",
-      source: "soundcloud",
-      url: "https://soundcloud.com/skrillex/bangarang-feat-sirah"
-    },
-    {
-      title: "Starboy",
-      artist: "The Weeknd ft. Daft Punk",
-      thumbnail: "https://i.ytimg.com/vi/34Na4j8AVgA/hqdefault.jpg",
-      duration_str: "3:50",
-      source: "youtube",
-      url: "https://music.youtube.com/watch?v=34Na4j8AVgA"
-    },
-    {
-      title: "Alone",
-      artist: "Marshmello",
-      thumbnail: "https://i.ytimg.com/vi/ALZHF5UqnU4/hqdefault.jpg",
-      duration_str: "3:19",
-      source: "soundcloud",
-      url: "https://soundcloud.com/marshmellomusic/marshmello-alone"
-    }
-  ];
+  let liveFeedCache = [];
+  let recentFeedCache = [];
 
   async function fetchFeedDiscovery() {
     try {
       const resp = await fetch('/api/feed/discovery');
       const data = await resp.json();
       if (data) {
-        if (Array.isArray(data.live_now) && data.live_now.length > 0) {
-          liveFeedCache = data.live_now;
-          renderLiveServers();
-        }
-        if (Array.isArray(data.recent_history) && data.recent_history.length > 0) {
-          recentFeedCache = data.recent_history;
-          renderGlobalRecent();
-        }
+        liveFeedCache = Array.isArray(data.live_now) ? data.live_now : [];
+        renderLiveServers();
+        recentFeedCache = Array.isArray(data.recent_history) ? data.recent_history : [];
+        renderGlobalRecent();
       }
     } catch (e) {
       console.warn('Could not fetch /api/feed/discovery:', e);
@@ -907,7 +817,12 @@
     el.liveServersRow.innerHTML = '';
 
     if (!liveFeedCache || liveFeedCache.length === 0) {
-      if (el.liveServersShelf) el.liveServersShelf.style.display = 'none';
+      el.liveServersRow.innerHTML = `
+        <div style="padding: 16px 20px; background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.1); border-radius: 12px; display: flex; align-items: center; gap: 12px; color: #888; font-size: 13px; width: 100%;">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="#666"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+          <span>В данный момент на серверах музыка не играет. Подключитесь к голосовому каналу и включите трек!</span>
+        </div>
+      `;
       return;
     }
     if (el.liveServersShelf) el.liveServersShelf.style.display = 'block';
@@ -961,7 +876,12 @@
     el.globalRecentRow.innerHTML = '';
 
     if (!recentFeedCache || recentFeedCache.length === 0) {
-      if (el.globalRecentShelf) el.globalRecentShelf.style.display = 'none';
+      el.globalRecentRow.innerHTML = `
+        <div style="padding: 16px 20px; background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.1); border-radius: 12px; display: flex; align-items: center; gap: 12px; color: #888; font-size: 13px; width: 100%;">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="#666"><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+          <span>Здесь появятся недавние треки, которые слушают пользователи нашего бота.</span>
+        </div>
+      `;
       return;
     }
     if (el.globalRecentShelf) el.globalRecentShelf.style.display = 'block';
@@ -998,7 +918,7 @@
     });
   }
 
-  // Render Home View (Screenshot 2: Curated 3-column + Square cards + Albums)
+  // Render Home View (Screenshot 2: Curated 3-column + Square cards + Community Playlists)
   function renderHomeView() {
     // 0. Live Servers Row
     renderLiveServers();
@@ -1054,7 +974,7 @@
       });
     }
 
-    // 2. Square Cards Row: Вы давно не слушали
+    // 2. Square Cards Row: Хиты SoundCloud & YouTube
     if (el.quickPicksRow) {
       el.quickPicksRow.innerHTML = '';
       CURATED_QUICK_PICKS.forEach(item => {
@@ -1075,40 +995,15 @@
             title: item.title,
             artist: item.artist,
             thumbnail: item.thumbnail,
-            source: 'youtube',
-            url: `https://music.youtube.com/search?q=${encodeURIComponent(item.title + ' ' + item.artist)}`
+            source: item.source || 'youtube',
+            url: item.url || `https://music.youtube.com/search?q=${encodeURIComponent(item.title + ' ' + item.artist)}`
           }, true);
         });
         el.quickPicksRow.appendChild(card);
       });
     }
 
-    // 3. Square Cards Row: Альбомы для вас
-    if (el.albumsRow) {
-      el.albumsRow.innerHTML = '';
-      CURATED_ALBUMS.forEach(item => {
-        const card = document.createElement('div');
-        card.className = 'square-card';
-        card.innerHTML = `
-          <div class="square-card-thumb-wrap">
-            <img src="${getSafeImageUrl(item.thumbnail)}" alt="${escapeHtml(item.title)}" class="square-card-thumb" loading="lazy" onerror="this.src='/static/activity_icon.jpg';">
-            <div class="square-card-play-btn" title="${t('track.playNowTitle')}">
-              <svg viewBox="0 0 24 24" width="22" height="22" fill="#000"><path d="M8 5v14l11-7z"/></svg>
-            </div>
-          </div>
-          <span class="square-card-title">${escapeHtml(item.title)}</span>
-          <span class="square-card-sub">${escapeHtml(item.subtitle || item.artist)}</span>
-        `;
-        card.addEventListener('click', () => {
-          switchView('search');
-          if (el.searchInput) el.searchInput.value = item.title;
-          performSearch(item.title);
-        });
-        el.albumsRow.appendChild(card);
-      });
-    }
-
-    // 4. Community Shared Playlists & Leaderboard Shelf
+    // 3. User Community Playlists Shelf
     renderCommunityPlaylists();
   }
 
@@ -1134,10 +1029,23 @@
     if (!el.communityPlaylistsRow) return;
     el.communityPlaylistsRow.innerHTML = '';
 
+    if (el.communityPlaylistsShelf) {
+      el.communityPlaylistsShelf.style.display = 'block';
+    }
+
     if (!communityPlaylistsCache || communityPlaylistsCache.length === 0) {
-      if (el.communityPlaylistsShelf) {
-        el.communityPlaylistsShelf.style.display = 'none';
-      }
+      const emptyCard = document.createElement('div');
+      emptyCard.className = 'community-card';
+      emptyCard.style.cssText = 'border: 1px dashed rgba(255,255,255,0.18); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 220px; text-align: center; padding: 24px; border-radius: 12px; background: rgba(255,255,255,0.02); flex: 0 0 220px;';
+      emptyCard.innerHTML = `
+        <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(255,0,0,0.15); display: flex; align-items: center; justify-content: center; color: #ff4d4d; font-size: 26px; margin-bottom: 12px; font-weight: 300;">+</div>
+        <span style="font-weight: 600; font-size: 14px; color: #fff;">Создать плейлист</span>
+        <span style="font-size: 12px; color: #888; margin-top: 4px; max-width: 170px;">Пока нет плейлистов сообщества. Создайте первый плейлист!</span>
+      `;
+      emptyCard.addEventListener('click', () => {
+        openCreatePlaylistModal();
+      });
+      el.communityPlaylistsRow.appendChild(emptyCard);
       return;
     }
 
