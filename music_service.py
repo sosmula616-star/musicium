@@ -1,8 +1,9 @@
 import os
 import re
+import time
 import asyncio
 import logging
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 import yt_dlp
 
 logger = logging.getLogger("music_service")
@@ -93,6 +94,9 @@ class MusicService:
             "ignoreerrors": True,
             "source_address": "0.0.0.0",
         }
+
+        # Cache for resolved audio stream URLs: {key: (stream_url, expire_timestamp)}
+        self._stream_cache: Dict[str, Tuple[str, float]] = {}
 
         # YouTube cookie path strictly for YouTube playback
         self.youtube_cookie_path = None
@@ -325,10 +329,28 @@ class MusicService:
         return await asyncio.to_thread(_search)
 
     async def get_stream_url(self, track: Track) -> Optional[str]:
-        """Resolves the direct playable audio stream URL for a Track."""
+        """Resolves the direct playable audio stream URL for a Track, with in-memory TTL caching."""
+        cache_key = track.id or track.url
+        now = time.time()
+        if cache_key and cache_key in self._stream_cache:
+            cached_url, expire_at = self._stream_cache[cache_key]
+            if now < expire_at:
+                return cached_url
+            else:
+                self._stream_cache.pop(cache_key, None)
+
         if track.source == "soundcloud" or (track.url and "soundcloud.com" in track.url) or (track.id and track.id.startswith("soundcloud_")):
-            return await self._get_soundcloud_stream(track)
-        return await self._get_youtube_stream(track)
+            stream = await self._get_soundcloud_stream(track)
+        else:
+            stream = await self._get_youtube_stream(track)
+
+        if stream and cache_key:
+            # YouTube/SoundCloud URLs are typically valid for 6h+, cache for 2.5h (9000s)
+            self._stream_cache[cache_key] = (stream, now + 9000)
+            if len(self._stream_cache) > 300:
+                self._stream_cache = {k: v for k, v in self._stream_cache.items() if v[1] > now}
+
+        return stream
 
     async def _get_soundcloud_stream(self, track: Track) -> Optional[str]:
         def _get():
