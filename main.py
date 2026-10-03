@@ -143,6 +143,14 @@ async def on_ready():
     except Exception as e:
         logger.debug(f"Bot avatar auto-sync: {e}")
 
+    # Re-attach any active voice connections across all guilds
+    for g in bot.guilds:
+        if getattr(g, "voice_client", None) and g.voice_client.is_connected():
+            p = player_manager.get_or_create_player(g)
+            p.voice_client = g.voice_client
+            ch_name = g.voice_client.channel.name if g.voice_client.channel else "unknown"
+            logger.info(f"Attached existing voice connection in guild '{g.name}' (room: '{ch_name}')")
+
     # Set Activity
     activity = discord.Activity(
         type=discord.ActivityType.listening,
@@ -150,6 +158,31 @@ async def on_ready():
     )
     await bot.change_presence(status=discord.Status.online, activity=activity)
     logger.info(f"Discord Music Mini App ready at: {PUBLIC_URL}")
+
+@bot.event
+async def on_voice_state_update(member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
+    # 1. If the bot itself was moved, connected or disconnected
+    if member.id == bot.user.id:
+        player = player_manager.get_player_by_guild_id(member.guild.id)
+        if after.channel is None:
+            logger.info(f"Bot was disconnected from voice channel in guild '{member.guild.name}'")
+            if player:
+                player.voice_client = None
+                await player._notify_change()
+        else:
+            logger.info(f"Bot connected or moved to room '{after.channel.name}' in guild '{member.guild.name}'")
+            if not player:
+                player = player_manager.get_or_create_player(member.guild)
+            player.voice_client = member.guild.voice_client
+            await player._notify_change()
+
+    # 2. If users joined or left the bot's room, notify WebSocket listeners
+    guild_vc = getattr(member.guild, "voice_client", None)
+    if guild_vc and guild_vc.channel:
+        if before.channel == guild_vc.channel or after.channel == guild_vc.channel:
+            player = player_manager.get_player_by_guild_id(member.guild.id)
+            if player:
+                await player._notify_change()
 
 # ----------------- Slash Commands -----------------
 
@@ -305,12 +338,110 @@ async def slash_queue(interaction: discord.Interaction):
 async def slash_stop(interaction: discord.Interaction):
     await interaction.response.defer()
     player = player_manager.get_player_by_guild_id(interaction.guild_id)
-    if not player:
+    if not player and interaction.guild and getattr(interaction.guild, "voice_client", None):
+        player = player_manager.get_or_create_player(interaction.guild)
+
+    if not player or (not player.voice_client and not getattr(interaction.guild, "voice_client", None)):
         await interaction.followup.send("❌ Бот не подключен к голосовому каналу.", ephemeral=True)
         return
 
     await player.stop()
     await interaction.followup.send("⏹️ Плеер остановлен, бот отключился от канала.")
+
+
+@bot.tree.command(name="room", description="Показать, в какой комнате на сервере сейчас находится бот")
+async def slash_room(interaction: discord.Interaction):
+    await interaction.response.defer()
+    guild = interaction.guild
+    guild_vc = getattr(guild, "voice_client", None) if guild else None
+
+    lines = []
+    if guild_vc and guild_vc.is_connected() and guild_vc.channel:
+        bot_channel = guild_vc.channel
+        human_listeners = [m.display_name for m in bot_channel.members if not m.bot]
+        player = player_manager.get_player_by_guild_id(guild.id) if guild else None
+        track_info = f"\n🎶 Сейчас играет: **{player.current_track.title}**" if (player and player.current_track and player.is_playing) else ""
+        lines.append(f"🤖 **Бот находится в комнате:** `🔊 {bot_channel.name}`{track_info}")
+        if human_listeners:
+            lines.append(f"👥 **Слушатели в комнате:** {', '.join(human_listeners)}")
+        else:
+            lines.append("👥 **Слушатели:** В комнате никого нет (бот один)")
+    else:
+        lines.append("🤖 **Бот не подключен** ни к одной комнате на этом сервере.")
+
+    user_vc = interaction.user.voice.channel if (interaction.user and interaction.user.voice) else None
+    if user_vc:
+        lines.append(f"👤 **Вы находитесь в комнате:** `🔊 {user_vc.name}`")
+    else:
+        lines.append("👤 **Вы:** Не находитесь в голосовом канале")
+
+    embed = discord.Embed(
+        title=f"🔊 Голосовой статус • {guild.name if guild else 'Discord'}",
+        description="\n\n".join(lines),
+        color=0x5865F2 if (guild_vc and guild_vc.is_connected()) else 0x99AAB5,
+    )
+    view = discord.ui.View()
+    view.add_item(discord.ui.Button(label="📱 Открыть Mini App", style=discord.ButtonStyle.link, url=f"{PUBLIC_URL}?guild_id={guild.id}" if guild else PUBLIC_URL))
+    await interaction.followup.send(embed=embed, view=view)
+
+
+@bot.tree.command(name="channels", description="Список голосовых комнат на сервере и где сейчас бот")
+async def slash_channels(interaction: discord.Interaction):
+    await interaction.response.defer()
+    guild = interaction.guild
+    if not guild:
+        await interaction.followup.send("❌ Команда доступна только на сервере.", ephemeral=True)
+        return
+
+    guild_vc = getattr(guild, "voice_client", None)
+    bot_chan_id = guild_vc.channel.id if (guild_vc and guild_vc.is_connected() and guild_vc.channel) else None
+
+    all_vcs = list(getattr(guild, "voice_channels", [])) + list(getattr(guild, "stage_channels", []))
+    if not all_vcs:
+        await interaction.followup.send("⚠️ На этом сервере нет голосовых каналов!", ephemeral=True)
+        return
+
+    lines = []
+    for vc in all_vcs[:20]:
+        is_bot = (vc.id == bot_chan_id)
+        user_cnt = len([m for m in vc.members if not m.bot])
+        badge = " 🟢 **[БОТ ЗДЕСЬ]**" if is_bot else ""
+        lines.append(f"• `🔊 {vc.name}` — {user_cnt} участн.{badge}")
+
+    embed = discord.Embed(
+        title=f"📋 Голосовые комнаты сервера {guild.name}",
+        description="\n".join(lines),
+        color=0x5865F2,
+    )
+    embed.set_footer(text=f"Всего голосовых комнат: {len(all_vcs)}")
+    view = discord.ui.View()
+    view.add_item(discord.ui.Button(label="📱 Управлять в Mini App", style=discord.ButtonStyle.link, url=f"{PUBLIC_URL}?guild_id={guild.id}"))
+    await interaction.followup.send(embed=embed, view=view)
+
+
+@bot.tree.command(name="join", description="Подключить бота к голосовому каналу")
+@app_commands.describe(channel="Голосовой канал, в который нужно зайти боту (необязательно)")
+async def slash_join(interaction: discord.Interaction, channel: Optional[discord.VoiceChannel] = None):
+    await interaction.response.defer()
+    target = channel
+    if not target:
+        if interaction.user.voice and interaction.user.voice.channel:
+            target = interaction.user.voice.channel
+        else:
+            await interaction.followup.send("⚠️ Вы не в голосовом канале! Укажите канал или зайдите в голосовой канал.", ephemeral=True)
+            return
+
+    player = player_manager.get_or_create_player(interaction.guild)
+    try:
+        await player.connect_to_channel(target)
+        embed = discord.Embed(
+            title="✅ Бот подключился к комнате!",
+            description=f"Бот успешно вошел в комнату **`🔊 {target.name}`** на сервере **{interaction.guild.name}**.",
+            color=0x57F287,
+        )
+        await interaction.followup.send(embed=embed)
+    except Exception as e:
+        await interaction.followup.send(f"❌ Не удалось подключиться к каналу `{target.name}`: {e}", ephemeral=True)
 
 # ----------------- Prefix Command Fallbacks -----------------
 
@@ -368,9 +499,33 @@ async def cmd_skip(ctx):
 @bot.command(name="stop")
 async def cmd_stop(ctx):
     player = player_manager.get_player_by_guild_id(ctx.guild.id)
+    if not player and ctx.guild and getattr(ctx.guild, "voice_client", None):
+        player = player_manager.get_or_create_player(ctx.guild)
     if player:
         await player.stop()
-        await ctx.send("⏹️ Плеер остановлен.")
+        await ctx.send("⏹️ Плеер остановлен, бот отключился от канала.")
+    elif ctx.guild and getattr(ctx.guild, "voice_client", None):
+        await ctx.guild.voice_client.disconnect(force=True)
+        await ctx.send("⏹️ Бот отключился от голосового канала.")
+    else:
+        await ctx.send("❌ Бот не подключен к голосовому каналу.")
+
+@bot.command(name="room")
+async def cmd_room(ctx):
+    await slash_room.callback(ctx)
+
+@bot.command(name="channels")
+async def cmd_channels(ctx):
+    await slash_channels.callback(ctx)
+
+@bot.command(name="join")
+async def cmd_join(ctx):
+    if not ctx.author.voice or not ctx.author.voice.channel:
+        await ctx.send("⚠️ Вы должны находиться в голосовом канале!")
+        return
+    player = player_manager.get_or_create_player(ctx.guild)
+    await player.connect_to_channel(ctx.author.voice.channel)
+    await ctx.send(f"✅ Бот подключился к комнате **`🔊 {ctx.author.voice.channel.name}`**.")
 
 
 async def main():
