@@ -104,7 +104,7 @@ class GuildPlayer:
         self.music_service = music_service
         self.on_change_callback = on_change_callback
 
-        self.voice_client: Optional[discord.VoiceClient] = None
+        self._voice_client: Optional[discord.VoiceClient] = getattr(guild, 'voice_client', None)
         self.current_track: Optional[Track] = None
         self.queue: List[Track] = []
         self.history: List[Track] = []
@@ -125,12 +125,28 @@ class GuildPlayer:
         self._lock = asyncio.Lock()
 
     @property
+    def voice_client(self) -> Optional[discord.VoiceClient]:
+        if self._voice_client and self._voice_client.is_connected():
+            return self._voice_client
+        guild_vc = getattr(self.guild, 'voice_client', None)
+        if guild_vc and guild_vc.is_connected():
+            self._voice_client = guild_vc
+            return self._voice_client
+        return self._voice_client if (self._voice_client and self._voice_client.is_connected()) else None
+
+    @voice_client.setter
+    def voice_client(self, vc: Optional[discord.VoiceClient]):
+        self._voice_client = vc
+
+    @property
     def is_playing(self) -> bool:
-        return bool(self.voice_client and self.voice_client.is_playing())
+        vc = self.voice_client
+        return bool(vc and vc.is_playing())
 
     @property
     def is_connected(self) -> bool:
-        return bool(self.voice_client and self.voice_client.is_connected())
+        vc = self.voice_client
+        return bool(vc and vc.is_connected())
 
     def get_elapsed_seconds(self) -> int:
         if not self.current_track or self.start_time == 0:
@@ -143,9 +159,10 @@ class GuildPlayer:
         return max(0, int(elapsed))
 
     def get_non_bot_listeners(self) -> List[discord.Member]:
-        if not self.voice_client or not self.voice_client.channel:
+        vc = self.voice_client
+        if not vc or not vc.channel:
             return []
-        return [m for m in self.voice_client.channel.members if not m.bot]
+        return [m for m in vc.channel.members if not m.bot]
 
     def get_required_votes(self) -> int:
         listeners = self.get_non_bot_listeners()
@@ -528,9 +545,10 @@ class GuildPlayer:
         asyncio.create_task(self._notify_change())
 
     def get_state(self) -> Dict[str, Any]:
+        vc = self.voice_client
         listeners = self.get_non_bot_listeners()
-        channel_name = self.voice_client.channel.name if self.voice_client and self.voice_client.channel else None
-        channel_id = str(self.voice_client.channel.id) if self.voice_client and self.voice_client.channel else None
+        channel_name = vc.channel.name if vc and vc.channel else None
+        channel_id = str(vc.channel.id) if vc and vc.channel else None
 
         return {
             "guild_id": str(self.guild.id),
