@@ -2900,14 +2900,7 @@ html:not([data-lang="en"]) .lang-en { display: none !important; }
   50%       { opacity: 1; transform: scale(1.15); }
 }
 
-.legal-tech-pills { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; justify-content: center; }
-
-.legal-tech-chip {
-  font-size: 10px;
-  color: var(--text-secondary);
-  background: rgba(255,255,255,0.03);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--r-full);
+.legal-tech-pills { display: none !important; }
   padding: 3px 9px;
   display: inline-flex;
   align-items: center;
