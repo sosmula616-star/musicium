@@ -16,8 +16,10 @@ logger = logging.getLogger("web_server")
 @web.middleware
 async def cache_control_middleware(request: web.Request, handler):
     response = await handler(request)
-    if request.path.startswith("/static/"):
-        response.headers["Cache-Control"] = "no-cache, must-revalidate"
+    if request.path.startswith("/static/") or request.path == "/":
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
     return response
 
 class WebServer:
