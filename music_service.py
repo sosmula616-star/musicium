@@ -84,7 +84,7 @@ class MusicService:
     def __init__(self):
         # yt-dlp configuration for fast searching
         self.ydl_opts = {
-            "format": "bestaudio/best",
+            "format": "ba/b/bestaudio/best",
             "noplaylist": False,
             "quiet": True,
             "no_warnings": True,
@@ -93,6 +93,15 @@ class MusicService:
             "extract_flat": False,
             "ignoreerrors": True,
             "source_address": "0.0.0.0",
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android"],
+                    "player_skip": ["webpage", "configs"],
+                },
+                "youtubetab": {
+                    "skip": ["webpage"],
+                },
+            },
         }
 
         # Cache for resolved audio stream URLs: {key: (stream_url, expire_timestamp)}
@@ -438,12 +447,21 @@ class MusicService:
                 "extract_flat": False,
                 "noplaylist": True,
                 "source_address": "0.0.0.0",
+                "extractor_args": {
+                    "youtube": {
+                        "player_client": ["android"],
+                        "player_skip": ["webpage", "configs"],
+                    },
+                    "youtubetab": {
+                        "skip": ["webpage"],
+                    },
+                },
             }
 
             if self.youtube_cookie_path and os.path.exists(self.youtube_cookie_path):
                 base_opts["cookiefile"] = self.youtube_cookie_path
 
-            # 1. Primary YouTube extraction (standard player)
+            # 1. Primary fast YouTube extraction (Android client + cookies)
             try:
                 with yt_dlp.YoutubeDL(base_opts) as ydl:
                     info = ydl.extract_info(target_url, download=False)
@@ -456,12 +474,12 @@ class MusicService:
             except Exception as e:
                 logger.warning(f"Primary YouTube stream extraction failed ({e}), attempting fallback client...")
 
-            # 2. Secondary YouTube extraction (all clients fallback)
+            # 2. Secondary YouTube extraction (fallback without player_skip)
             try:
                 sec_opts = dict(base_opts)
                 sec_opts["extractor_args"] = {
                     "youtube": {
-                        "player_client": ["all"],
+                        "player_client": ["android_vr", "android"],
                     },
                 }
                 with yt_dlp.YoutubeDL(sec_opts) as ydl:
