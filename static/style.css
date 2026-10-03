@@ -543,8 +543,8 @@ html:not([data-lang="en"]) .lang-en { display: none !important; }
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  min-width: 280px;
-  max-width: 340px;
+  min-width: 320px;
+  max-width: 380px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-light);
   border-radius: var(--r-md);
@@ -564,6 +564,288 @@ html:not([data-lang="en"]) .lang-en { display: none !important; }
   visibility: visible;
   transform: translateY(0) scale(1);
   pointer-events: auto;
+}
+
+/* Bot Voice Banner in Dropdown */
+.bot-voice-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: var(--r-sm);
+  padding: 7px 10px;
+  margin-bottom: 9px;
+  gap: 8px;
+}
+
+.bot-voice-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.bot-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+  animation: pulse-green 2s infinite;
+  flex-shrink: 0;
+}
+
+.bot-voice-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.bot-voice-title {
+  font-size: 10px;
+  color: #86efac;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
+
+.bot-voice-channel {
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bot-voice-disconnect-btn {
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+  border-radius: 4px;
+  padding: 4px 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--t-fast);
+}
+
+.bot-voice-disconnect-btn:hover {
+  background: rgba(239, 68, 68, 0.4);
+  color: #ffffff;
+}
+
+/* Voice Dropdown Tabs */
+.voice-dropdown-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+}
+
+.voice-tab-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all var(--t-fast);
+}
+
+.voice-tab-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.voice-tab-btn.active {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.voice-tab-content {
+  display: none;
+}
+
+.voice-tab-content.active {
+  display: block;
+}
+
+/* Guild Filter Select */
+.guild-filter-wrap {
+  margin-bottom: 8px;
+}
+
+.guild-filter-select {
+  width: 100%;
+  background: #181818;
+  border: 1px solid var(--border-light);
+  border-radius: var(--r-sm);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 12px;
+  padding: 5px 8px;
+  outline: none;
+  cursor: pointer;
+}
+
+.guild-filter-select:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Voice Rooms List */
+.voice-rooms-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 250px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.voice-guild-group {
+  margin-bottom: 8px;
+}
+
+.voice-guild-header {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 3px 4px 5px 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  margin-bottom: 4px;
+}
+
+.voice-room-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--r-sm);
+  gap: 8px;
+  margin-bottom: 4px;
+  transition: all var(--t-fast);
+}
+
+.voice-room-card:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.voice-room-card.is-bot-room {
+  background: rgba(34, 197, 94, 0.08);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.voice-room-card.is-user-room {
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+.voice-room-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+
+.voice-room-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.voice-room-badges {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.badge-bot-here {
+  background: #22c55e;
+  color: #000;
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  line-height: 1.2;
+}
+
+.badge-user-here {
+  background: #3b82f6;
+  color: #fff;
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  line-height: 1.2;
+}
+
+.voice-room-members-avatars {
+  display: flex;
+  align-items: center;
+  margin-top: 3px;
+}
+
+.voice-room-members-avatars img {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--bg-elevated);
+  margin-right: -4px;
+}
+
+.voice-room-join-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 9px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--t-fast);
+}
+
+.voice-room-join-btn:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+.voice-room-card.is-bot-room .voice-room-join-btn {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+}
+.voice-room-card.is-bot-room .voice-room-join-btn:hover {
+  background: #ef4444;
+  color: #ffffff;
 }
 
 .dropdown-header {
@@ -597,6 +879,7 @@ html:not([data-lang="en"]) .lang-en { display: none !important; }
   align-items: center;
   border-radius: var(--r-xs);
   transition: color var(--t-fast), transform var(--t-normal);
+  margin-left: auto;
 }
 .dropdown-refresh-btn:hover { color: var(--text-primary); transform: rotate(90deg); }
 
@@ -2901,11 +3184,6 @@ html:not([data-lang="en"]) .lang-en { display: none !important; }
 }
 
 .legal-tech-pills { display: none !important; }
-  padding: 3px 9px;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
 
 .legal-nav-links {
   display: flex;
