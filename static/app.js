@@ -694,6 +694,7 @@
 
     let userVoiceFound = false;
 
+    // 1. Check user voice directly if authenticated Discord ID
     if (state.userId && !state.userId.startsWith('user_')) {
       try {
         const resp = await fetch(`/api/user-voice?user_id=${encodeURIComponent(state.userId)}${guildQuery}${chanQuery}`);
@@ -726,11 +727,8 @@
       }
     }
 
+    // 2. If user is not directly detected in a channel: check bot's active voice room
     if (!userVoiceFound) {
-      state.inVoice = false;
-      state.channelMembers = [];
-
-      // Query bot voice state across guilds
       try {
         const botCheckResp = await fetch(`/api/user-voice?user_id=0${guildQuery}`);
         const botCheckData = await botCheckResp.json();
@@ -739,36 +737,54 @@
         }
       } catch (_) {}
 
+      // Auto-detect & adopt room: if bot is in a room, automatically connect UI to that room!
       if (state.botVoice && state.botVoice.channel_name) {
+        state.inVoice = true;
+        state.guildId = state.botVoice.guild_id || state.guildId;
+        state.guildName = state.botVoice.guild_name || state.guildName;
+        state.channelId = state.botVoice.channel_id;
+        state.channelName = state.botVoice.channel_name;
+        state.channelMembers = state.botVoice.channel_members || [];
+
         if (el.voiceIndicator) el.voiceIndicator.className = 'status-indicator connected';
-        if (el.voiceChannelName) el.voiceChannelName.textContent = '🤖 ' + state.botVoice.channel_name;
-        if (el.voiceMembersCountBadge) el.voiceMembersCountBadge.textContent = '•';
+        if (el.voiceChannelName) el.voiceChannelName.textContent = state.botVoice.channel_name;
+        const countDisplay = state.channelMembers.length > 0 ? state.channelMembers.length : '1';
+        if (el.voiceMembersCountBadge) el.voiceMembersCountBadge.textContent = countDisplay;
+        if (el.dropdownMembersCount) el.dropdownMembersCount.textContent = state.channelMembers.length;
         if (el.voiceStatusPill) el.voiceStatusPill.classList.add('active');
+
+        renderVoiceMembers(state.channelMembers);
+        sendWsSubscribe();
       } else {
+        // Neither user nor bot is connected: user will need to choose from dropdown
+        state.inVoice = false;
+        state.channelMembers = [];
+
         if (el.voiceIndicator) el.voiceIndicator.className = 'status-indicator';
         if (el.voiceChannelName) el.voiceChannelName.textContent = t('voice.notConnected');
         if (el.voiceMembersCountBadge) el.voiceMembersCountBadge.textContent = '0';
         if (el.voiceStatusPill) el.voiceStatusPill.classList.remove('active');
+
+        if (el.dropdownMembersCount) el.dropdownMembersCount.textContent = '0';
+        renderVoiceMembers([]);
+
+        // Auto-detect user from voice-users scan if guest or user_ ID
+        try {
+          const vuUrl = state.guildId ? `/api/voice-users?guild_id=${encodeURIComponent(state.guildId)}` : '/api/voice-users';
+          const vuResp = await fetch(vuUrl);
+          const vuData = await vuResp.json();
+          if (vuData.voice_users && vuData.voice_users.length > 0 && (!state.userId || state.userId.startsWith('user_'))) {
+            const u = vuData.voice_users[0];
+            state.userId = u.id;
+            state.userName = u.display_name;
+            state.userAvatar = u.avatar;
+            saveUser();
+            showToast(t('toast.profileConnected', { name: u.display_name, channel: u.channel_name }), 'success');
+            checkUserVoice();
+            return;
+          }
+        } catch (_) {}
       }
-
-      if (el.dropdownMembersCount) el.dropdownMembersCount.textContent = '0';
-      renderVoiceMembers([]);
-
-      // Auto-detect user from voice-users scan if guest or user_ ID
-      try {
-        const vuUrl = state.guildId ? `/api/voice-users?guild_id=${encodeURIComponent(state.guildId)}` : '/api/voice-users';
-        const vuResp = await fetch(vuUrl);
-        const vuData = await vuResp.json();
-        if (vuData.voice_users && vuData.voice_users.length > 0 && (!state.userId || state.userId.startsWith('user_'))) {
-          const u = vuData.voice_users[0];
-          state.userId = u.id;
-          state.userName = u.display_name;
-          state.userAvatar = u.avatar;
-          saveUser();
-          showToast(t('toast.profileConnected', { name: u.display_name, channel: u.channel_name }), 'success');
-          checkUserVoice();
-        }
-      } catch (_) {}
     }
 
     // Update Bot Voice Banner
@@ -794,21 +810,38 @@
         // Auto-detect bot voice if found in any guild
         const activeBotGuild = state.guilds.find(g => g.bot_in_voice);
         if (activeBotGuild && activeBotGuild.bot_channel_name) {
+          const botCh = activeBotGuild.channels ? activeBotGuild.channels.find(c => c.id === activeBotGuild.bot_channel_id) : null;
           state.botVoice = {
             guild_id: activeBotGuild.id,
             guild_name: activeBotGuild.name,
             channel_id: activeBotGuild.bot_channel_id,
             channel_name: activeBotGuild.bot_channel_name,
+            channel_members: botCh ? (botCh.members || []) : [],
           };
-          if (!state.inVoice && el.voiceChannelName) {
-            el.voiceChannelName.textContent = '🤖 ' + activeBotGuild.bot_channel_name;
+          // Auto-adopt bot's room if not already in another room
+          if (!state.inVoice || !state.channelId) {
+            state.inVoice = true;
+            state.guildId = activeBotGuild.id;
+            state.guildName = activeBotGuild.name;
+            state.channelId = activeBotGuild.bot_channel_id;
+            state.channelName = activeBotGuild.bot_channel_name;
+            state.channelMembers = state.botVoice.channel_members;
+
+            if (el.voiceChannelName) el.voiceChannelName.textContent = activeBotGuild.bot_channel_name;
             if (el.voiceIndicator) el.voiceIndicator.className = 'status-indicator connected';
             if (el.voiceStatusPill) el.voiceStatusPill.classList.add('active');
+            if (el.voiceMembersCountBadge) el.voiceMembersCountBadge.textContent = state.channelMembers.length || '1';
           }
           if (el.botVoiceBanner) {
             el.botVoiceBanner.style.display = 'flex';
             if (el.botVoiceChannel) el.botVoiceChannel.textContent = `${activeBotGuild.name} • 🔊 ${activeBotGuild.bot_channel_name}`;
           }
+        } else if (!state.channelId && state.guilds.length === 1 && state.guilds[0].channels && state.guilds[0].channels.length === 1) {
+          // If server only has 1 voice room, set it as default candidate
+          const onlyCh = state.guilds[0].channels[0];
+          state.channelId = onlyCh.id;
+          state.channelName = onlyCh.name;
+          state.guildId = state.guilds[0].id;
         }
 
         updateGuildFilterOptions();
@@ -904,6 +937,16 @@
             </button>
           `;
 
+          card.style.cursor = 'pointer';
+          card.addEventListener('click', async (e) => {
+            if (e.target.closest('.voice-room-join-btn')) return;
+            if (isBot) {
+              await disconnectBotVoice(g.id);
+            } else {
+              await joinVoiceChannel(g.id, ch.id, ch.name);
+            }
+          });
+
           const btn = card.querySelector('.voice-room-join-btn');
           btn.addEventListener('click', async (e) => {
             e.stopPropagation();
@@ -931,9 +974,13 @@
       });
       const data = await resp.json();
       if (data && data.success) {
+        state.inVoice = true;
         state.guildId = guildId;
         state.channelId = channelId;
         if (data.channel_name) state.channelName = data.channel_name;
+        if (el.voiceWidgetContainer) {
+          el.voiceWidgetContainer.classList.remove('dropdown-open');
+        }
         showToast(`🤖 Бот подключен к комнате «${channelName || data.channel_name || 'Комната'}»`, 'success', 'fa-microphone');
         sendWsSubscribe();
         await checkUserVoice();
@@ -1960,10 +2007,13 @@
 
   // Send play request to backend
   async function playTrack(track, playNow = false) {
-    if (!state.inVoice && !state.botVoice) {
+    if (!state.inVoice && !state.botVoice && !state.channelId) {
       await checkUserVoice();
-      if (!state.inVoice && !state.botVoice) {
-        showToast(t('voice.mustBeInVoice'), 'warning', 'fa-triangle-exclamation');
+      if (!state.inVoice && !state.botVoice && !state.channelId) {
+        if (el.voiceWidgetContainer) {
+          el.voiceWidgetContainer.classList.add('dropdown-open');
+        }
+        showToast('Выберите голосовую комнату для воспроизведения', 'info', 'fa-volume-high');
         return;
       }
     }
@@ -2014,11 +2064,14 @@
     }
   }
 
-  // Send player action (Requirement 2: Voice Channel check)
+  // Send player action (checks if user, bot, or channel is active)
   async function sendPlayerAction(action, payload = {}) {
-    if (!state.inVoice) {
+    if (!state.inVoice && !state.botVoice && !state.channelId) {
       await checkUserVoice();
-      if (!state.inVoice) {
+      if (!state.inVoice && !state.botVoice && !state.channelId) {
+        if (el.voiceWidgetContainer) {
+          el.voiceWidgetContainer.classList.add('dropdown-open');
+        }
         showToast(t('voice.mustBeInVoice'), 'warning', 'fa-triangle-exclamation');
         return null;
       }
@@ -2031,7 +2084,7 @@
         body: JSON.stringify({
           action: action,
           user_id: state.userId,
-          guild_id: state.guildId,
+          guild_id: state.guildId || (state.botVoice ? state.botVoice.guild_id : null),
           ...payload
         })
       });
@@ -2513,19 +2566,46 @@
       });
     }
 
-    // Voice status widget click & dropdown toggle (Requirement 2)
-    el.voiceStatusPill.addEventListener('click', (e) => {
-      if (el.voiceWidgetContainer) {
-        el.voiceWidgetContainer.classList.toggle('dropdown-open');
-      }
-      checkUserVoice();
-    });
+    // Voice status widget hover intent & dropdown toggle
+    let voiceHoverTimer = null;
+    if (el.voiceWidgetContainer) {
+      el.voiceWidgetContainer.addEventListener('mouseenter', () => {
+        if (voiceHoverTimer) {
+          clearTimeout(voiceHoverTimer);
+          voiceHoverTimer = null;
+        }
+        el.voiceWidgetContainer.classList.add('dropdown-open');
+      });
+
+      el.voiceWidgetContainer.addEventListener('mouseleave', () => {
+        if (voiceHoverTimer) clearTimeout(voiceHoverTimer);
+        voiceHoverTimer = setTimeout(() => {
+          el.voiceWidgetContainer.classList.remove('dropdown-open');
+        }, 320);
+      });
+    }
+
+    if (el.voiceStatusPill) {
+      el.voiceStatusPill.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (voiceHoverTimer) {
+          clearTimeout(voiceHoverTimer);
+          voiceHoverTimer = null;
+        }
+        if (el.voiceWidgetContainer) {
+          el.voiceWidgetContainer.classList.toggle('dropdown-open');
+        }
+        checkUserVoice();
+        fetchGuilds();
+      });
+    }
 
     if (el.refreshVoiceBtn) {
-      el.refreshVoiceBtn.addEventListener('click', (e) => {
+      el.refreshVoiceBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
-        checkUserVoice();
-        showToast(t('toast.channelRefreshed'), 'info');
+        await checkUserVoice();
+        await fetchGuilds();
+        showToast(t('toast.channelRefreshed'), 'info', 'fa-arrows-rotate');
       });
     }
 
@@ -2787,33 +2867,6 @@
       el.btnDisconnectBotVoice.addEventListener('click', async (e) => {
         e.stopPropagation();
         await disconnectBotVoice(state.botVoice ? state.botVoice.guild_id : state.guildId);
-      });
-    }
-
-    // Voice Pill Click (toggle dropdown on click / mobile tap)
-    if (el.voiceStatusPill) {
-      el.voiceStatusPill.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (el.voiceWidgetContainer) {
-          el.voiceWidgetContainer.classList.toggle('dropdown-open');
-        }
-      });
-    }
-
-    // Close dropdown when clicking outside
-    document.addEventListener('click', (e) => {
-      if (el.voiceWidgetContainer && !el.voiceWidgetContainer.contains(e.target)) {
-        el.voiceWidgetContainer.classList.remove('dropdown-open');
-      }
-    });
-
-    // Refresh voice & channels button
-    if (el.refreshVoiceBtn) {
-      el.refreshVoiceBtn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        await checkUserVoice();
-        await fetchGuilds();
-        showToast(t('toast.channelRefreshed'), 'info', 'fa-arrows-rotate');
       });
     }
 
