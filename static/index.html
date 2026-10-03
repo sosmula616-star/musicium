@@ -176,7 +176,11 @@
       <!-- Brand Block (Requirement 1: clean logo without badge) -->
       <div class="ytm-brand" id="brandLogoHome" role="button" title="Musicium">
         <div class="ytm-brand-logo">
-          <img src="/static/activity_icon.jpg" alt="Logo" class="ytm-brand-img">
+          <svg viewBox="0 0 28 28" width="28" height="28" fill="none">
+            <rect width="28" height="28" rx="7" fill="#e53e3e"/>
+            <circle cx="14" cy="14" r="8.5" stroke="rgba(255,255,255,0.35)" stroke-width="1.5" stroke-dasharray="2 3"/>
+            <path d="M12 9.5L18.5 14L12 18.5V9.5Z" fill="#ffffff"/>
+          </svg>
         </div>
         <div class="ytm-brand-name">Musicium</div>
       </div>
@@ -266,7 +270,10 @@
                 <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
               </svg>
             </button>
-            <button class="ytm-search-btn" id="searchSubmitBtn">
+            <button class="ytm-search-btn" id="searchSubmitBtn" title="Искать">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
+                <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+              </svg>
               <span data-i18n="search.btn">Найти</span>
             </button>
           </div>
@@ -376,12 +383,9 @@
           <div class="ytm-shelf" id="liveServersShelf">
             <div class="ytm-shelf-header">
               <div class="shelf-brand-title">
-                <div class="shelf-avatar-badge" style="background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.4); display: flex; align-items: center; justify-content: center;">
-                  <span class="live-dot-pulse"></span>
-                </div>
                 <h2><span>Сейчас слушают на серверах</span></h2>
                 <span class="live-badge-pill">
-                  <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" style="vertical-align:middle;margin-right:3px;"><path d="M12 2C6.48 2 2 6.48 2 12c0 2.85 1.2 5.41 3.11 7.24.38.36.99.34 1.35-.04.34-.36.32-.93-.05-1.28C4.78 16.34 3.75 14.3 3.75 12c0-4.55 3.7-8.25 8.25-8.25s8.25 3.7 8.25 8.25c0 2.3-.97 4.34-2.66 5.92-.37.35-.39.92-.05 1.28.36.38.97.4 1.35.04C20.8 17.41 22 14.85 22 12c0-5.52-4.48-10-10-10zm0 4c-3.31 0-6 2.69-6 6 0 1.77.77 3.36 2 4.46.38.35.98.32 1.33-.06.33-.36.3-.92-.07-1.26-.85-.77-1.39-1.89-1.39-3.14 0-2.27 1.86-4.13 4.13-4.13s4.13 1.86 4.13 4.13c0 1.25-.54 2.37-1.39 3.14-.37.34-.4.9-.07 1.26.35.38.95.41 1.33.06 1.23-1.1 2-2.69 2-4.46 0-3.31-2.69-6-6-6zm0 4c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                  <span class="live-dot-pulse"></span>
                   LIVE
                 </span>
               </div>
@@ -399,9 +403,6 @@
           <div class="ytm-shelf" id="globalRecentShelf">
             <div class="ytm-shelf-header">
               <div class="shelf-brand-title">
-                <div class="shelf-avatar-badge" style="background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.15); display: flex; align-items: center; justify-content: center;">
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="#ff4d4d"><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
-                </div>
                 <h2><span>Недавние прослушивания</span></h2>
               </div>
               <div class="shelf-nav-arrows">
@@ -418,9 +419,6 @@
           <div class="ytm-shelf">
             <div class="ytm-shelf-header">
               <div class="shelf-brand-title">
-                <div class="shelf-avatar-badge">
-                  <img src="/static/activity_icon.jpg" alt="Icon" class="shelf-avatar-img">
-                </div>
                 <h2><span data-i18n="home.recommended">Рекомендуем</span></h2>
               </div>
               <div class="shelf-nav-arrows">
@@ -448,9 +446,6 @@
           <div class="ytm-shelf" id="communityPlaylistsShelf">
             <div class="ytm-shelf-header">
               <div class="shelf-brand-title">
-                <div class="shelf-avatar-badge" style="background: rgba(255, 0, 0, 0.15); border-color: rgba(255, 0, 0, 0.4); display: flex; align-items: center; justify-content: center;">
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="#ff0000"><path d="M19.48 12.35c-1.57-4.08-7.16-4.3-5.81-10.23-.1.04-.21.09-.31.15-4.23 2.52-6.52 7.55-5.37 12.44.13.56-.27 1.1-.84 1.1-.4 0-.76-.24-.9-.62-.89-2.39-.77-4.75-.02-6.91-3.69 3.11-4.78 8.42-2.38 12.87 2.68 4.97 8.78 6.94 13.79 4.39 5-2.55 6.97-8.65 4.41-13.66-.46-.91-1.07-1.74-1.77-2.47-.38-.4-.98-.44-1.41-.09-.39.31-.48.86-.24 1.28.6 1.08.97 2.29 1.04 3.55z"/></svg>
-                </div>
                 <h2><span>Плейлисты пользователей</span></h2>
               </div>
               <div class="shelf-nav-arrows">
