@@ -430,28 +430,14 @@
             </div>
           </div>
 
-          <!-- Section 5: Популярные альбомы -->
-          <div class="ytm-shelf">
-            <div class="ytm-shelf-header">
-              <h2><span data-i18n="home.albums">Популярные альбомы</span></h2>
-              <div class="shelf-nav-arrows">
-                <button class="shelf-arrow-btn" title="Назад"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
-                <button class="shelf-arrow-btn" title="Вперед"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></button>
-              </div>
-            </div>
-            <div class="square-cards-row" id="albumsRow">
-              <!-- Injected by JS -->
-            </div>
-          </div>
-
-          <!-- Section 6: Топ плейлистов сообщества (Community Albums & Leaderboard) -->
+          <!-- Section 5: Плейлисты пользователей (User & Community Playlists from DB) -->
           <div class="ytm-shelf" id="communityPlaylistsShelf">
             <div class="ytm-shelf-header">
               <div class="shelf-brand-title">
                 <div class="shelf-avatar-badge" style="background: rgba(255, 0, 0, 0.15); border-color: rgba(255, 0, 0, 0.4); display: flex; align-items: center; justify-content: center;">
                   <svg viewBox="0 0 24 24" width="14" height="14" fill="#ff0000"><path d="M19.48 12.35c-1.57-4.08-7.16-4.3-5.81-10.23-.1.04-.21.09-.31.15-4.23 2.52-6.52 7.55-5.37 12.44.13.56-.27 1.1-.84 1.1-.4 0-.76-.24-.9-.62-.89-2.39-.77-4.75-.02-6.91-3.69 3.11-4.78 8.42-2.38 12.87 2.68 4.97 8.78 6.94 13.79 4.39 5-2.55 6.97-8.65 4.41-13.66-.46-.91-1.07-1.74-1.77-2.47-.38-.4-.98-.44-1.41-.09-.39.31-.48.86-.24 1.28.6 1.08.97 2.29 1.04 3.55z"/></svg>
                 </div>
-                <h2><span>Топ плейлистов сообщества</span></h2>
+                <h2><span>Плейлисты пользователей</span></h2>
               </div>
               <div class="shelf-nav-arrows">
                 <button class="shelf-arrow-btn" id="commArrowLeft" title="Назад"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
@@ -459,7 +445,7 @@
               </div>
             </div>
             <div class="community-cards-row" id="communityPlaylistsRow">
-              <!-- Injected by JS -->
+              <!-- Injected by JS with user-created playlists from DB -->
             </div>
           </div>
         </section>
@@ -1103,7 +1089,7 @@
   <!-- Toast Notification Container -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="/static/app.js?v=11.0"></script>
+  <script src="/static/app.js?v=12.0"></script>
 </body>
 
 </html>
