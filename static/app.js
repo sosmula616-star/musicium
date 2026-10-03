@@ -30,9 +30,15 @@
   }
   saveJson('musicium_custom_playlists', loadedCustom);
 
+  let initialUserId = urlParams.get('user_id') || localStorage.getItem('music_user_id') || '';
+  if (!initialUserId) {
+    initialUserId = 'user_' + Math.random().toString(36).substring(2, 12);
+    localStorage.setItem('music_user_id', initialUserId);
+  }
+
   // State
   const state = {
-    userId: urlParams.get('user_id') || localStorage.getItem('music_user_id') || '',
+    userId: initialUserId,
     userName: localStorage.getItem('music_user_name') || 'Пользователь Discord',
     userAvatar: localStorage.getItem('music_user_avatar') || '/static/activity_icon.jpg',
     currentSource: 'all',
