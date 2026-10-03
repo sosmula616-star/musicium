@@ -1269,8 +1269,19 @@
       const likedResp = await fetch(`/api/user/liked?user_id=${encodeURIComponent(state.userId)}`);
       const likedData = await likedResp.json();
       if (likedData && Array.isArray(likedData.tracks)) {
-        state.likedTracks = likedData.tracks;
-        saveJson('musicium_liked_tracks', state.likedTracks);
+        if (likedData.tracks.length === 0 && state.likedTracks && state.likedTracks.length > 0) {
+          // Sync existing local tracks into PostgreSQL
+          for (const localTrk of state.likedTracks) {
+            fetch('/api/user/liked', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ user_id: state.userId, track: localTrk, action: 'add' })
+            }).catch(e => console.warn('Sync local liked track error:', e));
+          }
+        } else {
+          state.likedTracks = likedData.tracks;
+          saveJson('musicium_liked_tracks', state.likedTracks);
+        }
         if (state.currentView === 'liked') renderLikedView();
         updateDockLikeBtn();
       }
@@ -1348,7 +1359,10 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ user_id: state.userId, track: track, action: 'remove' })
-        }).catch(() => {});
+        })
+        .then(r => r.json())
+        .then(d => console.log('DB unliked track:', d))
+        .catch(e => console.error('DB unlike failed:', e));
       }
     } else {
       const newTrack = {
@@ -1368,7 +1382,10 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ user_id: state.userId, track: newTrack, action: 'add' })
-        }).catch(() => {});
+        })
+        .then(r => r.json())
+        .then(d => console.log('DB liked track saved:', d))
+        .catch(e => console.error('DB like failed:', e));
       }
     }
     updateDockLikeBtn();
