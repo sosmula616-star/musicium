@@ -244,6 +244,7 @@ class WebServer:
                     "guild_name": g.name,
                     "channel_id": str(g.voice_client.channel.id),
                     "channel_name": g.voice_client.channel.name,
+                    "channel_members": self._serialize_channel_members(g.voice_client.channel),
                 }
         if not bot_voice:
             for g in self.bot.guilds:
@@ -253,6 +254,7 @@ class WebServer:
                         "guild_name": g.name,
                         "channel_id": str(g.voice_client.channel.id),
                         "channel_name": g.voice_client.channel.name,
+                        "channel_members": self._serialize_channel_members(g.voice_client.channel),
                     }
                     break
 
