@@ -131,6 +131,29 @@ class PlayerControlView(discord.ui.View):
         await self.dm_controller.update_dm_message(self.user_id, self.guild_id)
 
 
+class LaunchActivityDMButton(discord.ui.Button):
+    def __init__(self, public_url: str):
+        super().__init__(
+            label="🚀 Открыть Mini App в Discord",
+            style=discord.ButtonStyle.primary,
+            emoji="🚀",
+            row=1,
+            custom_id="dm_launch_activity"
+        )
+        self.public_url = public_url
+
+    async def callback(self, interaction: discord.Interaction):
+        try:
+            await interaction.response.launch_activity()
+        except Exception as e:
+            logger.debug(f"DM launch_activity fallback: {e}")
+            if not interaction.response.is_done():
+                await interaction.response.send_message(
+                    f"🌐 Для открытия плеера в браузере: {self.public_url}",
+                    ephemeral=True
+                )
+
+
 class DMController:
     def __init__(self, bot: commands.Bot, player_manager):
         self.bot = bot
@@ -210,9 +233,10 @@ class DMController:
             embed = self.create_embed(player, track)
             view = PlayerControlView(self, guild_id, user_id)
 
-            # Add Link Button to view
+            # Add Activity Launch Button & Web Link Button
+            view.add_item(LaunchActivityDMButton(self.public_url))
             view.add_item(discord.ui.Button(
-                label="🌐 Открыть Mini App",
+                label="🌐 Браузер",
                 style=discord.ButtonStyle.link,
                 url=self.public_url,
                 row=1
@@ -258,8 +282,9 @@ class DMController:
         try:
             embed = self.create_embed(player, player.current_track)
             view = PlayerControlView(self, guild_id, user_id)
+            view.add_item(LaunchActivityDMButton(self.public_url))
             view.add_item(discord.ui.Button(
-                label="🌐 Открыть Mini App",
+                label="🌐 Браузер",
                 style=discord.ButtonStyle.link,
                 url=self.public_url,
                 row=1
