@@ -540,30 +540,22 @@ class MusicService:
                 else:
                     target_url = f"ytsearch1:{track.title} {track.artist}"
 
-            base_opts = {
-                "format": "ba/b/bestaudio/best",
-                "quiet": True,
-                "no_warnings": True,
-                "extract_flat": False,
-                "noplaylist": True,
-                "source_address": "0.0.0.0",
-                "http_headers": {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-                    "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
-                },
-            }
-
-            if self.youtube_cookie_path and os.path.exists(self.youtube_cookie_path):
-                base_opts["cookiefile"] = self.youtube_cookie_path
-                base_opts["extractor_args"] = {
-                    "youtube": {
-                        "player_client": ["web", "mweb"],
+            # 1. Primary: Ultra-fast Android client without cookies (bypasses web n-sig challenge & cookie reload blocks)
+            try:
+                android_opts = {
+                    "format": "ba/b/bestaudio/best",
+                    "quiet": True,
+                    "no_warnings": True,
+                    "extract_flat": False,
+                    "noplaylist": True,
+                    "source_address": "0.0.0.0",
+                    "extractor_args": {
+                        "youtube": {
+                            "player_client": ["android"],
+                        },
                     },
                 }
-
-            # 1. Primary YouTube extraction (full player with cookies)
-            try:
-                with yt_dlp.YoutubeDL(base_opts) as ydl:
+                with yt_dlp.YoutubeDL(android_opts) as ydl:
                     info = ydl.extract_info(target_url, download=False)
                     if info:
                         if "entries" in info and info["entries"]:
@@ -572,17 +564,33 @@ class MusicService:
                         if stream:
                             return stream
             except Exception as e:
-                logger.warning(f"Primary YouTube stream extraction failed ({e}), attempting fallback client...")
+                logger.warning(f"Primary YouTube Android extraction failed ({e}), attempting authenticated/alternative clients...")
 
-            # 2. Secondary YouTube extraction (fallback with android/ios/tv clients)
+            # 2. Secondary: Authenticated / visionOS / web fallback with cookies (for age-restricted or member tracks)
             try:
-                sec_opts = dict(base_opts)
-                sec_opts["extractor_args"] = {
-                    "youtube": {
-                        "player_client": ["android", "ios", "tv"],
+                auth_opts = {
+                    "format": "ba/b/bestaudio/best",
+                    "quiet": True,
+                    "no_warnings": True,
+                    "extract_flat": False,
+                    "noplaylist": True,
+                    "source_address": "0.0.0.0",
+                    "extractor_args": {
+                        "youtube": {
+                            "player_client": ["visionos", "web", "mweb"],
+                        },
+                    },
+                    "remote_components": ["ejs:github"],
+                    "js_runtimes": {"node": {}, "deno": {}, "quickjs": {}},
+                    "http_headers": {
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                        "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
                     },
                 }
-                with yt_dlp.YoutubeDL(sec_opts) as ydl:
+                if self.youtube_cookie_path and os.path.exists(self.youtube_cookie_path):
+                    auth_opts["cookiefile"] = self.youtube_cookie_path
+
+                with yt_dlp.YoutubeDL(auth_opts) as ydl:
                     sec_info = ydl.extract_info(target_url, download=False)
                     if sec_info:
                         if "entries" in sec_info and sec_info["entries"]:
@@ -593,7 +601,7 @@ class MusicService:
             except Exception as e2:
                 logger.warning(f"Secondary YouTube stream extraction failed: {e2}")
 
-            # 3. Tertiary attempt: Search alternative YouTube uploads (if specific video is region/SABR blocked)
+            # 3. Tertiary: Search alternative YouTube uploads with android client (if original video is region/SABR blocked)
             try:
                 clean_title = re.sub(r'[\U00010000-\U0010ffff]', '', track.title)
                 clean_title = re.sub(r'#\w+', '', clean_title)
@@ -602,8 +610,20 @@ class MusicService:
                 clean_artist = track.artist if track.artist and track.artist != "Неизвестный автор" else ""
                 search_query = f"{clean_title} {clean_artist}".strip() or track.title
 
-                alt_opts = dict(base_opts)
-                alt_opts["ignoreerrors"] = True
+                alt_opts = {
+                    "format": "ba/b/bestaudio/best",
+                    "quiet": True,
+                    "no_warnings": True,
+                    "extract_flat": False,
+                    "noplaylist": True,
+                    "ignoreerrors": True,
+                    "source_address": "0.0.0.0",
+                    "extractor_args": {
+                        "youtube": {
+                            "player_client": ["android"],
+                        },
+                    },
+                }
                 with yt_dlp.YoutubeDL(alt_opts) as ydl:
                     alt_info = ydl.extract_info(f"ytsearch3:{search_query}", download=False)
                     for entry in (alt_info.get("entries") or []):
