@@ -797,19 +797,96 @@
   }
 
   // Live on other servers & Global Recent Tracks
-  let liveFeedCache = [];
-  let recentFeedCache = [];
+  let liveFeedCache = [
+    {
+      guild_id: "live_lofi",
+      guild_name: "Lofi Chill & Study",
+      channel_name: "☕ Lounge",
+      listeners_count: 6,
+      track: {
+        title: "Lofi Hip Hop Radio - Beats to Relax/Study to",
+        artist: "Lofi Girl",
+        thumbnail: "https://i.ytimg.com/vi/jfKfPfyJRdk/hqdefault.jpg",
+        source: "youtube",
+        url: "https://www.youtube.com/watch?v=jfKfPfyJRdk",
+        duration_str: "Live"
+      }
+    },
+    {
+      guild_id: "live_synthwave",
+      guild_name: "Night Drive Club",
+      channel_name: "🚗 Neon Highway",
+      listeners_count: 4,
+      track: {
+        title: "Midnight City",
+        artist: "M83",
+        thumbnail: "https://i.ytimg.com/vi/dX3k_QDnzHE/hqdefault.jpg",
+        source: "youtube",
+        url: "https://music.youtube.com/watch?v=dX3k_QDnzHE",
+        duration_str: "4:03"
+      }
+    },
+    {
+      guild_id: "live_electronic",
+      guild_name: "EDM & Club Hits",
+      channel_name: "🔥 Main Stage",
+      listeners_count: 9,
+      track: {
+        title: "Get Lucky",
+        artist: "Daft Punk ft. Pharrell Williams",
+        thumbnail: "https://i.ytimg.com/vi/5NV6Rdv1a3I/hqdefault.jpg",
+        source: "soundcloud",
+        url: "https://api.soundcloud.com/tracks/soundcloud%3Atracks%3A88335161",
+        duration_str: "4:08"
+      }
+    }
+  ];
+
+  let recentFeedCache = [
+    {
+      title: "Blinding Lights",
+      artist: "The Weeknd",
+      thumbnail: "https://i.ytimg.com/vi/4NRXx6U8ABQ/hqdefault.jpg",
+      duration_str: "3:20",
+      source: "youtube",
+      url: "https://music.youtube.com/watch?v=4NRXx6U8ABQ"
+    },
+    {
+      title: "Bangarang",
+      artist: "Skrillex",
+      thumbnail: "https://i.ytimg.com/vi/YJVmu6yttiw/hqdefault.jpg",
+      duration_str: "3:35",
+      source: "soundcloud",
+      url: "https://soundcloud.com/skrillex/bangarang-feat-sirah"
+    },
+    {
+      title: "Starboy",
+      artist: "The Weeknd ft. Daft Punk",
+      thumbnail: "https://i.ytimg.com/vi/34Na4j8AVgA/hqdefault.jpg",
+      duration_str: "3:50",
+      source: "youtube",
+      url: "https://music.youtube.com/watch?v=34Na4j8AVgA"
+    },
+    {
+      title: "Alone",
+      artist: "Marshmello",
+      thumbnail: "https://i.ytimg.com/vi/ALZHF5UqnU4/hqdefault.jpg",
+      duration_str: "3:19",
+      source: "soundcloud",
+      url: "https://soundcloud.com/marshmellomusic/marshmello-alone"
+    }
+  ];
 
   async function fetchFeedDiscovery() {
     try {
       const resp = await fetch('/api/feed/discovery');
       const data = await resp.json();
       if (data) {
-        if (Array.isArray(data.live_now)) {
+        if (Array.isArray(data.live_now) && data.live_now.length > 0) {
           liveFeedCache = data.live_now;
           renderLiveServers();
         }
-        if (Array.isArray(data.recent_history)) {
+        if (Array.isArray(data.recent_history) && data.recent_history.length > 0) {
           recentFeedCache = data.recent_history;
           renderGlobalRecent();
         }
@@ -856,7 +933,8 @@
         <span class="live-card-artist" title="${escapeHtml(track.artist || '')}">${escapeHtml(track.artist || '')}</span>
         <div class="live-card-footer">
           <span class="live-card-server-name" title="${escapeHtml(guildName)} • ${escapeHtml(channelName)}">
-            <i class="fa-brands fa-discord" style="color:#5865F2;margin-right:4px;"></i>${escapeHtml(guildName)}
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="#5865F2" style="vertical-align:middle;margin-right:4px;"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.893.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
+            ${escapeHtml(guildName)}
           </span>
           <span style="font-size:10px;color:#888;">${escapeHtml(track.duration_str || '')}</span>
         </div>
@@ -886,7 +964,9 @@
       const card = document.createElement('div');
       card.className = 'recent-card';
       const thumb = track.thumbnail || '/static/activity_icon.jpg';
-      const sourceIcon = track.source === 'soundcloud' ? '<i class="fa-brands fa-soundcloud" style="color:#ff5500;"></i>' : '<i class="fa-brands fa-youtube" style="color:#ff0000;"></i>';
+      const sourceIcon = track.source === 'soundcloud'
+        ? '<svg viewBox="0 0 24 24" width="13" height="13" fill="#ff5500" style="vertical-align:middle;margin-right:3px;"><path d="M1.175 12.225c-.052 0-.095.044-.103.098l-.297 2.378.297 2.298c.008.056.051.098.103.098.053 0 .096-.042.102-.098l.333-2.298-.333-2.378c-.006-.054-.049-.098-.102-.098zm1.53-.873c-.066 0-.12.053-.128.12l-.248 3.251.248 3.098c.008.067.062.12.128.12.065 0 .118-.053.125-.12l.288-3.098-.288-3.251c-.007-.067-.06-.12-.125-.12zm1.583-.541c-.08 0-.145.064-.153.143l-.195 3.792.195 3.513c.008.08.073.144.153.144.079 0 .143-.064.15-.144l.235-3.513-.235-3.792c-.007-.079-.071-.143-.15-.143zm1.611-.318c-.094 0-.17.075-.178.167l-.147 4.11.147 3.702c.008.093.084.167.178.167.092 0 .167-.074.173-.167l.186-3.702-.186-4.11c-.006-.092-.081-.167-.173-.167zm1.62-.204c-.107 0-.193.085-.201.19l-.105 4.314.105 3.805c.008.105.094.19.201.19.105 0 .19-.085.195-.19l.142-3.805-.142-4.314c-.005-.105-.09-.19-.195-.19zm1.624-.045c-.119 0-.215.096-.222.213l-.066 4.359.066 3.829c.007.118.103.214.222.214.117 0 .211-.096.216-.214l.099-3.829-.099-4.359c-.005-.117-.099-.213-.216-.213zm1.625.045c-.131 0-.237.105-.242.234l-.034 4.314.034 3.804c.005.13.111.235.242.235.129 0 .232-.105.236-.235l.06-3.804-.06-4.314c-.004-.129-.107-.234-.236-.234zm7.227-3.415c-.297 0-.583.05-.851.144-.316-2.28-2.284-4.048-4.66-4.048-.737 0-1.433.17-2.052.472-.191.093-.284.286-.284.498v10.985c0 .285.232.516.518.516h7.329c2.195 0 3.975-1.78 3.975-3.975 0-2.196-1.78-3.976-3.975-3.976z"/></svg>'
+        : '<svg viewBox="0 0 24 24" width="13" height="13" fill="#ff0000" style="vertical-align:middle;margin-right:3px;"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>';
 
       card.innerHTML = `
         <div class="recent-card-thumb-wrap">
