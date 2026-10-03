@@ -1,6 +1,7 @@
 import os
 import re
 import time
+import base64
 import asyncio
 import logging
 from typing import List, Optional, Dict, Any, Tuple
@@ -98,66 +99,159 @@ class MusicService:
         # Cache for resolved audio stream URLs: {key: (stream_url, expire_timestamp)}
         self._stream_cache: Dict[str, Tuple[str, float]] = {}
 
-        # Comprehensive search for cookies.txt
+        # Comprehensive search and auto-repair for cookies.txt
         self.youtube_cookie_path = None
+        self._load_and_sanitize_cookies()
+
+    @staticmethod
+    def _sanitize_cookie_text(text: str) -> Optional[str]:
+        if not text:
+            return None
+        text = text.strip()
+
+        # Handle escaped literals e.g. \n or \t from misconfigured env strings
+        if "\\n" in text and "\n" not in text:
+            text = text.replace("\\n", "\n").replace("\\t", "\t")
+
+        # Check if text is Base64 encoded
+        cleaned_candidate = re.sub(r'[^A-Za-z0-9+/=]', '', text)
+        if text.startswith("IyB") or ("\t" not in text and len(cleaned_candidate) > 20):
+            try:
+                dec = base64.b64decode(cleaned_candidate).decode("utf-8", errors="ignore")
+                if "youtube.com" in dec or "\t" in dec or "# Netscape" in dec:
+                    text = dec.strip()
+                    logger.info("Successfully decoded Base64 cookie content to Netscape text format.")
+            except Exception as b64_err:
+                logger.debug(f"Base64 cookie decoding check: {b64_err}")
+
+        lines = [l.strip("\r") for l in text.splitlines() if l.strip("\r")]
+        valid = []
+        for l in lines:
+            if l.startswith("#"):
+                valid.append(l)
+            elif "\t" in l:
+                if len(l.split("\t")) >= 6:
+                    valid.append(l)
+
+        if not valid:
+            return None
+
+        # Ensure standard Netscape header is present
+        if not any(v.startswith("# Netscape HTTP Cookie File") for v in valid[:3]):
+            valid.insert(0, "# Netscape HTTP Cookie File\n# https://curl.haxx.se/rfc/cookie_spec.html\n# This is a generated file! Do not edit.")
+
+        return "\n".join(valid) + "\n"
+
+    def _load_and_sanitize_cookies(self):
+        """
+        Comprehensive search for cookies.txt / env vars, with automatic Base64
+        decoding, validation, and in-place repair for yt-dlp compatibility.
+        """
+        self.youtube_cookie_path = None
+
         cookie_candidates = [
             os.getenv("YOUTUBE_COOKIES_PATH"),
-            "cookies.txt",
+            "/app/data/cookies.txt",
             "/home/container/cookies.txt",
             "/app/cookies.txt",
+            "cookies.txt",
             os.path.join(os.getcwd(), "cookies.txt"),
             os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt"),
-            "/app/data/cookies.txt",
+            "data/cookies.txt",
         ]
 
-        # Also search case-insensitively in common bot hosting locations
-        for search_dir in [os.getcwd(), "/home/container", "/app", os.path.dirname(os.path.abspath(__file__))]:
+        # Scan potential bot directories for any variant of cookies.txt
+        for search_dir in [os.getcwd(), "/home/container", "/app", "/app/data", os.path.dirname(os.path.abspath(__file__))]:
             if os.path.isdir(search_dir):
                 try:
                     for fname in os.listdir(search_dir):
                         if fname.lower() == "cookies.txt":
                             candidate = os.path.abspath(os.path.join(search_dir, fname))
                             if os.path.isfile(candidate) and os.path.getsize(candidate) > 0:
-                                cookie_candidates.append(candidate)
+                                if candidate not in cookie_candidates:
+                                    cookie_candidates.append(candidate)
                 except Exception:
                     pass
 
-        cookie_path = None
-        for cp in cookie_candidates:
-            if cp and os.path.exists(cp) and os.path.getsize(cp) > 0:
-                cookie_path = os.path.abspath(cp)
-                break
+        raw_content = ""
+        source_path = None
 
-        env_cookies = os.getenv("YOUTUBE_COOKIES", "").strip()
-        env_cookies_b64 = os.getenv("YOUTUBE_COOKIES_BASE64", "").strip()
+        # 1. Check environment variables
+        env_b64 = os.getenv("YOUTUBE_COOKIES_BASE64", "").strip()
+        env_plain = os.getenv("YOUTUBE_COOKIES", "").strip()
 
-        if env_cookies_b64:
+        if env_b64:
+            raw_content = env_b64
+            logger.info("Found YouTube cookies in YOUTUBE_COOKIES_BASE64 env var")
+        elif env_plain:
+            raw_content = env_plain
+            logger.info("Found YouTube cookies in YOUTUBE_COOKIES env var")
+
+        # 2. Check candidate files on disk if not found in env
+        if not raw_content:
+            for cp in cookie_candidates:
+                if cp and os.path.exists(cp) and os.path.isfile(cp) and os.path.getsize(cp) > 0:
+                    try:
+                        with open(cp, "r", encoding="utf-8", errors="ignore") as f:
+                            text = f.read().strip()
+                        if text:
+                            raw_content = text
+                            source_path = cp
+                            logger.info(f"Loaded YouTube cookies candidate from {cp} ({len(text)} chars)")
+                            break
+                    except Exception as e:
+                        logger.debug(f"Failed to read cookie candidate {cp}: {e}")
+
+        if not raw_content:
+            logger.warning("No cookies.txt or cookie environment variable found for YouTube!")
+            return
+
+        # 3. Sanitize and decode if Base64
+        sanitized = self._sanitize_cookie_text(raw_content)
+        if not sanitized:
+            logger.warning("Failed to sanitize cookie content into valid Netscape format")
+            return
+
+        # 4. Save sanitized content to primary targets and overwrite the source file if it was Base64
+        app_cookie_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt")
+        write_targets = [app_cookie_path]
+        if source_path and source_path not in write_targets:
+            write_targets.append(source_path)
+        write_targets.append("/tmp/youtube_cookies.txt")
+
+        valid_file = None
+        for target in write_targets:
             try:
-                import base64
-                decoded = base64.b64decode(env_cookies_b64).decode("utf-8")
-                target_cf = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt")
-                with open(target_cf, "w", encoding="utf-8") as cf:
-                    cf.write(decoded)
-                cookie_path = target_cf
-                logger.info("Saved cookies from YOUTUBE_COOKIES_BASE64 env var to cookies.txt")
-            except Exception as ce:
-                logger.warning(f"Could not decode YOUTUBE_COOKIES_BASE64: {ce}")
-        elif env_cookies:
-            try:
-                target_cf = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt")
-                with open(target_cf, "w", encoding="utf-8") as cf:
-                    cf.write(env_cookies)
-                cookie_path = target_cf
-                logger.info("Saved cookies from YOUTUBE_COOKIES env var to cookies.txt")
-            except Exception as ce:
-                logger.warning(f"Could not write YOUTUBE_COOKIES to cookies.txt: {ce}")
+                os.makedirs(os.path.dirname(os.path.abspath(target)), exist_ok=True)
+                with open(target, "w", encoding="utf-8") as f:
+                    f.write(sanitized)
+                if not valid_file:
+                    valid_file = os.path.abspath(target)
+            except Exception as e:
+                logger.debug(f"Could not write sanitized cookies to {target}: {e}")
 
-        if cookie_path and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
-            self.youtube_cookie_path = cookie_path
-            self.ydl_opts["cookiefile"] = cookie_path
-            logger.info(f"YouTube cookies configured from: {cookie_path} ({os.path.getsize(cookie_path)} bytes)")
+        if valid_file and os.path.exists(valid_file):
+            self.youtube_cookie_path = valid_file
+            self.ydl_opts["cookiefile"] = valid_file
+            cookie_count = sum(1 for line in sanitized.splitlines() if line and not line.startswith("#"))
+            logger.info(f"YouTube cookies successfully configured from: {valid_file} ({cookie_count} cookies)")
         else:
-            logger.warning("No cookies.txt found in candidate paths for YouTube!")
+            logger.warning("Could not persist sanitized cookies file to disk!")
+
+    def update_cookies(self, content_or_b64: str) -> Tuple[bool, str, int]:
+        sanitized = self._sanitize_cookie_text(content_or_b64)
+        if not sanitized:
+            return False, "Неверный формат cookies", 0
+        app_cookie_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt")
+        try:
+            with open(app_cookie_path, "w", encoding="utf-8") as f:
+                f.write(sanitized)
+            self.youtube_cookie_path = app_cookie_path
+            self.ydl_opts["cookiefile"] = app_cookie_path
+            count = sum(1 for l in sanitized.splitlines() if l and not l.startswith("#"))
+            return True, app_cookie_path, count
+        except Exception as e:
+            return False, str(e), 0
 
     async def search(self, query: str, source: str = "all", limit: int = 10) -> List[Track]:
         query = query.strip()
@@ -453,10 +547,19 @@ class MusicService:
                 "extract_flat": False,
                 "noplaylist": True,
                 "source_address": "0.0.0.0",
+                "http_headers": {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                    "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+                },
             }
 
             if self.youtube_cookie_path and os.path.exists(self.youtube_cookie_path):
                 base_opts["cookiefile"] = self.youtube_cookie_path
+                base_opts["extractor_args"] = {
+                    "youtube": {
+                        "player_client": ["web", "mweb"],
+                    },
+                }
 
             # 1. Primary YouTube extraction (full player with cookies)
             try:
@@ -471,12 +574,12 @@ class MusicService:
             except Exception as e:
                 logger.warning(f"Primary YouTube stream extraction failed ({e}), attempting fallback client...")
 
-            # 2. Secondary YouTube extraction (fallback with mobile clients)
+            # 2. Secondary YouTube extraction (fallback with android/ios/tv clients)
             try:
                 sec_opts = dict(base_opts)
                 sec_opts["extractor_args"] = {
                     "youtube": {
-                        "player_client": ["android", "ios"],
+                        "player_client": ["android", "ios", "tv"],
                     },
                 }
                 with yt_dlp.YoutubeDL(sec_opts) as ydl:
