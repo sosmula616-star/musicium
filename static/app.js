@@ -379,17 +379,26 @@
 
     document.querySelectorAll('[data-i18n]').forEach(elem => {
       const key = elem.getAttribute('data-i18n');
-      if (key) elem.textContent = t(key);
+      if (key) {
+        const trans = t(key);
+        if (trans && trans !== key) elem.textContent = trans;
+      }
     });
 
     document.querySelectorAll('[data-i18n-placeholder]').forEach(elem => {
       const key = elem.getAttribute('data-i18n-placeholder');
-      if (key) elem.placeholder = t(key);
+      if (key) {
+        const trans = t(key);
+        if (trans && trans !== key) elem.placeholder = trans;
+      }
     });
 
     document.querySelectorAll('[data-i18n-title]').forEach(elem => {
       const key = elem.getAttribute('data-i18n-title');
-      if (key) elem.title = t(key);
+      if (key) {
+        const trans = t(key);
+        if (trans && trans !== key) elem.title = trans;
+      }
     });
 
     if (state.lastTracks && state.lastTracks.length > 0) {
