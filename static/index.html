@@ -362,15 +362,18 @@
           <div class="ytm-shelf" id="liveServersShelf">
             <div class="ytm-shelf-header">
               <div class="shelf-brand-title">
-                <div class="shelf-avatar-badge" style="background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.4);">
+                <div class="shelf-avatar-badge" style="background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.4); display: flex; align-items: center; justify-content: center;">
                   <span class="live-dot-pulse"></span>
                 </div>
                 <h2><span>Сейчас слушают на серверах</span></h2>
-                <span class="live-badge-pill"><i class="fa-solid fa-tower-broadcast"></i> LIVE</span>
+                <span class="live-badge-pill">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" style="vertical-align:middle;margin-right:3px;"><path d="M12 2C6.48 2 2 6.48 2 12c0 2.85 1.2 5.41 3.11 7.24.38.36.99.34 1.35-.04.34-.36.32-.93-.05-1.28C4.78 16.34 3.75 14.3 3.75 12c0-4.55 3.7-8.25 8.25-8.25s8.25 3.7 8.25 8.25c0 2.3-.97 4.34-2.66 5.92-.37.35-.39.92-.05 1.28.36.38.97.4 1.35.04C20.8 17.41 22 14.85 22 12c0-5.52-4.48-10-10-10zm0 4c-3.31 0-6 2.69-6 6 0 1.77.77 3.36 2 4.46.38.35.98.32 1.33-.06.33-.36.3-.92-.07-1.26-.85-.77-1.39-1.89-1.39-3.14 0-2.27 1.86-4.13 4.13-4.13s4.13 1.86 4.13 4.13c0 1.25-.54 2.37-1.39 3.14-.37.34-.4.9-.07 1.26.35.38.95.41 1.33.06 1.23-1.1 2-2.69 2-4.46 0-3.31-2.69-6-6-6zm0 4c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                  LIVE
+                </span>
               </div>
               <div class="shelf-nav-arrows">
-                <button class="shelf-arrow-btn" id="liveArrowLeft" title="Назад"><i class="fa-solid fa-chevron-left"></i></button>
-                <button class="shelf-arrow-btn" id="liveArrowRight" title="Вперед"><i class="fa-solid fa-chevron-right"></i></button>
+                <button class="shelf-arrow-btn" id="liveArrowLeft" title="Назад"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
+                <button class="shelf-arrow-btn" id="liveArrowRight" title="Вперед"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></button>
               </div>
             </div>
             <div class="live-cards-row" id="liveServersRow">
@@ -382,14 +385,14 @@
           <div class="ytm-shelf" id="globalRecentShelf">
             <div class="ytm-shelf-header">
               <div class="shelf-brand-title">
-                <div class="shelf-avatar-badge" style="background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.15);">
-                  <i class="fa-solid fa-clock-rotate-left" style="color: #ff4d4d; font-size: 13px;"></i>
+                <div class="shelf-avatar-badge" style="background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.15); display: flex; align-items: center; justify-content: center;">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="#ff4d4d"><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
                 </div>
                 <h2><span>Недавние прослушивания</span></h2>
               </div>
               <div class="shelf-nav-arrows">
-                <button class="shelf-arrow-btn" id="recentArrowLeft" title="Назад"><i class="fa-solid fa-chevron-left"></i></button>
-                <button class="shelf-arrow-btn" id="recentArrowRight" title="Вперед"><i class="fa-solid fa-chevron-right"></i></button>
+                <button class="shelf-arrow-btn" id="recentArrowLeft" title="Назад"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
+                <button class="shelf-arrow-btn" id="recentArrowRight" title="Вперед"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></button>
               </div>
             </div>
             <div class="recent-cards-row" id="globalRecentRow">
@@ -407,8 +410,8 @@
                 <h2><span data-i18n="home.recommended">Рекомендуем</span></h2>
               </div>
               <div class="shelf-nav-arrows">
-                <button class="shelf-arrow-btn" id="shelfArrowLeft" title="Назад"><i class="fa-solid fa-chevron-left"></i></button>
-                <button class="shelf-arrow-btn" id="shelfArrowRight" title="Вперед"><i class="fa-solid fa-chevron-right"></i></button>
+                <button class="shelf-arrow-btn" id="shelfArrowLeft" title="Назад"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
+                <button class="shelf-arrow-btn" id="shelfArrowRight" title="Вперед"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></button>
               </div>
             </div>
             <!-- Curated 3-column tracks container -->
@@ -417,7 +420,7 @@
             </div>
           </div>
 
-          <!-- Section 2: Хиты SoundCloud & YouTube -->
+          <!-- Section 4: Хиты SoundCloud & YouTube -->
           <div class="ytm-shelf">
             <div class="ytm-shelf-header">
               <h2><span data-i18n="home.quickPicks">Хиты SoundCloud & YouTube</span></h2>
@@ -427,13 +430,13 @@
             </div>
           </div>
 
-          <!-- Section 3: Популярные альбомы -->
+          <!-- Section 5: Популярные альбомы -->
           <div class="ytm-shelf">
             <div class="ytm-shelf-header">
               <h2><span data-i18n="home.albums">Популярные альбомы</span></h2>
               <div class="shelf-nav-arrows">
-                <button class="shelf-arrow-btn" title="Назад"><i class="fa-solid fa-chevron-left"></i></button>
-                <button class="shelf-arrow-btn" title="Вперед"><i class="fa-solid fa-chevron-right"></i></button>
+                <button class="shelf-arrow-btn" title="Назад"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
+                <button class="shelf-arrow-btn" title="Вперед"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></button>
               </div>
             </div>
             <div class="square-cards-row" id="albumsRow">
@@ -441,18 +444,18 @@
             </div>
           </div>
 
-          <!-- Section 4: Топ плейлистов сообщества (Community Albums & Leaderboard) -->
+          <!-- Section 6: Топ плейлистов сообщества (Community Albums & Leaderboard) -->
           <div class="ytm-shelf" id="communityPlaylistsShelf">
             <div class="ytm-shelf-header">
               <div class="shelf-brand-title">
-                <div class="shelf-avatar-badge" style="background: rgba(255, 0, 0, 0.15); border-color: rgba(255, 0, 0, 0.4);">
-                  <i class="fa-solid fa-fire text-red" style="color: #ff0000; font-size: 14px;"></i>
+                <div class="shelf-avatar-badge" style="background: rgba(255, 0, 0, 0.15); border-color: rgba(255, 0, 0, 0.4); display: flex; align-items: center; justify-content: center;">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="#ff0000"><path d="M19.48 12.35c-1.57-4.08-7.16-4.3-5.81-10.23-.1.04-.21.09-.31.15-4.23 2.52-6.52 7.55-5.37 12.44.13.56-.27 1.1-.84 1.1-.4 0-.76-.24-.9-.62-.89-2.39-.77-4.75-.02-6.91-3.69 3.11-4.78 8.42-2.38 12.87 2.68 4.97 8.78 6.94 13.79 4.39 5-2.55 6.97-8.65 4.41-13.66-.46-.91-1.07-1.74-1.77-2.47-.38-.4-.98-.44-1.41-.09-.39.31-.48.86-.24 1.28.6 1.08.97 2.29 1.04 3.55z"/></svg>
                 </div>
                 <h2><span>Топ плейлистов сообщества</span></h2>
               </div>
               <div class="shelf-nav-arrows">
-                <button class="shelf-arrow-btn" id="commArrowLeft" title="Назад"><i class="fa-solid fa-chevron-left"></i></button>
-                <button class="shelf-arrow-btn" id="commArrowRight" title="Вперед"><i class="fa-solid fa-chevron-right"></i></button>
+                <button class="shelf-arrow-btn" id="commArrowLeft" title="Назад"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
+                <button class="shelf-arrow-btn" id="commArrowRight" title="Вперед"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></button>
               </div>
             </div>
             <div class="community-cards-row" id="communityPlaylistsRow">
