@@ -51,6 +51,9 @@
     channelId: initialChannelId,
     channelName: '',
     channelMembers: [],
+    botVoice: null,
+    guilds: [],
+    selectedGuildFilter: 'all',
     player: null,
     ws: null,
     progressTimer: null,
@@ -98,6 +101,17 @@
       'voice.membersTitle': 'Участники в канале',
       'voice.dropdownEmpty': 'Подключитесь к голосовому каналу Discord, чтобы слушать и управлять ботом',
       'voice.mustBeInVoice': 'Управлять ботом могут только участники голосового канала!',
+      'voice.serversTitle': 'Серверы и комнаты',
+      'voice.currentRoom': 'Комната бота',
+      'voice.botInRoom': 'Бот в комнате: {room}',
+      'voice.botFree': 'Бот свободен (не в комнате)',
+      'voice.disconnectBot': 'Отключить',
+      'voice.connectBot': 'Подключить',
+      'voice.moveBot': 'Переместить',
+      'voice.youAreHere': 'Вы здесь',
+      'voice.botIsHere': 'Бот здесь',
+      'voice.allServers': 'Все серверы',
+      'voice.selectServer': 'Выберите сервер',
       'user.profileTitle': 'Ваш профиль Discord',
       'user.loggingIn': 'Вход...',
       'user.defaultName': 'Пользователь Discord',
@@ -214,6 +228,17 @@
       'voice.membersTitle': 'Channel Members',
       'voice.dropdownEmpty': 'Connect to a Discord voice channel to listen and control the bot',
       'voice.mustBeInVoice': 'Only members in the voice channel can control the bot!',
+      'voice.serversTitle': 'Servers & Rooms',
+      'voice.currentRoom': 'Bot Voice Room',
+      'voice.botInRoom': 'Bot in room: {room}',
+      'voice.botFree': 'Bot is idle (not in room)',
+      'voice.disconnectBot': 'Disconnect',
+      'voice.connectBot': 'Connect',
+      'voice.moveBot': 'Move',
+      'voice.youAreHere': 'You are here',
+      'voice.botIsHere': 'Bot is here',
+      'voice.allServers': 'All servers',
+      'voice.selectServer': 'Select server',
       'user.profileTitle': 'Your Discord profile',
       'user.loggingIn': 'Logging in...',
       'user.defaultName': 'Discord User',
@@ -445,7 +470,7 @@
     notifText: document.getElementById('notifText'),
     notifClose: document.getElementById('notifClose'),
 
-    // Voice Widget (Requirement 2)
+    // Voice Widget & Rooms/Servers
     voiceWidgetContainer: document.getElementById('voiceWidgetContainer'),
     voiceStatusPill: document.getElementById('voiceStatusPill'),
     voiceIndicator: document.getElementById('voiceIndicator'),
@@ -455,6 +480,16 @@
     dropdownMembersCount: document.getElementById('dropdownMembersCount'),
     voiceMembersList: document.getElementById('voiceMembersList'),
     refreshVoiceBtn: document.getElementById('refreshVoiceBtn'),
+    botVoiceBanner: document.getElementById('botVoiceBanner'),
+    botVoiceTitle: document.getElementById('botVoiceTitle'),
+    botVoiceChannel: document.getElementById('botVoiceChannel'),
+    btnDisconnectBotVoice: document.getElementById('btnDisconnectBotVoice'),
+    tabVoiceChannels: document.getElementById('tabVoiceChannels'),
+    tabVoiceMembers: document.getElementById('tabVoiceMembers'),
+    tabContentChannels: document.getElementById('tabContentChannels'),
+    tabContentMembers: document.getElementById('tabContentMembers'),
+    guildFilterSelect: document.getElementById('guildFilterSelect'),
+    voiceRoomsList: document.getElementById('voiceRoomsList'),
 
     // Profile
     userBadge: document.getElementById('userBadge'),
@@ -652,16 +687,24 @@
     }
   }
 
-  // Voice Channel Check & Channel Members Rendering (Requirement 2)
+  // Voice Channel Check & Channel Members Rendering
   async function checkUserVoice() {
     const guildQuery = state.guildId ? `&guild_id=${encodeURIComponent(state.guildId)}` : '';
     const chanQuery = state.channelId ? `&channel_id=${encodeURIComponent(state.channelId)}` : '';
 
-    if (state.userId) {
+    let userVoiceFound = false;
+
+    if (state.userId && !state.userId.startsWith('user_')) {
       try {
         const resp = await fetch(`/api/user-voice?user_id=${encodeURIComponent(state.userId)}${guildQuery}${chanQuery}`);
         const data = await resp.json();
+
+        if (data.bot_voice) {
+          state.botVoice = data.bot_voice;
+        }
+
         if (data.in_voice) {
+          userVoiceFound = true;
           state.inVoice = true;
           state.guildId = data.guild_id || state.guildId;
           state.guildName = data.guild_name || state.guildName;
@@ -677,37 +720,248 @@
 
           renderVoiceMembers(state.channelMembers);
           sendWsSubscribe();
-          return;
         }
       } catch (e) {
         console.error('Error checking user voice:', e);
       }
     }
 
-    // If not in voice, scan voice users on server
-    state.inVoice = false;
-    state.channelMembers = [];
-    if (el.voiceIndicator) el.voiceIndicator.className = 'status-indicator';
-    if (el.voiceChannelName) el.voiceChannelName.textContent = t('voice.notConnected');
-    if (el.voiceMembersCountBadge) el.voiceMembersCountBadge.textContent = '0';
-    if (el.dropdownMembersCount) el.dropdownMembersCount.textContent = '0';
-    if (el.voiceStatusPill) el.voiceStatusPill.classList.remove('active');
-    renderVoiceMembers([]);
+    if (!userVoiceFound) {
+      state.inVoice = false;
+      state.channelMembers = [];
 
-    try {
-      const vuUrl = state.guildId ? `/api/voice-users?guild_id=${encodeURIComponent(state.guildId)}` : '/api/voice-users';
-      const vuResp = await fetch(vuUrl);
-      const vuData = await vuResp.json();
-      if (vuData.voice_users && vuData.voice_users.length > 0 && !state.userId) {
-        const u = vuData.voice_users[0];
-        state.userId = u.id;
-        state.userName = u.display_name;
-        state.userAvatar = u.avatar;
-        saveUser();
-        showToast(t('toast.profileConnected', { name: u.display_name, channel: u.channel_name }), 'success');
-        checkUserVoice();
+      // Query bot voice state across guilds
+      try {
+        const botCheckResp = await fetch(`/api/user-voice?user_id=0${guildQuery}`);
+        const botCheckData = await botCheckResp.json();
+        if (botCheckData.bot_voice) {
+          state.botVoice = botCheckData.bot_voice;
+        }
+      } catch (_) {}
+
+      if (state.botVoice && state.botVoice.channel_name) {
+        if (el.voiceIndicator) el.voiceIndicator.className = 'status-indicator connected';
+        if (el.voiceChannelName) el.voiceChannelName.textContent = '🤖 ' + state.botVoice.channel_name;
+        if (el.voiceMembersCountBadge) el.voiceMembersCountBadge.textContent = '•';
+        if (el.voiceStatusPill) el.voiceStatusPill.classList.add('active');
+      } else {
+        if (el.voiceIndicator) el.voiceIndicator.className = 'status-indicator';
+        if (el.voiceChannelName) el.voiceChannelName.textContent = t('voice.notConnected');
+        if (el.voiceMembersCountBadge) el.voiceMembersCountBadge.textContent = '0';
+        if (el.voiceStatusPill) el.voiceStatusPill.classList.remove('active');
       }
-    } catch (_) {}
+
+      if (el.dropdownMembersCount) el.dropdownMembersCount.textContent = '0';
+      renderVoiceMembers([]);
+
+      // Auto-detect user from voice-users scan if guest or user_ ID
+      try {
+        const vuUrl = state.guildId ? `/api/voice-users?guild_id=${encodeURIComponent(state.guildId)}` : '/api/voice-users';
+        const vuResp = await fetch(vuUrl);
+        const vuData = await vuResp.json();
+        if (vuData.voice_users && vuData.voice_users.length > 0 && (!state.userId || state.userId.startsWith('user_'))) {
+          const u = vuData.voice_users[0];
+          state.userId = u.id;
+          state.userName = u.display_name;
+          state.userAvatar = u.avatar;
+          saveUser();
+          showToast(t('toast.profileConnected', { name: u.display_name, channel: u.channel_name }), 'success');
+          checkUserVoice();
+        }
+      } catch (_) {}
+    }
+
+    // Update Bot Voice Banner
+    if (el.botVoiceBanner) {
+      if (state.botVoice && state.botVoice.channel_name) {
+        el.botVoiceBanner.style.display = 'flex';
+        if (el.botVoiceChannel) el.botVoiceChannel.textContent = `${state.botVoice.guild_name} • 🔊 ${state.botVoice.channel_name}`;
+      } else {
+        el.botVoiceBanner.style.display = 'none';
+      }
+    }
+  }
+
+  // Multi-server & voice rooms discovery
+  async function fetchGuilds() {
+    try {
+      const q = state.userId && !state.userId.startsWith('user_') ? `?user_id=${encodeURIComponent(state.userId)}` : '';
+      const resp = await fetch(`/api/guilds${q}`);
+      const data = await resp.json();
+      if (data && Array.isArray(data.guilds)) {
+        state.guilds = data.guilds;
+
+        // Auto-detect bot voice if found in any guild
+        const activeBotGuild = state.guilds.find(g => g.bot_in_voice);
+        if (activeBotGuild && activeBotGuild.bot_channel_name) {
+          state.botVoice = {
+            guild_id: activeBotGuild.id,
+            guild_name: activeBotGuild.name,
+            channel_id: activeBotGuild.bot_channel_id,
+            channel_name: activeBotGuild.bot_channel_name,
+          };
+          if (!state.inVoice && el.voiceChannelName) {
+            el.voiceChannelName.textContent = '🤖 ' + activeBotGuild.bot_channel_name;
+            if (el.voiceIndicator) el.voiceIndicator.className = 'status-indicator connected';
+            if (el.voiceStatusPill) el.voiceStatusPill.classList.add('active');
+          }
+          if (el.botVoiceBanner) {
+            el.botVoiceBanner.style.display = 'flex';
+            if (el.botVoiceChannel) el.botVoiceChannel.textContent = `${activeBotGuild.name} • 🔊 ${activeBotGuild.bot_channel_name}`;
+          }
+        }
+
+        updateGuildFilterOptions();
+        renderVoiceRooms();
+      }
+    } catch (e) {
+      console.error('Error fetching guilds:', e);
+    }
+  }
+
+  function updateGuildFilterOptions() {
+    if (!el.guildFilterSelect) return;
+    const currentVal = el.guildFilterSelect.value || state.selectedGuildFilter || 'all';
+    el.guildFilterSelect.innerHTML = `<option value="all">${t('voice.allServers')} (${state.guilds.length})</option>`;
+    state.guilds.forEach(g => {
+      const opt = document.createElement('option');
+      opt.value = g.id;
+      const botBadge = g.bot_in_voice ? ' 🤖' : '';
+      opt.textContent = `${g.name} (${g.channels ? g.channels.length : 0} комнат)${botBadge}`;
+      el.guildFilterSelect.appendChild(opt);
+    });
+    if (state.guilds.some(g => String(g.id) === String(currentVal))) {
+      el.guildFilterSelect.value = currentVal;
+    } else {
+      el.guildFilterSelect.value = 'all';
+    }
+  }
+
+  function renderVoiceRooms() {
+    if (!el.voiceRoomsList) return;
+    const filter = el.guildFilterSelect ? el.guildFilterSelect.value : (state.selectedGuildFilter || 'all');
+    const targetGuilds = filter === 'all' ? state.guilds : state.guilds.filter(g => String(g.id) === String(filter));
+
+    if (!targetGuilds || targetGuilds.length === 0) {
+      el.voiceRoomsList.innerHTML = `<div class="dropdown-empty-state"><p>${t('voice.dropdownEmpty')}</p></div>`;
+      return;
+    }
+
+    el.voiceRoomsList.innerHTML = '';
+    targetGuilds.forEach(g => {
+      const group = document.createElement('div');
+      group.className = 'voice-guild-group';
+
+      const botBadge = g.bot_in_voice ? ` • <span style="color:#22c55e;">🤖 ${escapeHtml(g.bot_channel_name || 'В комнате')}</span>` : '';
+      const header = document.createElement('div');
+      header.className = 'voice-guild-header';
+      header.innerHTML = `
+        <i class="fa-solid fa-server" style="color:var(--text-tertiary);"></i>
+        <span style="font-weight:700;">${escapeHtml(g.name)}</span>
+        ${botBadge}
+      `;
+      group.appendChild(header);
+
+      if (!g.channels || g.channels.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'dropdown-empty-state';
+        empty.innerHTML = '<p style="font-size:11px;padding:4px 0;">Нет доступных комнат</p>';
+        group.appendChild(empty);
+      } else {
+        g.channels.forEach(ch => {
+          const isBot = Boolean(ch.bot_is_here);
+          const isUser = Boolean(ch.user_is_here) || (state.channelId && String(state.channelId) === String(ch.id));
+          const card = document.createElement('div');
+          card.className = `voice-room-card ${isBot ? 'is-bot-room' : ''} ${isUser ? 'is-user-room' : ''}`;
+
+          let avatarsHtml = '';
+          if (ch.members && ch.members.length > 0) {
+            avatarsHtml = '<div class="voice-room-members-avatars">';
+            ch.members.slice(0, 4).forEach(m => {
+              avatarsHtml += `<img src="${getSafeImageUrl(m.avatar || '/static/activity_icon.jpg')}" title="${escapeHtml(m.display_name || m.name)}" onerror="this.src='/static/activity_icon.jpg'">`;
+            });
+            if (ch.members.length > 4) {
+              avatarsHtml += `<span style="font-size:9.5px;color:var(--text-secondary);margin-left:5px;">+${ch.members.length - 4}</span>`;
+            }
+            avatarsHtml += '</div>';
+          }
+
+          card.innerHTML = `
+            <div class="voice-room-info">
+              <span class="voice-room-title">
+                <i class="fa-solid fa-volume-high" style="font-size:11px;color:${isBot ? '#22c55e' : (isUser ? '#3b82f6' : 'var(--text-tertiary)')};"></i>
+                ${escapeHtml(ch.name)}
+              </span>
+              <div class="voice-room-badges">
+                ${isBot ? `<span class="badge-bot-here">${t('voice.botIsHere')}</span>` : ''}
+                ${isUser ? `<span class="badge-user-here">${t('voice.youAreHere')}</span>` : ''}
+                ${ch.user_count > 0 ? `<span style="font-size:10px;color:var(--text-secondary);">${ch.user_count} уч.</span>` : ''}
+              </div>
+              ${avatarsHtml}
+            </div>
+            <button class="voice-room-join-btn" data-guild-id="${g.id}" data-channel-id="${ch.id}">
+              ${isBot ? t('voice.disconnectBot') : (g.bot_in_voice ? t('voice.moveBot') : t('voice.connectBot'))}
+            </button>
+          `;
+
+          const btn = card.querySelector('.voice-room-join-btn');
+          btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (isBot) {
+              await disconnectBotVoice(g.id);
+            } else {
+              await joinVoiceChannel(g.id, ch.id, ch.name);
+            }
+          });
+
+          group.appendChild(card);
+        });
+      }
+      el.voiceRoomsList.appendChild(group);
+    });
+  }
+
+  async function joinVoiceChannel(guildId, channelId, channelName = '') {
+    try {
+      showToast(t('voice.searching'), 'info');
+      const resp = await fetch('/api/join-channel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ guild_id: guildId, channel_id: channelId })
+      });
+      const data = await resp.json();
+      if (data && data.success) {
+        state.guildId = guildId;
+        state.channelId = channelId;
+        if (data.channel_name) state.channelName = data.channel_name;
+        showToast(`🤖 Бот подключен к комнате «${channelName || data.channel_name || 'Комната'}»`, 'success', 'fa-microphone');
+        sendWsSubscribe();
+        await checkUserVoice();
+        await fetchGuilds();
+      } else {
+        showToast(data.error || 'Ошибка подключения к комнате', 'warning');
+      }
+    } catch (e) {
+      showToast('Ошибка сети при подключении к комнате', 'error');
+    }
+  }
+
+  async function disconnectBotVoice(guildId) {
+    try {
+      const resp = await fetch('/api/join-channel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ guild_id: guildId || state.guildId, action: 'leave' })
+      });
+      const data = await resp.json();
+      if (data && data.success) {
+        showToast('🤖 Бот отключился от голосовой комнаты', 'info', 'fa-stop');
+        await checkUserVoice();
+        await fetchGuilds();
+      }
+    } catch (e) {
+      showToast('Ошибка отключения бота', 'error');
+    }
   }
 
   function renderVoiceMembers(members) {
@@ -1704,11 +1958,11 @@
     });
   }
 
-  // Send play request to backend (Requirement 2: Only users in voice channel can control)
+  // Send play request to backend
   async function playTrack(track, playNow = false) {
-    if (!state.inVoice) {
+    if (!state.inVoice && !state.botVoice) {
       await checkUserVoice();
-      if (!state.inVoice) {
+      if (!state.inVoice && !state.botVoice) {
         showToast(t('voice.mustBeInVoice'), 'warning', 'fa-triangle-exclamation');
         return;
       }
@@ -1716,14 +1970,17 @@
 
     showToast(t('toast.request', { title: track.title }), 'info', 'fa-music');
 
+    const effectiveGuildId = state.guildId || (state.botVoice ? state.botVoice.guild_id : null);
+    const effectiveChannelId = state.channelId || (state.botVoice ? state.botVoice.channel_id : null);
+
     try {
       const resp = await fetch('/api/play', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: state.userId,
-          guild_id: state.guildId,
-          channel_id: state.channelId,
+          guild_id: effectiveGuildId,
+          channel_id: effectiveChannelId,
           track: track,
           play_now: playNow,
         })
@@ -2498,6 +2755,68 @@
       }, 80);
     });
 
+    // Voice Widget Dropdown Tabs
+    if (el.tabVoiceChannels) {
+      el.tabVoiceChannels.addEventListener('click', () => {
+        el.tabVoiceChannels.classList.add('active');
+        if (el.tabVoiceMembers) el.tabVoiceMembers.classList.remove('active');
+        if (el.tabContentChannels) el.tabContentChannels.classList.add('active');
+        if (el.tabContentMembers) el.tabContentMembers.classList.remove('active');
+      });
+    }
+
+    if (el.tabVoiceMembers) {
+      el.tabVoiceMembers.addEventListener('click', () => {
+        el.tabVoiceMembers.classList.add('active');
+        if (el.tabVoiceChannels) el.tabVoiceChannels.classList.remove('active');
+        if (el.tabContentMembers) el.tabContentMembers.classList.add('active');
+        if (el.tabContentChannels) el.tabContentChannels.classList.remove('active');
+      });
+    }
+
+    // Guild filter select
+    if (el.guildFilterSelect) {
+      el.guildFilterSelect.addEventListener('change', (e) => {
+        state.selectedGuildFilter = e.target.value;
+        renderVoiceRooms();
+      });
+    }
+
+    // Disconnect bot voice button in banner
+    if (el.btnDisconnectBotVoice) {
+      el.btnDisconnectBotVoice.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await disconnectBotVoice(state.botVoice ? state.botVoice.guild_id : state.guildId);
+      });
+    }
+
+    // Voice Pill Click (toggle dropdown on click / mobile tap)
+    if (el.voiceStatusPill) {
+      el.voiceStatusPill.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (el.voiceWidgetContainer) {
+          el.voiceWidgetContainer.classList.toggle('dropdown-open');
+        }
+      });
+    }
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (el.voiceWidgetContainer && !el.voiceWidgetContainer.contains(e.target)) {
+        el.voiceWidgetContainer.classList.remove('dropdown-open');
+      }
+    });
+
+    // Refresh voice & channels button
+    if (el.refreshVoiceBtn) {
+      el.refreshVoiceBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await checkUserVoice();
+        await fetchGuilds();
+        showToast(t('toast.channelRefreshed'), 'info', 'fa-arrows-rotate');
+      });
+    }
+
     // Mute toggle
     el.btnMute.addEventListener('click', () => {
       if (state.isMuted) {
@@ -2533,11 +2852,13 @@
     loadUserDataFromDB();
     await checkSystemStatus();
     await checkUserVoice();
+    await fetchGuilds();
     setupWebSocket();
     await fetchCurrentPlayer();
 
-    // Periodic voice check every 12s, feed discovery every 25s
+    // Periodic voice check every 12s, guilds refresh every 15s, feed discovery every 25s
     setInterval(checkUserVoice, 12000);
+    setInterval(fetchGuilds, 15000);
     setInterval(fetchFeedDiscovery, 25000);
   }
 
