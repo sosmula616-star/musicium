@@ -98,9 +98,21 @@ class MusicService:
         # Cache for resolved audio stream URLs: {key: (stream_url, expire_timestamp)}
         self._stream_cache: Dict[str, Tuple[str, float]] = {}
 
-        # YouTube cookie path strictly for YouTube playback
-        self.youtube_cookie_path = None
-        cookie_path = os.getenv("YOUTUBE_COOKIES_PATH") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt")
+        # Comprehensive search for cookies.txt
+        cookie_candidates = [
+            os.getenv("YOUTUBE_COOKIES_PATH"),
+            "cookies.txt",
+            os.path.join(os.getcwd(), "cookies.txt"),
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt"),
+            "/app/cookies.txt",
+            "/app/data/cookies.txt",
+        ]
+        cookie_path = None
+        for cp in cookie_candidates:
+            if cp and os.path.exists(cp) and os.path.getsize(cp) > 0:
+                cookie_path = os.path.abspath(cp)
+                break
+
         env_cookies = os.getenv("YOUTUBE_COOKIES", "").strip()
         env_cookies_b64 = os.getenv("YOUTUBE_COOKIES_BASE64", "").strip()
 
@@ -125,9 +137,12 @@ class MusicService:
             except Exception as ce:
                 logger.warning(f"Could not write YOUTUBE_COOKIES to cookies.txt: {ce}")
 
-        if os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
+        if cookie_path and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
             self.youtube_cookie_path = cookie_path
-            logger.info(f"YouTube cookies configured from: {cookie_path}")
+            self.ydl_opts["cookiefile"] = cookie_path
+            logger.info(f"YouTube cookies configured from: {cookie_path} ({os.path.getsize(cookie_path)} bytes)")
+        else:
+            logger.warning("No cookies.txt found in candidate paths for YouTube!")
 
     async def search(self, query: str, source: str = "all", limit: int = 10) -> List[Track]:
         query = query.strip()
@@ -417,7 +432,7 @@ class MusicService:
                     target_url = f"ytsearch1:{track.title} {track.artist}"
 
             base_opts = {
-                "format": "bestaudio/ba/b/best",
+                "format": "ba/b/bestaudio/best",
                 "quiet": True,
                 "no_warnings": True,
                 "extract_flat": False,
@@ -425,7 +440,6 @@ class MusicService:
                 "source_address": "0.0.0.0",
             }
 
-            # STRICT RULE: Cookies are ONLY used for YouTube stream playback to avoid bot detection
             if self.youtube_cookie_path and os.path.exists(self.youtube_cookie_path):
                 base_opts["cookiefile"] = self.youtube_cookie_path
 
