@@ -12,6 +12,7 @@ if os.path.exists(deps_dir) and deps_dir not in sys.path:
 
 import asyncio
 import logging
+from typing import Optional
 from dotenv import load_dotenv
 
 # Load .env file
@@ -151,6 +152,13 @@ async def on_ready():
             ch_name = g.voice_client.channel.name if g.voice_client.channel else "unknown"
             logger.info(f"Attached existing voice connection in guild '{g.name}' (room: '{ch_name}')")
 
+    # Register persistent views for native Activity launching
+    try:
+        bot.add_view(PersistentActivityView())
+        logger.info("Persistent Activity launch view registered successfully.")
+    except Exception as e:
+        logger.warning(f"Could not register PersistentActivityView: {e}")
+
     # Set Activity
     activity = discord.Activity(
         type=discord.ActivityType.listening,
@@ -184,6 +192,101 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
             if player:
                 await player._notify_change()
 
+# ----------------- Native Discord Activity Views -----------------
+
+class ActivityLaunchButton(discord.ui.Button):
+    def __init__(self, label: str = "🚀 Открыть Mini App в Discord", custom_id: str = "musicium_launch_activity_btn", row: int = 0):
+        super().__init__(
+            label=label,
+            style=discord.ButtonStyle.primary,
+            custom_id=custom_id,
+            emoji="🚀",
+            row=row,
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        # 1. Primary mechanism: launch the Discord Activity directly in Discord client
+        try:
+            await interaction.response.launch_activity()
+            return
+        except Exception as e:
+            logger.warning(f"interaction.response.launch_activity() failed ({e}), attempting fallback invite...")
+
+        # 2. Fallback: create an embedded application invite link for the user's/bot's voice channel
+        invite_url = None
+        vc = None
+        if interaction.user and getattr(interaction.user, "voice", None) and interaction.user.voice.channel:
+            vc = interaction.user.voice.channel
+        elif interaction.guild and getattr(interaction.guild, "voice_client", None) and interaction.guild.voice_client.channel:
+            vc = interaction.guild.voice_client.channel
+
+        if vc:
+            try:
+                app_id = interaction.client.application_id or (interaction.client.user.id if interaction.client.user else 1555020109507199066)
+                invite = await vc.create_invite(
+                    target_type=discord.InviteTarget.embedded_application,
+                    target_application_id=app_id,
+                    max_age=3600,
+                )
+                invite_url = invite.url
+            except Exception as inv_err:
+                logger.debug(f"Could not generate activity invite: {inv_err}")
+
+        guild_param = f"?guild_id={interaction.guild_id}" if interaction.guild_id else ""
+        msg = "⚠️ Нажмите кнопку ниже для запуска Mini App в канале или откройте браузер:\n"
+        if invite_url:
+            msg += f"👉 **[Запустить Mini App в канале]({invite_url})**\n"
+        msg += f"🌐 Веб-версия в браузере: {PUBLIC_URL}{guild_param}"
+
+        if not interaction.response.is_done():
+            await interaction.response.send_message(msg, ephemeral=True)
+        else:
+            await interaction.followup.send(msg, ephemeral=True)
+
+
+class PersistentActivityView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        self.add_item(ActivityLaunchButton())
+
+
+async def get_activity_view(guild: Optional[discord.Guild] = None, voice_channel: Optional[discord.VoiceChannel] = None) -> discord.ui.View:
+    view = discord.ui.View(timeout=None)
+
+    # 1. Native Activity launch button (triggers Discord client to launch Mini App without opening browser)
+    view.add_item(ActivityLaunchButton())
+
+    # 2. Activity Voice Channel Invite Link (Discord renders this as a native embedded Activity launch button)
+    target_vc = voice_channel
+    if not target_vc and guild and getattr(guild, "voice_client", None) and guild.voice_client.channel:
+        target_vc = guild.voice_client.channel
+
+    if target_vc:
+        try:
+            app_id = bot.application_id or (bot.user.id if bot.user else 1555020109507199066)
+            invite = await target_vc.create_invite(
+                target_type=discord.InviteTarget.embedded_application,
+                target_application_id=app_id,
+                max_age=86400,
+            )
+            view.add_item(discord.ui.Button(
+                label=f"🎮 Войти в {target_vc.name}",
+                style=discord.ButtonStyle.link,
+                url=invite.url,
+            ))
+        except Exception as e:
+            logger.debug(f"Could not create activity invite for {target_vc.name}: {e}")
+
+    # 3. External browser fallback link
+    guild_param = f"?guild_id={guild.id}" if guild else ""
+    view.add_item(discord.ui.Button(
+        label="🌐 Браузер",
+        style=discord.ButtonStyle.link,
+        url=f"{PUBLIC_URL}{guild_param}",
+    ))
+
+    return view
+
 # ----------------- Slash Commands -----------------
 
 @bot.tree.command(name="player", description="Открыть мини-приложение музыкального плеера")
@@ -192,7 +295,7 @@ async def slash_player(interaction: discord.Interaction):
     embed = discord.Embed(
         title="🎵 Музыкальный плеер Discord Mini App",
         description=(
-            "Нажмите кнопку ниже, чтобы открыть интерактивное мини-приложение плеера!\n\n"
+            "Нажмите кнопку **🚀 Открыть Mini App в Discord**, чтобы открыть интерактивное мини-приложение плеера прямо внутри Discord!\n\n"
             "✨ **Возможности:**\n"
             "• Поиск в YouTube Music, SoundCloud и Яндекс Музыке\n"
             "• Воспроизведение через микрофон бота в голосовом канале\n"
@@ -207,20 +310,20 @@ async def slash_player(interaction: discord.Interaction):
     embed.set_image(url=f"{PUBLIC_URL}/static/activity_banner.jpg")
     embed.set_footer(text=f"Вызвал: {interaction.user.display_name}")
 
-    player_url = f"{PUBLIC_URL}?guild_id={interaction.guild.id}" if interaction.guild else PUBLIC_URL
-    view = discord.ui.View()
-    view.add_item(discord.ui.Button(
-        label="✨ Открыть Mini App Плеер",
-        style=discord.ButtonStyle.link,
-        url=player_url,
-    ))
+    vc = interaction.user.voice.channel if (interaction.user and interaction.user.voice) else None
+    view = await get_activity_view(guild=interaction.guild, voice_channel=vc)
 
     await interaction.followup.send(embed=embed, view=view)
 
 
-@bot.tree.command(name="miniapp", description="Ссылка на запуск мини-приложения")
+@bot.tree.command(name="miniapp", description="Запустить интерактивное мини-приложение прямо в Discord")
 async def slash_miniapp(interaction: discord.Interaction):
-    await slash_player.callback(interaction)
+    try:
+        await interaction.response.launch_activity()
+    except Exception as e:
+        logger.info(f"Direct launch_activity in /miniapp fallback ({e})")
+        if not interaction.response.is_done():
+            await slash_player.callback(interaction)
 
 
 @bot.tree.command(name="play", description="Включить музыку по названию или ссылке")
@@ -257,10 +360,9 @@ async def slash_play(interaction: discord.Interaction, query: str):
     )
     if track.thumbnail:
         embed.set_thumbnail(url=track.thumbnail)
-    embed.set_footer(text=f"Голосовой канал: {voice_channel.name} • Мини-апп: {PUBLIC_URL}")
+    embed.set_footer(text=f"Голосовой канал: {voice_channel.name} • Discord Mini App")
 
-    view = discord.ui.View()
-    view.add_item(discord.ui.Button(label="📱 Открыть Mini App", style=discord.ButtonStyle.link, url=PUBLIC_URL))
+    view = await get_activity_view(guild=guild, voice_channel=voice_channel)
 
     await interaction.followup.send(embed=embed, view=view)
 
@@ -329,8 +431,8 @@ async def slash_queue(interaction: discord.Interaction):
         description="\n".join(lines),
         color=0x5865F2,
     )
-    view = discord.ui.View()
-    view.add_item(discord.ui.Button(label="📱 Управлять в Mini App", style=discord.ButtonStyle.link, url=PUBLIC_URL))
+    vc = interaction.user.voice.channel if (interaction.user and interaction.user.voice) else None
+    view = await get_activity_view(guild=interaction.guild, voice_channel=vc)
     await interaction.followup.send(embed=embed, view=view)
 
 
@@ -380,8 +482,8 @@ async def slash_room(interaction: discord.Interaction):
         description="\n\n".join(lines),
         color=0x5865F2 if (guild_vc and guild_vc.is_connected()) else 0x99AAB5,
     )
-    view = discord.ui.View()
-    view.add_item(discord.ui.Button(label="📱 Открыть Mini App", style=discord.ButtonStyle.link, url=f"{PUBLIC_URL}?guild_id={guild.id}" if guild else PUBLIC_URL))
+    vc = guild_vc.channel if (guild_vc and guild_vc.channel) else None
+    view = await get_activity_view(guild=guild, voice_channel=vc)
     await interaction.followup.send(embed=embed, view=view)
 
 
@@ -414,8 +516,8 @@ async def slash_channels(interaction: discord.Interaction):
         color=0x5865F2,
     )
     embed.set_footer(text=f"Всего голосовых комнат: {len(all_vcs)}")
-    view = discord.ui.View()
-    view.add_item(discord.ui.Button(label="📱 Управлять в Mini App", style=discord.ButtonStyle.link, url=f"{PUBLIC_URL}?guild_id={guild.id}"))
+    vc = guild_vc.channel if (guild_vc and guild_vc.channel) else None
+    view = await get_activity_view(guild=guild, voice_channel=vc)
     await interaction.followup.send(embed=embed, view=view)
 
 
@@ -439,7 +541,8 @@ async def slash_join(interaction: discord.Interaction, channel: Optional[discord
             description=f"Бот успешно вошел в комнату **`🔊 {target.name}`** на сервере **{interaction.guild.name}**.",
             color=0x57F287,
         )
-        await interaction.followup.send(embed=embed)
+        view = await get_activity_view(guild=interaction.guild, voice_channel=target)
+        await interaction.followup.send(embed=embed, view=view)
     except Exception as e:
         await interaction.followup.send(f"❌ Не удалось подключиться к каналу `{target.name}`: {e}", ephemeral=True)
 
@@ -485,7 +588,8 @@ async def cmd_play(ctx, *, query: str):
     )
     if track.thumbnail:
         embed.set_thumbnail(url=track.thumbnail)
-    await ctx.send(embed=embed)
+    view = await get_activity_view(guild=ctx.guild, voice_channel=voice_channel)
+    await ctx.send(embed=embed, view=view)
 
 @bot.command(name="skip")
 async def cmd_skip(ctx):
