@@ -5,6 +5,7 @@ import logging
 from typing import Optional
 from aiohttp import web, WSMsgType
 import aiohttp
+import discord
 
 from music_service import MusicService, Track
 from player_manager import PlayerManager
