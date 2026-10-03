@@ -93,15 +93,6 @@ class MusicService:
             "extract_flat": False,
             "ignoreerrors": True,
             "source_address": "0.0.0.0",
-            "extractor_args": {
-                "youtube": {
-                    "player_client": ["android"],
-                    "player_skip": ["webpage", "configs"],
-                },
-                "youtubetab": {
-                    "skip": ["webpage"],
-                },
-            },
         }
 
         # Cache for resolved audio stream URLs: {key: (stream_url, expire_timestamp)}
@@ -112,11 +103,25 @@ class MusicService:
         cookie_candidates = [
             os.getenv("YOUTUBE_COOKIES_PATH"),
             "cookies.txt",
+            "/home/container/cookies.txt",
+            "/app/cookies.txt",
             os.path.join(os.getcwd(), "cookies.txt"),
             os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt"),
-            "/app/cookies.txt",
             "/app/data/cookies.txt",
         ]
+
+        # Also search case-insensitively in common bot hosting locations
+        for search_dir in [os.getcwd(), "/home/container", "/app", os.path.dirname(os.path.abspath(__file__))]:
+            if os.path.isdir(search_dir):
+                try:
+                    for fname in os.listdir(search_dir):
+                        if fname.lower() == "cookies.txt":
+                            candidate = os.path.abspath(os.path.join(search_dir, fname))
+                            if os.path.isfile(candidate) and os.path.getsize(candidate) > 0:
+                                cookie_candidates.append(candidate)
+                except Exception:
+                    pass
+
         cookie_path = None
         for cp in cookie_candidates:
             if cp and os.path.exists(cp) and os.path.getsize(cp) > 0:
@@ -448,21 +453,12 @@ class MusicService:
                 "extract_flat": False,
                 "noplaylist": True,
                 "source_address": "0.0.0.0",
-                "extractor_args": {
-                    "youtube": {
-                        "player_client": ["android"],
-                        "player_skip": ["webpage", "configs"],
-                    },
-                    "youtubetab": {
-                        "skip": ["webpage"],
-                    },
-                },
             }
 
             if self.youtube_cookie_path and os.path.exists(self.youtube_cookie_path):
                 base_opts["cookiefile"] = self.youtube_cookie_path
 
-            # 1. Primary fast YouTube extraction (Android client + cookies)
+            # 1. Primary YouTube extraction (full player with cookies)
             try:
                 with yt_dlp.YoutubeDL(base_opts) as ydl:
                     info = ydl.extract_info(target_url, download=False)
@@ -475,12 +471,12 @@ class MusicService:
             except Exception as e:
                 logger.warning(f"Primary YouTube stream extraction failed ({e}), attempting fallback client...")
 
-            # 2. Secondary YouTube extraction (fallback without player_skip)
+            # 2. Secondary YouTube extraction (fallback with mobile clients)
             try:
                 sec_opts = dict(base_opts)
                 sec_opts["extractor_args"] = {
                     "youtube": {
-                        "player_client": ["android_vr", "android"],
+                        "player_client": ["android", "ios"],
                     },
                 }
                 with yt_dlp.YoutubeDL(sec_opts) as ydl:
