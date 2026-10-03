@@ -41,6 +41,8 @@ class WebServer:
     def _setup_routes(self):
         # API routes
         self.app.router.add_get("/api/status", self.handle_status)
+        self.app.router.add_get("/api/guilds", self.handle_guilds)
+        self.app.router.add_post("/api/join-channel", self.handle_join_channel)
         self.app.router.add_get("/api/user-voice", self.handle_user_voice)
         self.app.router.add_get("/api/voice-users", self.handle_voice_users)
         self.app.router.add_get("/api/search", self.handle_search)
@@ -117,8 +119,75 @@ class WebServer:
             "guilds_count": len(self.bot.guilds),
         })
 
+    async def handle_guilds(self, request: web.Request) -> web.Response:
+        user_id_str = request.query.get("user_id")
+        current_user_id = None
+        if user_id_str:
+            try:
+                current_user_id = int(user_id_str)
+            except ValueError:
+                pass
+        guilds = self.player_manager.get_all_guilds_info(current_user_id=current_user_id)
+        return web.json_response({"guilds": guilds})
+
+    async def handle_join_channel(self, request: web.Request) -> web.Response:
+        try:
+            data = await request.json()
+        except Exception:
+            return web.json_response({"success": False, "error": "Invalid JSON body"}, status=400)
+
+        channel_id_str = data.get("channel_id")
+        guild_id_str = data.get("guild_id")
+        action = data.get("action", "join")
+
+        if action == "leave":
+            guild_id = int(guild_id_str) if guild_id_str else None
+            player = self.player_manager.get_player_by_guild_id(guild_id) if guild_id else None
+            if player:
+                await player.stop()
+            elif guild_id:
+                g = self.bot.get_guild(guild_id)
+                if g and getattr(g, "voice_client", None):
+                    await g.voice_client.disconnect(force=True)
+            return web.json_response({"success": True, "action": "left"})
+
+        if not channel_id_str:
+            return web.json_response({"success": False, "error": "channel_id is required"}, status=400)
+
+        try:
+            channel_id = int(channel_id_str)
+        except ValueError:
+            return web.json_response({"success": False, "error": "Invalid channel_id"}, status=400)
+
+        channel = self.bot.get_channel(channel_id)
+        if not channel:
+            try:
+                channel = await self.bot.fetch_channel(channel_id)
+            except Exception:
+                pass
+
+        if not channel or not isinstance(channel, (discord.VoiceChannel, getattr(discord, "StageChannel", ()))):
+            return web.json_response({"success": False, "error": "Голосовой канал не найден или недоступен"}, status=404)
+
+        guild = channel.guild
+        player = self.player_manager.get_or_create_player(guild)
+        try:
+            await player.connect_to_channel(channel)
+            return web.json_response({
+                "success": True,
+                "action": "joined",
+                "guild_id": str(guild.id),
+                "guild_name": guild.name,
+                "channel_id": str(channel.id),
+                "channel_name": channel.name,
+                "player": player.get_state(),
+            })
+        except Exception as e:
+            logger.error(f"Error connecting to channel {channel_id}: {e}")
+            return web.json_response({"success": False, "error": f"Не удалось подключиться: {str(e)}"}, status=500)
+
     async def handle_voice_users(self, request: web.Request) -> web.Response:
-        """Returns users currently connected to voice channels in bot guilds."""
+        """Returns users currently connected to voice channels across bot guilds."""
         guild_id_str = request.query.get("guild_id")
         target_guild_id = None
         if guild_id_str:
@@ -131,14 +200,15 @@ class WebServer:
         guilds_to_check = [self.bot.get_guild(target_guild_id)] if target_guild_id and self.bot.get_guild(target_guild_id) else self.bot.guilds
 
         for guild in guilds_to_check:
-            for vc in guild.voice_channels:
+            all_vcs = list(getattr(guild, "voice_channels", [])) + list(getattr(guild, "stage_channels", []))
+            for vc in all_vcs:
                 for member in vc.members:
                     if not member.bot:
                         voice_members.append({
                             "id": str(member.id),
                             "name": member.name,
                             "display_name": member.display_name,
-                            "avatar": member.display_avatar.url,
+                            "avatar": member.display_avatar.url if hasattr(member, "display_avatar") else None,
                             "channel_id": str(vc.id),
                             "channel_name": vc.name,
                             "guild_id": str(guild.id),
@@ -166,14 +236,6 @@ class WebServer:
         guild_id_str = request.query.get("guild_id")
         channel_id_str = request.query.get("channel_id")
 
-        if not user_id_str:
-            return web.json_response({"in_voice": False, "error": "Missing user_id parameter"}, status=400)
-
-        try:
-            user_id = int(user_id_str)
-        except ValueError:
-            return web.json_response({"in_voice": False, "error": "Invalid user_id"}, status=400)
-
         guild_id = None
         if guild_id_str:
             try:
@@ -181,11 +243,48 @@ class WebServer:
             except ValueError:
                 pass
 
+        # Helper to find where bot is currently connected
+        bot_voice = None
+        if guild_id:
+            g = self.bot.get_guild(guild_id)
+            if g and getattr(g, "voice_client", None) and g.voice_client.is_connected() and g.voice_client.channel:
+                bot_voice = {
+                    "guild_id": str(g.id),
+                    "guild_name": g.name,
+                    "channel_id": str(g.voice_client.channel.id),
+                    "channel_name": g.voice_client.channel.name,
+                }
+        if not bot_voice:
+            for g in self.bot.guilds:
+                if getattr(g, "voice_client", None) and g.voice_client.is_connected() and g.voice_client.channel:
+                    bot_voice = {
+                        "guild_id": str(g.id),
+                        "guild_name": g.name,
+                        "channel_id": str(g.voice_client.channel.id),
+                        "channel_name": g.voice_client.channel.name,
+                    }
+                    break
+
+        user_id = None
+        if user_id_str:
+            try:
+                user_id = int(user_id_str)
+            except ValueError:
+                pass
+
+        if not user_id:
+            return web.json_response({
+                "in_voice": False,
+                "is_guest": True,
+                "bot_voice": bot_voice,
+                "message": "Гостевой сеанс или не указан ID",
+            })
+
         # If channel_id was provided (e.g. from Discord Activity SDK), check it directly
         if channel_id_str:
             try:
                 channel = self.bot.get_channel(int(channel_id_str))
-                if channel and isinstance(channel, (discord.VoiceChannel, discord.StageChannel)):
+                if channel and isinstance(channel, (discord.VoiceChannel, getattr(discord, "StageChannel", ()))):
                     guild = channel.guild
                     user_member = None
                     for m in channel.members:
@@ -207,6 +306,7 @@ class WebServer:
                         "channel_name": channel.name,
                         "channel_members": self._serialize_channel_members(channel),
                         "player_active": player.is_playing if player else False,
+                        "bot_voice": bot_voice,
                     })
             except Exception as e:
                 logger.debug(f"Error checking channel_id {channel_id_str}: {e}")
@@ -216,6 +316,7 @@ class WebServer:
             return web.json_response({
                 "in_voice": False,
                 "user_id": str(user_id),
+                "bot_voice": bot_voice,
                 "message": "Пользователь не находится в голосовом канале",
             })
 
@@ -224,14 +325,15 @@ class WebServer:
         return web.json_response({
             "in_voice": True,
             "user_id": str(user_id),
-            "user_name": member.display_name,
-            "avatar": member.display_avatar.url,
+            "user_name": member.display_name if member else "Пользователь Discord",
+            "avatar": member.display_avatar.url if (member and hasattr(member, 'display_avatar')) else None,
             "guild_id": str(guild.id),
             "guild_name": guild.name,
             "channel_id": str(channel.id),
             "channel_name": channel.name,
             "channel_members": self._serialize_channel_members(channel),
             "player_active": player.is_playing if player else False,
+            "bot_voice": bot_voice,
         })
 
     async def handle_search(self, request: web.Request) -> web.Response:
@@ -298,32 +400,70 @@ class WebServer:
             except ValueError:
                 pass
 
-        # 1. Find user's voice channel, scoped to requested guild_id if provided
-        found = self.player_manager.find_user_voice(user_id, guild_id=guild_id)
+        # 1. Check if channel_id was explicitly provided (e.g. from UI room selector)
         target_channel = None
         target_guild = None
         member_name = "Пользователь Discord"
 
-        if found:
-            target_guild, target_channel, member = found
-            member_name = member.display_name
-        elif channel_id_str:
-            # 2. Fallback: if user launched via Discord Activity and channel_id is known
+        if channel_id_str:
             try:
                 ch = self.bot.get_channel(int(channel_id_str))
-                if ch and isinstance(ch, (discord.VoiceChannel, discord.StageChannel)):
+                if not ch:
+                    try:
+                        ch = await self.bot.fetch_channel(int(channel_id_str))
+                    except Exception:
+                        pass
+                if ch and isinstance(ch, (discord.VoiceChannel, getattr(discord, "StageChannel", ()))):
                     target_channel = ch
                     target_guild = ch.guild
-                    mem = ch.guild.get_member(user_id)
-                    if mem:
-                        member_name = mem.display_name
             except Exception as e:
-                logger.warning(f"Failed to resolve channel_id {channel_id_str}: {e}")
+                logger.warning(f"Could not resolve explicit channel_id {channel_id_str}: {e}")
+
+        # 2. Find user's voice channel across guilds (prioritizing guild_id if provided)
+        if not target_channel and user_id:
+            found = self.player_manager.find_user_voice(user_id, guild_id=guild_id)
+            if found:
+                target_guild, target_channel, member = found
+                if member:
+                    member_name = member.display_name
+
+        # 3. Fallback: If bot is ALREADY connected in target_guild, use that room!
+        if not target_channel and guild_id:
+            g = self.bot.get_guild(guild_id)
+            if g and getattr(g, "voice_client", None) and g.voice_client.is_connected() and g.voice_client.channel:
+                target_guild = g
+                target_channel = g.voice_client.channel
+
+        # 4. Fallback: If bot is connected to ANY voice channel on ANY guild, use that room!
+        if not target_channel:
+            for g in self.bot.guilds:
+                if getattr(g, "voice_client", None) and g.voice_client.is_connected() and g.voice_client.channel:
+                    target_guild = g
+                    target_channel = g.voice_client.channel
+                    break
+
+        # 5. Fallback: If target_guild is known, pick first available voice channel
+        if not target_channel and guild_id:
+            g = self.bot.get_guild(guild_id)
+            if g:
+                all_vcs = list(getattr(g, "voice_channels", [])) + list(getattr(g, "stage_channels", []))
+                if all_vcs:
+                    target_guild = g
+                    target_channel = all_vcs[0]
+
+        # 6. Fallback: Pick first voice channel from any bot guild
+        if not target_channel:
+            for g in self.bot.guilds:
+                all_vcs = list(getattr(g, "voice_channels", [])) + list(getattr(g, "stage_channels", []))
+                if all_vcs:
+                    target_guild = g
+                    target_channel = all_vcs[0]
+                    break
 
         if not target_channel or not target_guild:
             return web.json_response({
                 "success": False,
-                "error": "Вы не находитесь в голосовом канале! Зайдите в любой голосовой канал на сервере, чтобы бот мог включить трек.",
+                "error": "Не удалось определить голосовой канал! Выберите комнату в списке каналов или зайдите в любой голосовой канал на сервере.",
             }, status=400)
 
         player = self.player_manager.get_or_create_player(target_guild)
@@ -402,18 +542,45 @@ class WebServer:
         elif user_id:
             player = self.player_manager.find_active_player_for_user(user_id)
 
+        if action == "join":
+            channel_id_str = data.get("channel_id")
+            if channel_id_str:
+                ch = self.bot.get_channel(int(channel_id_str))
+                if not ch:
+                    try:
+                        ch = await self.bot.fetch_channel(int(channel_id_str))
+                    except Exception:
+                        pass
+                if ch and isinstance(ch, (discord.VoiceChannel, getattr(discord, "StageChannel", ()))):
+                    p = self.player_manager.get_or_create_player(ch.guild)
+                    await p.connect_to_channel(ch)
+                    return web.json_response({"success": True, "action": "joined", "player": p.get_state()})
+
+        if action == "leave":
+            if player:
+                await player.stop()
+            elif guild_id_str:
+                try:
+                    g = self.bot.get_guild(int(guild_id_str))
+                    if g and getattr(g, "voice_client", None):
+                        await g.voice_client.disconnect(force=True)
+                except ValueError:
+                    pass
+            return web.json_response({"success": True, "action": "left"})
+
         if not player:
             return web.json_response({"success": False, "error": "Плеер не найден или не активен"}, status=404)
 
-        # Enforce that only members in the bot's voice channel can control the player
+        # Enforce that only members in the bot's voice channel can control the player if listeners present
         if player.voice_client and player.voice_client.channel:
             bot_channel = player.voice_client.channel
-            member_ids = {m.id for m in bot_channel.members}
-            if user_id and user_id not in member_ids:
-                return web.json_response({
-                    "success": False,
-                    "error": "Управлять плеером могут только участники голосового канала!",
-                }, status=403)
+            human_members = [m for m in bot_channel.members if not m.bot]
+            if human_members and user_id and user_id not in [m.id for m in human_members]:
+                if action not in ("stop", "volume", "join", "leave"):
+                    return web.json_response({
+                        "success": False,
+                        "error": "Управлять плеером могут только участники голосового канала!",
+                    }, status=403)
 
         try:
             res_data = {"success": True}
