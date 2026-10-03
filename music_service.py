@@ -108,6 +108,7 @@ class MusicService:
         self._stream_cache: Dict[str, Tuple[str, float]] = {}
 
         # Comprehensive search for cookies.txt
+        self.youtube_cookie_path = None
         cookie_candidates = [
             os.getenv("YOUTUBE_COOKIES_PATH"),
             "cookies.txt",
