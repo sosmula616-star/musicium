@@ -81,6 +81,10 @@ class WebServer:
         # Live Streams & Recent Plays Feed
         self.app.router.add_get("/api/feed/discovery", self.handle_feed_discovery)
 
+        # Admin / Diagnostics
+        self.app.router.add_get("/api/admin/cookies", self.handle_admin_cookies)
+        self.app.router.add_post("/api/admin/cookies", self.handle_admin_cookies)
+
         # WebSocket
         self.app.router.add_get("/ws", self.handle_websocket)
 
@@ -898,6 +902,44 @@ class WebServer:
             logger.info("WebSocket client disconnected.")
 
         return ws
+
+    async def handle_admin_cookies(self, request: web.Request) -> web.Response:
+        if request.method == "GET":
+            cookie_path = self.music_service.youtube_cookie_path
+            configured = bool(cookie_path and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0)
+            cookie_count = 0
+            if configured:
+                try:
+                    with open(cookie_path, "r", encoding="utf-8", errors="ignore") as f:
+                        lines = f.readlines()
+                    cookie_count = sum(1 for l in lines if l.strip() and not l.strip().startswith("#"))
+                except Exception:
+                    pass
+            return web.json_response({
+                "configured": configured,
+                "cookie_path": cookie_path,
+                "cookie_count": cookie_count,
+            })
+        elif request.method == "POST":
+            raw = ""
+            try:
+                data = await request.json()
+                raw = data.get("cookies") or data.get("content") or data.get("base64") or ""
+            except Exception:
+                pass
+            if not raw:
+                try:
+                    raw = await request.text()
+                except Exception:
+                    raw = ""
+            if not raw.strip():
+                return web.json_response({"ok": False, "error": "No cookie content provided"}, status=400)
+
+            ok, path_or_err, count = self.music_service.update_cookies(raw)
+            if ok:
+                return web.json_response({"ok": True, "path": path_or_err, "cookie_count": count})
+            else:
+                return web.json_response({"ok": False, "error": path_or_err}, status=400)
 
     async def start(self):
         try:
