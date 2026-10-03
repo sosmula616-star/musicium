@@ -562,112 +562,15 @@ class WebServer:
             {"title": "Wake Me Up", "artist": "Avicii", "thumbnail": "https://i.ytimg.com/vi/IcrbM1l_BoI/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=IcrbM1l_BoI"},
             {"title": "Counting Stars", "artist": "OneRepublic", "thumbnail": "https://i.ytimg.com/vi/hT_nvWreIhg/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=hT_nvWreIhg"}
         ]
-        albums = [
-            {"title": "Discovery", "artist": "Daft Punk", "subtitle": "Альбом • Daft Punk", "thumbnail": "https://i.ytimg.com/vi/A2VpR8HahKc/hqdefault.jpg", "source": "yt_albums", "url": "https://music.youtube.com/watch?v=A2VpR8HahKc"},
-            {"title": "After Hours", "artist": "The Weeknd", "subtitle": "Альбом • The Weeknd", "thumbnail": "https://i.ytimg.com/vi/ygTZZpVkm3o/hqdefault.jpg", "source": "yt_albums", "url": "https://music.youtube.com/watch?v=ygTZZpVkm3o"},
-            {"title": "Random Access Memories", "artist": "Daft Punk", "subtitle": "Альбом • Daft Punk", "thumbnail": "https://i.ytimg.com/vi/IhnqEw70vGQ/hqdefault.jpg", "source": "yt_albums", "url": "https://music.youtube.com/watch?v=IhnqEw70vGQ"},
-            {"title": "Future Nostalgia", "artist": "Dua Lipa", "subtitle": "Альбом • Dua Lipa", "thumbnail": "https://i.ytimg.com/vi/njbmwfndFH8/hqdefault.jpg", "source": "yt_albums", "url": "https://music.youtube.com/watch?v=njbmwfndFH8"},
-            {"title": "Night Visions", "artist": "Imagine Dragons", "subtitle": "Альбом • Imagine Dragons", "thumbnail": "https://i.ytimg.com/vi/4m2pknR3k-4/hqdefault.jpg", "source": "yt_albums", "url": "https://music.youtube.com/watch?v=4m2pknR3k-4"},
-            {"title": "Scary Monsters and Nice Sprites", "artist": "Skrillex", "subtitle": "EP • Skrillex", "thumbnail": "https://i.ytimg.com/vi/WSeNSzJ2-Jw/hqdefault.jpg", "source": "yt_albums", "url": "https://music.youtube.com/watch?v=WSeNSzJ2-Jw"}
-        ]
         return web.json_response({
             "curated": curated,
-            "quick_picks": quick_picks,
-            "albums": albums
+            "quick_picks": quick_picks
         })
 
     async def handle_feed_discovery(self, request: web.Request) -> web.Response:
         """Returns live streams currently playing across Discord servers, and global recent plays."""
         live_streams = self.player_manager.get_all_active_streams()
-        recent_history = await db.get_global_recent_history(limit=15)
-
-        # Fallback live streams if no active Discord voice session right now
-        if not live_streams:
-            live_streams = [
-                {
-                    "guild_id": "live_lofi",
-                    "guild_name": "Lofi Chill & Study",
-                    "channel_name": "☕ Lounge",
-                    "listeners_count": 6,
-                    "track": {
-                        "title": "Lofi Hip Hop Radio - Beats to Relax/Study to",
-                        "artist": "Lofi Girl",
-                        "thumbnail": "https://i.ytimg.com/vi/jfKfPfyJRdk/hqdefault.jpg",
-                        "source": "youtube",
-                        "url": "https://www.youtube.com/watch?v=jfKfPfyJRdk",
-                        "duration_str": "Live"
-                    }
-                },
-                {
-                    "guild_id": "live_synthwave",
-                    "guild_name": "Night Drive Club",
-                    "channel_name": "🚗 Neon Highway",
-                    "listeners_count": 4,
-                    "track": {
-                        "title": "Midnight City",
-                        "artist": "M83",
-                        "thumbnail": "https://i.ytimg.com/vi/dX3k_QDnzHE/hqdefault.jpg",
-                        "source": "youtube",
-                        "url": "https://music.youtube.com/watch?v=dX3k_QDnzHE",
-                        "duration_str": "4:03"
-                    }
-                },
-                {
-                    "guild_id": "live_electronic",
-                    "guild_name": "EDM & Club Hits",
-                    "channel_name": "🔥 Main Stage",
-                    "listeners_count": 9,
-                    "track": {
-                        "title": "Get Lucky",
-                        "artist": "Daft Punk ft. Pharrell Williams",
-                        "thumbnail": "https://i.ytimg.com/vi/5NV6Rdv1a3I/hqdefault.jpg",
-                        "source": "soundcloud",
-                        "url": "https://api.soundcloud.com/tracks/soundcloud%3Atracks%3A88335161",
-                        "duration_str": "4:08"
-                    }
-                }
-            ]
-
-        if not recent_history:
-            recent_history = [
-                {
-                    "title": "Blinding Lights",
-                    "artist": "The Weeknd",
-                    "thumbnail": "https://i.ytimg.com/vi/4NRXx6U8ABQ/hqdefault.jpg",
-                    "duration_str": "3:20",
-                    "source": "youtube",
-                    "url": "https://music.youtube.com/watch?v=4NRXx6U8ABQ",
-                    "played_at": None
-                },
-                {
-                    "title": "Bangarang",
-                    "artist": "Skrillex",
-                    "thumbnail": "https://i.ytimg.com/vi/YJVmu6yttiw/hqdefault.jpg",
-                    "duration_str": "3:35",
-                    "source": "soundcloud",
-                    "url": "https://soundcloud.com/skrillex/bangarang-feat-sirah",
-                    "played_at": None
-                },
-                {
-                    "title": "Starboy",
-                    "artist": "The Weeknd ft. Daft Punk",
-                    "thumbnail": "https://i.ytimg.com/vi/34Na4j8AVgA/hqdefault.jpg",
-                    "duration_str": "3:50",
-                    "source": "youtube",
-                    "url": "https://music.youtube.com/watch?v=34Na4j8AVgA",
-                    "played_at": None
-                },
-                {
-                    "title": "Alone",
-                    "artist": "Marshmello",
-                    "thumbnail": "https://i.ytimg.com/vi/ALZHF5UqnU4/hqdefault.jpg",
-                    "duration_str": "3:19",
-                    "source": "soundcloud",
-                    "url": "https://soundcloud.com/marshmellomusic/marshmello-alone",
-                    "played_at": None
-                }
-            ]
-
+        recent_history = await db.get_global_recent_history(limit=25)
         return web.json_response({
             "live_now": live_streams,
             "recent_history": recent_history
