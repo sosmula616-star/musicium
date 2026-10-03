@@ -297,22 +297,58 @@
               </svg>
             </div>
 
-            <!-- Dropdown List of Channel Members on Hover/Click (Requirement 2) -->
+            <!-- Dropdown List of Channel Members, Rooms and Servers -->
             <div class="voice-members-dropdown" id="voiceMembersDropdown">
-              <div class="dropdown-header">
-                <div class="dropdown-title-wrap">
-                  <span class="dropdown-title" data-i18n="voice.membersTitle">Участники в канале</span>
-                  <span class="dropdown-count-badge" id="dropdownMembersCount">0</span>
+              <!-- Bot Voice Status Banner -->
+              <div class="bot-voice-banner" id="botVoiceBanner" style="display: none;">
+                <div class="bot-voice-banner-left">
+                  <div class="bot-pulse-dot"></div>
+                  <div class="bot-voice-text">
+                    <span class="bot-voice-title" id="botVoiceTitle">Бот в комнате</span>
+                    <span class="bot-voice-channel" id="botVoiceChannel">—</span>
+                  </div>
                 </div>
+                <button class="bot-voice-disconnect-btn" id="btnDisconnectBotVoice" title="Отключить бота от комнаты">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                </button>
+              </div>
+
+              <!-- Dropdown Tabs -->
+              <div class="voice-dropdown-tabs">
+                <button type="button" class="voice-tab-btn active" id="tabVoiceChannels" data-tab="channels">
+                  <i class="fa-solid fa-server"></i>
+                  <span data-i18n="voice.serversTitle">Серверы и комнаты</span>
+                </button>
+                <button type="button" class="voice-tab-btn" id="tabVoiceMembers" data-tab="members">
+                  <i class="fa-solid fa-users"></i>
+                  <span data-i18n="voice.membersTitle">Участники</span>
+                  <span class="dropdown-count-badge" id="dropdownMembersCount">0</span>
+                </button>
                 <button class="dropdown-refresh-btn" id="refreshVoiceBtn" title="Обновить статус">
                   <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
                     <path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
                   </svg>
                 </button>
               </div>
-              <div class="dropdown-members-list" id="voiceMembersList">
-                <div class="dropdown-empty-state">
-                  <p data-i18n="voice.dropdownEmpty">Подключитесь к голосовому каналу Discord, чтобы управлять ботом</p>
+
+              <!-- Tab Content 1: Channels and Servers Picker -->
+              <div class="voice-tab-content active" id="tabContentChannels">
+                <div class="guild-filter-wrap">
+                  <select id="guildFilterSelect" class="guild-filter-select">
+                    <option value="all">Все серверы</option>
+                  </select>
+                </div>
+                <div class="voice-rooms-list" id="voiceRoomsList">
+                  <div class="dropdown-empty-state"><p>Загрузка комнат...</p></div>
+                </div>
+              </div>
+
+              <!-- Tab Content 2: Current Channel Members -->
+              <div class="voice-tab-content" id="tabContentMembers">
+                <div class="dropdown-members-list" id="voiceMembersList">
+                  <div class="dropdown-empty-state">
+                    <p data-i18n="voice.dropdownEmpty">Подключитесь к голосовому каналу Discord, чтобы управлять ботом</p>
+                  </div>
                 </div>
               </div>
             </div>
