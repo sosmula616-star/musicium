@@ -339,7 +339,7 @@ class MusicService:
                 if track.id and "_" in track.id and track.id.split("_", 1)[1].isdigit():
                     target_url = f"https://api.soundcloud.com/tracks/soundcloud%3Atracks%3A{track.id.split('_', 1)[1]}"
                 else:
-                    target_url = f"scsearch1:{track.title} {track.artist}"
+                    target_url = None
 
             sc_opts = {
                 "format": "bestaudio/best",
@@ -347,34 +347,36 @@ class MusicService:
                 "no_warnings": True,
                 "extract_flat": False,
                 "noplaylist": True,
+                "ignoreerrors": True,
                 "source_address": "0.0.0.0",
             }
 
-            try:
-                with yt_dlp.YoutubeDL(sc_opts) as ydl:
-                    info = ydl.extract_info(target_url, download=False)
-                    if info:
-                        if "entries" in info and info["entries"]:
-                            info = info["entries"][0]
-                        stream = info.get("url")
-                        if stream:
-                            return stream
-            except Exception as e:
-                logger.warning(f"Direct SoundCloud extraction failed for {target_url}: {e}")
+            if target_url:
+                try:
+                    with yt_dlp.YoutubeDL(sc_opts) as ydl:
+                        info = ydl.extract_info(target_url, download=False)
+                        if info:
+                            if "entries" in info and info["entries"]:
+                                info = info["entries"][0]
+                            stream = info.get("url")
+                            if stream and not info.get("has_drm"):
+                                return stream
+                except Exception as e:
+                    logger.warning(f"Direct SoundCloud extraction failed for {target_url}: {e}")
 
-            # Fallback search on SoundCloud
+            # Fallback search on SoundCloud with multi-result check
             try:
                 clean_title = re.sub(r'[\U00010000-\U0010ffff]', '', track.title)
                 clean_title = re.sub(r'#\w+', '', clean_title)
                 clean_title = re.sub(r'\|.*', '', clean_title)
                 clean_title = re.sub(r'\[.*?\]|\(.*?\)', '', clean_title).strip()
                 clean_artist = track.artist if track.artist and track.artist != "Неизвестный автор" else ""
-                search_q = f"scsearch1:{clean_title} {clean_artist}".strip()
+                search_q = f"scsearch5:{clean_title} {clean_artist}".strip()
                 with yt_dlp.YoutubeDL(sc_opts) as ydl:
                     info = ydl.extract_info(search_q, download=False)
-                    if info and "entries" in info and info["entries"]:
-                        sc_entry = info["entries"][0]
-                        return sc_entry.get("url")
+                    for entry in (info.get("entries") or []):
+                        if entry and entry.get("url") and not entry.get("has_drm"):
+                            return entry.get("url")
             except Exception as e2:
                 logger.error(f"SoundCloud fallback search failed: {e2}")
 
@@ -392,90 +394,91 @@ class MusicService:
                 else:
                     target_url = f"ytsearch1:{track.title} {track.artist}"
 
-            opts = {
-                "format": "bestaudio/best",
+            base_opts = {
+                "format": "bestaudio/ba/b/best",
                 "quiet": True,
                 "no_warnings": True,
                 "extract_flat": False,
                 "noplaylist": True,
                 "source_address": "0.0.0.0",
-                "extractor_args": {
-                    "youtube": {
-                        "player_client": ["android"],
-                        "player_skip": ["webpage", "configs"],
-                    },
-                    "youtubetab": {
-                        "skip": ["webpage"],
-                    },
-                },
             }
 
             # STRICT RULE: Cookies are ONLY used for YouTube stream playback to avoid bot detection
             if self.youtube_cookie_path and os.path.exists(self.youtube_cookie_path):
-                opts["cookiefile"] = self.youtube_cookie_path
+                base_opts["cookiefile"] = self.youtube_cookie_path
 
+            # 1. Primary YouTube extraction (standard player)
             try:
-                with yt_dlp.YoutubeDL(opts) as ydl:
+                with yt_dlp.YoutubeDL(base_opts) as ydl:
                     info = ydl.extract_info(target_url, download=False)
-                    if not info:
-                        raise ValueError("No video info returned")
-                    if "entries" in info and info["entries"]:
-                        info = info["entries"][0]
-                    stream = info.get("url")
-                    if stream:
-                        return stream
-                    raise ValueError("No audio stream URL in info")
+                    if info:
+                        if "entries" in info and info["entries"]:
+                            info = info["entries"][0]
+                        stream = info.get("url")
+                        if stream:
+                            return stream
             except Exception as e:
                 logger.warning(f"Primary YouTube stream extraction failed ({e}), attempting fallback client...")
-                try:
-                    sec_opts = dict(opts)
-                    sec_opts["extractor_args"] = {
-                        "youtube": {
-                            "player_client": ["android_vr"],
-                            "player_skip": ["webpage", "configs"],
-                        },
-                        "youtubetab": {
-                            "skip": ["webpage"],
-                        },
-                    }
-                    with yt_dlp.YoutubeDL(sec_opts) as ydl:
-                        sec_info = ydl.extract_info(target_url, download=False)
-                        if sec_info:
-                            if "entries" in sec_info and sec_info["entries"]:
-                                sec_info = sec_info["entries"][0]
-                            sec_stream = sec_info.get("url")
-                            if sec_stream:
-                                return sec_stream
-                except Exception:
-                    pass
 
-                logger.warning("YouTube stream extraction failed, attempting SoundCloud fallback...")
-                try:
-                    sc_opts = {
-                        "format": "bestaudio/best",
-                        "quiet": True,
-                        "extract_flat": False,
-                        "noplaylist": True,
-                    }
-                    clean_title = re.sub(r'[\U00010000-\U0010ffff]', '', track.title)
-                    clean_title = re.sub(r'#\w+', '', clean_title)
-                    clean_title = re.sub(r'\|.*', '', clean_title)
-                    clean_title = re.sub(r'\[.*?\]|\(.*?\)', '', clean_title).strip()
-                    clean_artist = track.artist if track.artist and track.artist != "Неизвестный автор" else ""
-                    search_query = f"{clean_title} {clean_artist}".strip()
-                    if not search_query:
-                        search_query = track.title
+            # 2. Secondary YouTube extraction (all clients fallback)
+            try:
+                sec_opts = dict(base_opts)
+                sec_opts["extractor_args"] = {
+                    "youtube": {
+                        "player_client": ["all"],
+                    },
+                }
+                with yt_dlp.YoutubeDL(sec_opts) as ydl:
+                    sec_info = ydl.extract_info(target_url, download=False)
+                    if sec_info:
+                        if "entries" in sec_info and sec_info["entries"]:
+                            sec_info = sec_info["entries"][0]
+                        sec_stream = sec_info.get("url")
+                        if sec_stream:
+                            return sec_stream
+            except Exception as e2:
+                logger.warning(f"Secondary YouTube stream extraction failed: {e2}")
 
-                    with yt_dlp.YoutubeDL(sc_opts) as ydl:
-                        sc_info = ydl.extract_info(f"scsearch1:{search_query}", download=False)
-                        if sc_info and "entries" in sc_info and sc_info["entries"]:
-                            sc_entry = sc_info["entries"][0]
-                            sc_stream = sc_entry.get("url")
-                            if sc_stream:
-                                logger.info(f"SoundCloud fallback stream resolved for: {track.title}")
-                                return sc_stream
-                except Exception as sc_err:
-                    logger.error(f"SoundCloud fallback failed as well: {sc_err}")
-                return None
+            # 3. Tertiary attempt: Search alternative YouTube uploads (if specific video is region/SABR blocked)
+            try:
+                clean_title = re.sub(r'[\U00010000-\U0010ffff]', '', track.title)
+                clean_title = re.sub(r'#\w+', '', clean_title)
+                clean_title = re.sub(r'\|.*', '', clean_title)
+                clean_title = re.sub(r'\[.*?\]|\(.*?\)', '', clean_title).strip()
+                clean_artist = track.artist if track.artist and track.artist != "Неизвестный автор" else ""
+                search_query = f"{clean_title} {clean_artist}".strip() or track.title
+
+                alt_opts = dict(base_opts)
+                alt_opts["ignoreerrors"] = True
+                with yt_dlp.YoutubeDL(alt_opts) as ydl:
+                    alt_info = ydl.extract_info(f"ytsearch3:{search_query}", download=False)
+                    for entry in (alt_info.get("entries") or []):
+                        if entry and entry.get("url"):
+                            logger.info(f"Alternative YouTube stream resolved for: {track.title}")
+                            return entry.get("url")
+            except Exception as alt_err:
+                logger.debug(f"Alternative YouTube search failed: {alt_err}")
+
+            # 4. Quaternary attempt: SoundCloud fallback with DRM filtering
+            logger.warning("YouTube stream extraction failed, attempting SoundCloud fallback...")
+            try:
+                sc_opts = {
+                    "format": "bestaudio/best",
+                    "quiet": True,
+                    "no_warnings": True,
+                    "extract_flat": False,
+                    "noplaylist": True,
+                    "ignoreerrors": True,
+                }
+                with yt_dlp.YoutubeDL(sc_opts) as ydl:
+                    sc_info = ydl.extract_info(f"scsearch5:{search_query}", download=False)
+                    for entry in (sc_info.get("entries") or []):
+                        if entry and entry.get("url") and not entry.get("has_drm"):
+                            logger.info(f"SoundCloud fallback stream resolved for: {track.title}")
+                            return entry.get("url")
+            except Exception as sc_err:
+                logger.error(f"SoundCloud fallback failed as well: {sc_err}")
+
+            return None
 
         return await asyncio.to_thread(_get)
