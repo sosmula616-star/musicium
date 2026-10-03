@@ -541,7 +541,7 @@ html:not([data-lang="en"]) .lang-en { display: none !important; }
 /* Voice Dropdown */
 .voice-members-dropdown {
   position: absolute;
-  top: calc(100% + 6px);
+  top: calc(100% + 4px);
   right: 0;
   min-width: 320px;
   max-width: 380px;
@@ -554,8 +554,20 @@ html:not([data-lang="en"]) .lang-en { display: none !important; }
   opacity: 0;
   visibility: hidden;
   transform: translateY(-6px) scale(0.98);
-  transition: all var(--t-normal) var(--ease);
+  transition: opacity var(--t-normal) var(--ease), transform var(--t-normal) var(--ease), visibility var(--t-normal);
   pointer-events: none;
+}
+
+/* Invisible bridge so moving cursor from pill to dropdown never drops hover */
+.voice-members-dropdown::before {
+  content: '';
+  position: absolute;
+  top: -14px;
+  left: -10px;
+  right: -10px;
+  height: 16px;
+  background: transparent;
+  pointer-events: auto;
 }
 
 .ytm-voice-widget:hover .voice-members-dropdown,
