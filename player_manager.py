@@ -47,8 +47,10 @@ class PlayerManager:
             # 1. Fast check via guild._voice_states (gateway cache)
             if hasattr(g, '_voice_states') and user_id in g._voice_states:
                 vs = g._voice_states[user_id]
-                if vs and vs.channel_id:
-                    ch = g.get_channel(vs.channel_id)
+                if vs:
+                    ch = getattr(vs, 'channel', None)
+                    if not ch and hasattr(vs, '_channel_id') and vs._channel_id:
+                        ch = g.get_channel(vs._channel_id)
                     if ch:
                         mem = g.get_member(user_id) or (ch.guild.get_member(user_id) if hasattr(ch, 'guild') else None)
                         return g, ch, mem
