@@ -94,7 +94,7 @@ def ensure_opus_loaded():
 
 ensure_opus_loaded()
 
-FFMPEG_BEFORE_OPTIONS = "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
+FFMPEG_BEFORE_OPTIONS = "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -probesize 32768 -analyzeduration 0"
 FFMPEG_OPTIONS = "-vn"
 
 class GuildPlayer:
@@ -217,6 +217,8 @@ class GuildPlayer:
                 await self._play_next()
                 return {"action": "started", "track": track.to_dict()}
             else:
+                # Prefetch stream for the next track in background so it starts instantly
+                asyncio.create_task(self._prefetch_next())
                 await self._notify_change()
                 return {"action": "queued", "position": len(self.queue), "track": track.to_dict()}
 
@@ -316,6 +318,8 @@ class GuildPlayer:
                 logger.debug(f"History logging failed: {e_hist}")
 
             await self._notify_change(track_started=True)
+            # Preload the next track's stream in background
+            asyncio.create_task(self._prefetch_next())
 
         except Exception as e:
             logger.error(f"Error starting track {track.title}: {e}", exc_info=True)
@@ -343,6 +347,19 @@ class GuildPlayer:
                 self.queue.append(finished_track)
 
             await self._play_next()
+
+    async def _prefetch_next(self):
+        """Pre-resolves stream URL for the upcoming track in queue to eliminate gap/latency."""
+        try:
+            if self.queue:
+                next_t = self.queue[0]
+                if not next_t.stream_url:
+                    stream = await self.music_service.get_stream_url(next_t)
+                    if stream:
+                        next_t.stream_url = stream
+                        logger.debug(f"Prefetched stream URL for: {next_t.title}")
+        except Exception as e:
+            logger.debug(f"Prefetch error: {e}")
 
     async def pause(self) -> bool:
         if self.voice_client and self.voice_client.is_playing() and not self.is_paused:
