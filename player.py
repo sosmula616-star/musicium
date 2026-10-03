@@ -291,6 +291,12 @@ class GuildPlayer:
                         raise
 
             logger.info(f"Started playing: {track.title} in {self.guild.name}")
+            try:
+                import db
+                uid = str(track.requester_id) if track.requester_id else "bot_user"
+                asyncio.create_task(db.add_user_history(uid, track.to_dict()))
+            except Exception as e_hist:
+                logger.debug(f"History logging failed: {e_hist}")
 
             await self._notify_change(track_started=True)
 
