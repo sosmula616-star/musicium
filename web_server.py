@@ -22,6 +22,14 @@ async def cache_control_middleware(request: web.Request, handler):
         response.headers["Expires"] = "0"
     return response
 
+def safe_int(val, default=None):
+    if val is None or val == "":
+        return default
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        return default
+
 class WebServer:
     def __init__(self, bot, player_manager: PlayerManager, music_service: MusicService):
         self.bot = bot
@@ -121,12 +129,7 @@ class WebServer:
 
     async def handle_guilds(self, request: web.Request) -> web.Response:
         user_id_str = request.query.get("user_id")
-        current_user_id = None
-        if user_id_str:
-            try:
-                current_user_id = int(user_id_str)
-            except ValueError:
-                pass
+        current_user_id = safe_int(user_id_str)
         guilds = self.player_manager.get_all_guilds_info(current_user_id=current_user_id)
         return web.json_response({"guilds": guilds})
 
@@ -140,8 +143,8 @@ class WebServer:
         guild_id_str = data.get("guild_id")
         action = data.get("action", "join")
 
+        guild_id = safe_int(guild_id_str)
         if action == "leave":
-            guild_id = int(guild_id_str) if guild_id_str else None
             player = self.player_manager.get_player_by_guild_id(guild_id) if guild_id else None
             if player:
                 await player.stop()
@@ -151,13 +154,9 @@ class WebServer:
                     await g.voice_client.disconnect(force=True)
             return web.json_response({"success": True, "action": "left"})
 
-        if not channel_id_str:
-            return web.json_response({"success": False, "error": "channel_id is required"}, status=400)
-
-        try:
-            channel_id = int(channel_id_str)
-        except ValueError:
-            return web.json_response({"success": False, "error": "Invalid channel_id"}, status=400)
+        channel_id = safe_int(channel_id_str)
+        if not channel_id:
+            return web.json_response({"success": False, "error": "channel_id is required or invalid"}, status=400)
 
         channel = self.bot.get_channel(channel_id)
         if not channel:
@@ -189,12 +188,7 @@ class WebServer:
     async def handle_voice_users(self, request: web.Request) -> web.Response:
         """Returns users currently connected to voice channels across bot guilds."""
         guild_id_str = request.query.get("guild_id")
-        target_guild_id = None
-        if guild_id_str:
-            try:
-                target_guild_id = int(guild_id_str)
-            except ValueError:
-                pass
+        target_guild_id = safe_int(guild_id_str)
 
         voice_members = []
         guilds_to_check = [self.bot.get_guild(target_guild_id)] if target_guild_id and self.bot.get_guild(target_guild_id) else self.bot.guilds
@@ -236,12 +230,9 @@ class WebServer:
         guild_id_str = request.query.get("guild_id")
         channel_id_str = request.query.get("channel_id")
 
-        guild_id = None
-        if guild_id_str:
-            try:
-                guild_id = int(guild_id_str)
-            except ValueError:
-                pass
+        guild_id = safe_int(guild_id_str)
+        user_id = safe_int(user_id_str)
+        channel_id = safe_int(channel_id_str)
 
         # Helper to find where bot is currently connected
         bot_voice = None
@@ -265,13 +256,6 @@ class WebServer:
                     }
                     break
 
-        user_id = None
-        if user_id_str:
-            try:
-                user_id = int(user_id_str)
-            except ValueError:
-                pass
-
         if not user_id:
             return web.json_response({
                 "in_voice": False,
@@ -281,9 +265,9 @@ class WebServer:
             })
 
         # If channel_id was provided (e.g. from Discord Activity SDK), check it directly
-        if channel_id_str:
+        if channel_id:
             try:
-                channel = self.bot.get_channel(int(channel_id_str))
+                channel = self.bot.get_channel(channel_id)
                 if channel and isinstance(channel, (discord.VoiceChannel, getattr(discord, "StageChannel", ()))):
                     guild = channel.guild
                     user_member = None
@@ -356,17 +340,14 @@ class WebServer:
         guild_id_str = request.query.get("guild_id")
         user_id_str = request.query.get("user_id")
 
+        guild_id = safe_int(guild_id_str)
+        user_id = safe_int(user_id_str)
+
         player = None
-        if guild_id_str:
-            try:
-                player = self.player_manager.get_player_by_guild_id(int(guild_id_str))
-            except ValueError:
-                pass
-        elif user_id_str:
-            try:
-                player = self.player_manager.find_active_player_for_user(int(user_id_str))
-            except ValueError:
-                pass
+        if guild_id:
+            player = self.player_manager.get_player_by_guild_id(guild_id)
+        elif user_id:
+            player = self.player_manager.find_active_player_for_user(user_id)
 
         if not player:
             return web.json_response({"player": None})
@@ -388,36 +369,28 @@ class WebServer:
         if not user_id_str or not track_data:
             return web.json_response({"success": False, "error": "user_id and track are required"}, status=400)
 
-        try:
-            user_id = int(user_id_str)
-        except ValueError:
-            return web.json_response({"success": False, "error": "Invalid user_id"}, status=400)
-
-        guild_id = None
-        if guild_id_str:
-            try:
-                guild_id = int(guild_id_str)
-            except ValueError:
-                pass
+        user_id = safe_int(user_id_str, default=0)
+        guild_id = safe_int(guild_id_str)
+        channel_id = safe_int(channel_id_str)
 
         # 1. Check if channel_id was explicitly provided (e.g. from UI room selector)
         target_channel = None
         target_guild = None
-        member_name = "Пользователь Discord"
+        member_name = "Пользователь Discord" if user_id else "Гость"
 
-        if channel_id_str:
+        if channel_id:
             try:
-                ch = self.bot.get_channel(int(channel_id_str))
+                ch = self.bot.get_channel(channel_id)
                 if not ch:
                     try:
-                        ch = await self.bot.fetch_channel(int(channel_id_str))
+                        ch = await self.bot.fetch_channel(channel_id)
                     except Exception:
                         pass
                 if ch and isinstance(ch, (discord.VoiceChannel, getattr(discord, "StageChannel", ()))):
                     target_channel = ch
                     target_guild = ch.guild
             except Exception as e:
-                logger.warning(f"Could not resolve explicit channel_id {channel_id_str}: {e}")
+                logger.warning(f"Could not resolve explicit channel_id {channel_id}: {e}")
 
         # 2. Find user's voice channel across guilds (prioritizing guild_id if provided)
         if not target_channel and user_id:
@@ -530,25 +503,24 @@ class WebServer:
         action = data.get("action")
         user_id_str = data.get("user_id")
         guild_id_str = data.get("guild_id")
+        channel_id_str = data.get("channel_id")
 
-        user_id = int(user_id_str) if user_id_str else None
+        user_id = safe_int(user_id_str)
+        guild_id = safe_int(guild_id_str)
+        channel_id = safe_int(channel_id_str)
 
         player = None
-        if guild_id_str:
-            try:
-                player = self.player_manager.get_player_by_guild_id(int(guild_id_str))
-            except ValueError:
-                pass
+        if guild_id:
+            player = self.player_manager.get_player_by_guild_id(guild_id)
         elif user_id:
             player = self.player_manager.find_active_player_for_user(user_id)
 
         if action == "join":
-            channel_id_str = data.get("channel_id")
-            if channel_id_str:
-                ch = self.bot.get_channel(int(channel_id_str))
+            if channel_id:
+                ch = self.bot.get_channel(channel_id)
                 if not ch:
                     try:
-                        ch = await self.bot.fetch_channel(int(channel_id_str))
+                        ch = await self.bot.fetch_channel(channel_id)
                     except Exception:
                         pass
                 if ch and isinstance(ch, (discord.VoiceChannel, getattr(discord, "StageChannel", ()))):
@@ -559,13 +531,10 @@ class WebServer:
         if action == "leave":
             if player:
                 await player.stop()
-            elif guild_id_str:
-                try:
-                    g = self.bot.get_guild(int(guild_id_str))
-                    if g and getattr(g, "voice_client", None):
-                        await g.voice_client.disconnect(force=True)
-                except ValueError:
-                    pass
+            elif guild_id:
+                g = self.bot.get_guild(guild_id)
+                if g and getattr(g, "voice_client", None):
+                    await g.voice_client.disconnect(force=True)
             return web.json_response({"success": True, "action": "left"})
 
         if not player:
@@ -620,7 +589,7 @@ class WebServer:
                 res_data["queue_size"] = count
 
             elif action == "remove":
-                idx = int(data.get("index", -1))
+                idx = safe_int(data.get("index"), -1)
                 removed = player.remove_from_queue(idx)
                 res_data["success"] = bool(removed)
                 res_data["removed"] = removed.to_dict() if removed else None
@@ -630,7 +599,7 @@ class WebServer:
                 res_data["message"] = "Очередь очищена"
 
             elif action == "seek":
-                target_sec = int(data.get("seconds", 0))
+                target_sec = safe_int(data.get("seconds"), 0)
                 ok = await player.seek(target_sec)
                 res_data["seeked"] = ok
                 res_data["seconds"] = target_sec
@@ -799,7 +768,7 @@ class WebServer:
         return web.json_response({"playlists": playlists})
 
     async def handle_post_playlist_like(self, request: web.Request) -> web.Response:
-        playlist_id = request.match_info.get("id")
+        playlist_id = safe_int(request.match_info.get("id"))
         try:
             data = await request.json()
         except Exception:
@@ -807,22 +776,22 @@ class WebServer:
         user_id = data.get("user_id") or request.query.get("user_id")
         if not playlist_id or not user_id:
             return web.json_response({"success": False, "error": "playlist id and user_id required"}, status=400)
-        res = await db.toggle_playlist_like(str(user_id), int(playlist_id))
+        res = await db.toggle_playlist_like(str(user_id), playlist_id)
         return web.json_response({"success": True, **res})
 
     async def handle_delete_playlist(self, request: web.Request) -> web.Response:
-        playlist_id = request.match_info.get("id")
+        playlist_id = safe_int(request.match_info.get("id"))
         user_id = request.query.get("user_id")
         if not playlist_id or not user_id:
             return web.json_response({"success": False, "error": "playlist id and user_id required"}, status=400)
         try:
-            ok = await db.delete_user_playlist(str(user_id), int(playlist_id))
+            ok = await db.delete_user_playlist(str(user_id), playlist_id)
             return web.json_response({"success": ok})
         except Exception as e:
             return web.json_response({"success": False, "error": str(e)}, status=500)
 
     async def handle_add_playlist_track(self, request: web.Request) -> web.Response:
-        playlist_id = request.match_info.get("id")
+        playlist_id = safe_int(request.match_info.get("id"))
         try:
             data = await request.json()
         except Exception:
@@ -831,13 +800,13 @@ class WebServer:
         if not playlist_id or not track:
             return web.json_response({"success": False, "error": "playlist id and track required"}, status=400)
         try:
-            ok = await db.add_track_to_playlist(int(playlist_id), track)
+            ok = await db.add_track_to_playlist(playlist_id, track)
             return web.json_response({"success": ok})
         except Exception as e:
             return web.json_response({"success": False, "error": str(e)}, status=500)
 
     async def handle_remove_playlist_track(self, request: web.Request) -> web.Response:
-        playlist_id = request.match_info.get("id")
+        playlist_id = safe_int(request.match_info.get("id"))
         try:
             data = await request.json()
         except Exception:
@@ -846,7 +815,7 @@ class WebServer:
         if not playlist_id or not track_url:
             return web.json_response({"success": False, "error": "playlist id and track_url required"}, status=400)
         try:
-            ok = await db.remove_track_from_playlist(int(playlist_id), track_url)
+            ok = await db.remove_track_from_playlist(playlist_id, track_url)
             return web.json_response({"success": ok})
         except Exception as e:
             return web.json_response({"success": False, "error": str(e)}, status=500)
@@ -855,7 +824,7 @@ class WebServer:
         user_id = request.query.get("user_id")
         if not user_id:
             return web.json_response({"history": []})
-        limit = int(request.query.get("limit", 50))
+        limit = safe_int(request.query.get("limit"), 50)
         hist = await db.get_user_history(user_id, limit=limit)
         return web.json_response({"history": hist})
 
@@ -900,10 +869,8 @@ class WebServer:
                         if action == "ping":
                             await ws.send_json({"event": "pong"})
                         elif action in ("subscribe", "get_state"):
-                            guild_id_raw = payload.get("guild_id")
-                            user_id_raw = payload.get("user_id")
-                            guild_id = int(guild_id_raw) if guild_id_raw else None
-                            user_id = int(user_id_raw) if user_id_raw else None
+                            guild_id = safe_int(payload.get("guild_id"))
+                            user_id = safe_int(payload.get("user_id"))
 
                             if guild_id:
                                 self.player_manager.ws_subscriptions[ws] = guild_id
