@@ -1190,11 +1190,15 @@
         </div>
       `;
 
-      card.addEventListener('click', () => {
-        if (track.url || track.title) {
-          playTrack(track, true);
-        }
-      });
+      const playBtn = card.querySelector('.live-card-thumb-wrap');
+      if (playBtn) {
+        playBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (track.url || track.title) {
+            playTrack(track, true);
+          }
+        });
+      }
 
       el.liveServersRow.appendChild(card);
     });
@@ -1237,11 +1241,15 @@
         </div>
       `;
 
-      card.addEventListener('click', () => {
-        if (track.url || track.title) {
-          playTrack(track, true);
-        }
-      });
+      const playBtn = card.querySelector('.recent-card-thumb-wrap');
+      if (playBtn) {
+        playBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (track.url || track.title) {
+            playTrack(track, true);
+          }
+        });
+      }
 
       el.globalRecentRow.appendChild(card);
     });
@@ -2012,27 +2020,26 @@
         </div>
       `;
 
-      card.querySelector('.card-play-overlay').addEventListener('click', () => {
+      card.querySelector('.card-play-overlay').addEventListener('click', (e) => {
+        e.stopPropagation();
         playTrack(track, true);
       });
-      card.querySelector('.btn-play-now').addEventListener('click', () => {
+      card.querySelector('.btn-play-now').addEventListener('click', (e) => {
+        e.stopPropagation();
         playTrack(track, true);
       });
-      card.querySelector('.btn-add-queue').addEventListener('click', () => {
+      card.querySelector('.btn-add-queue').addEventListener('click', (e) => {
+        e.stopPropagation();
         playTrack(track, false);
       });
-      card.querySelector('.btn-card-like').addEventListener('click', () => {
+      card.querySelector('.btn-card-like').addEventListener('click', (e) => {
+        e.stopPropagation();
         toggleLikeTrack(track);
         renderTracks(state.lastTracks);
       });
-      card.querySelector('.btn-card-add-pl').addEventListener('click', () => {
+      card.querySelector('.btn-card-add-pl').addEventListener('click', (e) => {
+        e.stopPropagation();
         openAddToPlaylistModal(track);
-      });
-      card.addEventListener('click', (e) => {
-        if (e.target.closest('.btn-card-like') || e.target.closest('.btn-card-add-pl') || e.target.closest('.btn-add-queue') || e.target.closest('.card-title')) {
-          return;
-        }
-        playTrack(track, true);
       });
 
       el.tracksGrid.appendChild(card);
@@ -2149,25 +2156,15 @@
 
     state.player = playerState;
 
-    // Volume sync (runs regardless of playback state)
+    // Volume sync (UI display only, NEVER fire network requests here)
     if (playerState && playerState.volume !== undefined && !state.isAdjustingVolume && (Date.now() - state.lastUserVolumeChange > 1200)) {
       let serverVol = Math.round(Number(playerState.volume));
       if (isNaN(serverVol)) serverVol = 100;
-
-      if (state.userExplicitVolume !== null) {
-        const myVol = Math.max(0, Math.min(200, state.userExplicitVolume));
-        if (el.volumeSlider) el.volumeSlider.value = myVol;
-        if (el.volumeVal) el.volumeVal.textContent = `${myVol}%`;
-        updateVolumeIcon(myVol);
-        if (serverVol !== myVol) {
-          sendPlayerAction('volume', { value: myVol });
-        }
-      } else {
-        const vol = Math.max(0, Math.min(200, serverVol));
-        if (el.volumeSlider) el.volumeSlider.value = vol;
-        if (el.volumeVal) el.volumeVal.textContent = `${vol}%`;
-        updateVolumeIcon(vol);
-      }
+      const vol = Math.max(0, Math.min(200, serverVol));
+      if (el.volumeSlider) el.volumeSlider.value = vol;
+      if (el.volumeVal) el.volumeVal.textContent = `${vol}%`;
+      updateVolumeIcon(vol);
+      state.savedVolume = vol;
     }
 
     if (!playerState || !playerState.is_playing) {
