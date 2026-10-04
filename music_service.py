@@ -628,7 +628,7 @@ class MusicService:
             # 1. Primary: Fast iOS/mweb client (bypasses web n-sig challenge & Android SABR 403 blocks)
             try:
                 primary_opts = {
-                    "format": "ba/b/bestaudio/best",
+                    "format": "bestaudio[ext=m4a]/bestaudio[acodec=opus]/bestaudio/best",
                     "quiet": True,
                     "no_warnings": True,
                     "extract_flat": False,
