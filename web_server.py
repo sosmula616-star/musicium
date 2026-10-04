@@ -3,6 +3,7 @@ import json
 import asyncio
 import logging
 from typing import Optional
+import urllib.parse
 from aiohttp import web, WSMsgType
 import aiohttp
 import discord
@@ -59,6 +60,8 @@ class WebServer:
         self.app.router.add_post("/api/play", self.handle_play)
         self.app.router.add_post("/api/action", self.handle_action)
         self.app.router.add_post("/api/token", self.handle_discord_token)
+        self.app.router.add_get("/api/auth/discord", self.handle_auth_discord)
+        self.app.router.add_get("/api/auth/callback", self.handle_auth_callback)
         self.app.router.add_get("/api/proxy-image", self.handle_proxy_image)
         self.app.router.add_get("/api/recommendations", self.handle_recommendations)
 
@@ -720,6 +723,79 @@ class WebServer:
             logger.error(f"Error exchanging discord token: {e}")
             return web.json_response({"error": str(e)}, status=500)
 
+    async def handle_auth_discord(self, request: web.Request) -> web.Response:
+        """Redirects browser to Discord OAuth2 login."""
+        public_url = os.getenv("PUBLIC_URL", "").rstrip("/")
+        if not public_url:
+            host_header = request.headers.get("Host", "localhost:3000")
+            proto = request.headers.get("X-Forwarded-Proto", "http")
+            public_url = f"{proto}://{host_header}"
+        redirect_uri = f"{public_url}/api/auth/callback"
+        oauth_url = (
+            f"https://discord.com/oauth2/authorize?client_id={self.client_id}"
+            f"&response_type=code&redirect_uri={urllib.parse.quote(redirect_uri, safe='')}"
+            f"&scope=identify%20guilds"
+        )
+        return web.HTTPFound(oauth_url)
+
+    async def handle_auth_callback(self, request: web.Request) -> web.Response:
+        """Handles Discord OAuth2 callback, fetches user info and redirects back to app."""
+        code = request.query.get("code")
+        if not code or not self.client_id or not self.client_secret:
+            return web.HTTPFound("/?auth_error=missing_code")
+
+        public_url = os.getenv("PUBLIC_URL", "").rstrip("/")
+        if not public_url:
+            host_header = request.headers.get("Host", "localhost:3000")
+            proto = request.headers.get("X-Forwarded-Proto", "http")
+            public_url = f"{proto}://{host_header}"
+        redirect_uri = f"{public_url}/api/auth/callback"
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                token_url = "https://discord.com/api/oauth2/token"
+                payload = {
+                    "client_id": self.client_id,
+                    "client_secret": self.client_secret,
+                    "grant_type": "authorization_code",
+                    "code": code,
+                    "redirect_uri": redirect_uri,
+                }
+                headers = {"Content-Type": "application/x-www-form-urlencoded"}
+                async with session.post(token_url, data=payload, headers=headers) as resp:
+                    if resp.status != 200:
+                        err_text = await resp.text()
+                        logger.error(f"Discord OAuth2 token error: {err_text}")
+                        return web.HTTPFound("/?auth_error=token_failed")
+                    token_data = await resp.json()
+
+                access_token = token_data.get("access_token")
+                if not access_token:
+                    return web.HTTPFound("/?auth_error=no_access_token")
+
+                # Fetch user info
+                user_headers = {"Authorization": f"Bearer {access_token}"}
+                async with session.get("https://discord.com/api/users/@me", headers=user_headers) as u_resp:
+                    if u_resp.status != 200:
+                        return web.HTTPFound("/?auth_error=user_fetch_failed")
+                    user_data = await u_resp.json()
+
+                u_id = str(user_data.get("id", ""))
+                u_name = user_data.get("global_name") or user_data.get("username", "Пользователь Discord")
+                u_avatar = user_data.get("avatar")
+                avatar_url = f"https://cdn.discordapp.com/avatars/{u_id}/{u_avatar}.png" if u_avatar else "/static/activity_icon.jpg"
+
+                target = (
+                    f"/?user_id={urllib.parse.quote(u_id)}"
+                    f"&user_name={urllib.parse.quote(u_name)}"
+                    f"&user_avatar={urllib.parse.quote(avatar_url)}"
+                    f"&auth=success"
+                )
+                return web.HTTPFound(target)
+        except Exception as e:
+            logger.error(f"Error in handle_auth_callback: {e}", exc_info=True)
+            return web.HTTPFound("/?auth_error=exception")
+
     async def handle_proxy_image(self, request: web.Request) -> web.Response:
         """Proxies external image requests (YouTube, SoundCloud, Discord) to bypass iframe CSP & referer restrictions."""
         url = request.query.get("url")
@@ -924,6 +1000,12 @@ class WebServer:
 
     async def handle_clear_history(self, request: web.Request) -> web.Response:
         user_id = request.query.get("user_id")
+        if not user_id:
+            try:
+                data = await request.json()
+                user_id = data.get("user_id")
+            except Exception:
+                pass
         if not user_id:
             return web.json_response({"success": False, "error": "user_id required"}, status=400)
         ok = await db.clear_user_history(str(user_id))
