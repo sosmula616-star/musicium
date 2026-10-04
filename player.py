@@ -173,15 +173,15 @@ class GuildPlayer:
 
     async def connect_to_channel(self, channel: discord.VoiceChannel):
         guild_vc = self.guild.voice_client
-        if guild_vc and guild_vc.is_connected():
+        if guild_vc and guild_vc.is_connected() and guild_vc.channel:
             self.voice_client = guild_vc
             if self.voice_client.channel.id != channel.id:
-                await self.voice_client.move_to(channel)
+                raise RuntimeError(f"Бот уже находится в канале «{self.voice_client.channel.name}». Перемещение бота по серверу запрещено!")
             return
 
-        if self.voice_client and self.voice_client.is_connected():
+        if self.voice_client and self.voice_client.is_connected() and self.voice_client.channel:
             if self.voice_client.channel.id != channel.id:
-                await self.voice_client.move_to(channel)
+                raise RuntimeError(f"Бот уже находится в канале «{self.voice_client.channel.name}». Перемещение бота по серверу запрещено!")
             return
 
         if guild_vc:
@@ -195,10 +195,10 @@ class GuildPlayer:
         except discord.ClientException as ce:
             logger.warning(f"ClientException connecting to {channel.id}: {ce}. Attempting to use existing guild.voice_client...")
             guild_vc = self.guild.voice_client
-            if guild_vc and guild_vc.is_connected():
+            if guild_vc and guild_vc.is_connected() and guild_vc.channel:
                 self.voice_client = guild_vc
                 if self.voice_client.channel.id != channel.id:
-                    await self.voice_client.move_to(channel)
+                    raise RuntimeError(f"Бот уже находится в канале «{self.voice_client.channel.name}». Перемещение бота по серверу запрещено!")
             else:
                 raise
 
