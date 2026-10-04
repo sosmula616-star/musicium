@@ -689,9 +689,9 @@ class MusicService:
 
             cookie_file = self.youtube_cookie_path if (self.youtube_cookie_path and os.path.exists(self.youtube_cookie_path)) else None
 
-            # Strategy 1: Default yt-dlp client configuration
+            # Strategy 1: Default yt-dlp client configuration with permissive audio format selector
             base_opts = {
-                "format": "ba/b/bestaudio/best",
+                "format": "ba*/b*/bestaudio/best/worst*",
                 "quiet": True,
                 "no_warnings": True,
                 "extract_flat": False,
@@ -713,9 +713,9 @@ class MusicService:
 
             # Strategy 2: Alternate player clients to bypass datacenter/bot verification
             client_fallbacks = [
-                ["mweb"],
-                ["web_embedded", "tv_embedded"],
+                ["web", "default"],
                 ["ios", "web"],
+                ["web_embedded", "tv_embedded"],
             ]
             for clients in client_fallbacks:
                 try:
