@@ -96,7 +96,7 @@ ensure_opus_loaded()
 
 FFMPEG_BEFORE_OPTIONS = (
     "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 "
-    "-probesize 65536 -analyzeduration 0 "
+    "-probesize 1048576 -analyzeduration 5000000 "
     '-user_agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"'
 )
 FFMPEG_OPTIONS = "-vn"
@@ -322,16 +322,21 @@ class GuildPlayer:
             self.total_paused_duration = 0.0
 
             self._explicit_stop = False
+            self._retried_current = False
 
             def _after_play(err):
                 if current_gen != self._play_generation:
                     return
                 elapsed = (time.time() - self.start_time) if self.start_time > 0 else 0
-                is_failed = bool(err) or (elapsed < 3.0 and (not track.duration or track.duration > 5))
+                expected_dur = track.duration or 0
+                prematurely_cut = (expected_dur > 20) and (elapsed < (expected_dur - 12))
+                is_failed = bool(err) or (elapsed < 3.0) or prematurely_cut
 
                 if err:
                     logger.error(f"Playback error in {self.guild.name}: {err}")
-                coro = self._handle_track_finished_or_failed(is_failed=is_failed, track=track)
+                elif prematurely_cut:
+                    logger.warning(f"Track '{track.title}' cut off prematurely in {self.guild.name} ({elapsed:.1f}s / {expected_dur}s). Resuming...")
+                coro = self._handle_track_finished_or_failed(is_failed=is_failed, track=track, cut_off_at=elapsed if prematurely_cut else None)
                 asyncio.run_coroutine_threadsafe(coro, self.bot.loop)
 
             for _ in range(10):
@@ -368,13 +373,12 @@ class GuildPlayer:
                 return
             await self._play_next()
 
-    async def _handle_track_finished_or_failed(self, is_failed: bool, track: Track):
+    async def _handle_track_finished_or_failed(self, is_failed: bool, track: Track, cut_off_at: Optional[float] = None):
         async with self._lock:
             if not self.current_track:
                 return
 
             if is_failed:
-                logger.warning(f"Track '{track.title}' finished prematurely (<3s) or errored.")
                 # Attempt 1 fresh retry with invalidated cache
                 if not self._retried_current:
                     self._retried_current = True
@@ -383,7 +387,12 @@ class GuildPlayer:
                     new_stream = await self.music_service.get_stream_url(track, force_refresh=True)
                     if new_stream:
                         track.stream_url = new_stream
-                        await self._start_track(track)
+                        if cut_off_at and cut_off_at > 5:
+                            resume_sec = max(0, int(cut_off_at - 1))
+                            logger.info(f"Seamlessly resuming '{track.title}' from {resume_sec}s...")
+                            await self.seek(resume_sec)
+                        else:
+                            await self._start_track(track)
                         return
 
                 self._consecutive_failures += 1
@@ -566,11 +575,15 @@ class GuildPlayer:
                 if current_gen != self._play_generation:
                     return
                 elapsed = time.time() - seek_started_at
-                is_failed = bool(err) or (elapsed < 3.0 and (not self.current_track or not self.current_track.duration or self.current_track.duration > 5))
+                expected_remaining = (self.current_track.duration - seconds) if (self.current_track and self.current_track.duration) else 0
+                prematurely_cut = (expected_remaining > 20) and (elapsed < (expected_remaining - 12))
+                is_failed = bool(err) or (elapsed < 3.0) or prematurely_cut
 
                 if err:
                     logger.error(f"Playback error after seek: {err}")
-                coro = self._handle_track_finished_or_failed(is_failed=is_failed, track=self.current_track)
+                elif prematurely_cut:
+                    logger.warning(f"Seek playback cut off prematurely ({elapsed:.1f}s / {expected_remaining}s). Resuming...")
+                coro = self._handle_track_finished_or_failed(is_failed=is_failed, track=self.current_track, cut_off_at=(seconds + elapsed) if prematurely_cut else None)
                 asyncio.run_coroutine_threadsafe(coro, self.bot.loop)
 
             for _ in range(10):
