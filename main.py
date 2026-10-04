@@ -421,7 +421,7 @@ async def slash_play(interaction: discord.Interaction, query: str):
             return
 
     try:
-        tracks = await music_service.search(query, source="all", limit=1)
+        tracks = await music_service.search(query, source="all", limit=5)
         if not tracks:
             await interaction.followup.send(f"❌ Ничего не найдено по запросу: `{query}`", ephemeral=True)
             return
@@ -514,6 +514,25 @@ async def slash_resume(interaction: discord.Interaction):
     except Exception as e:
         logger.error(f"Error in slash_resume: {e}", exc_info=True)
         await interaction.followup.send(f"❌ Ошибка возобновления: {e}", ephemeral=True)
+
+
+@bot.tree.command(name="volume", description="Установить громкость воспроизведения (0-200%)")
+@app_commands.describe(percent="Уровень громкости в процентах (от 0 до 200)")
+async def slash_volume(interaction: discord.Interaction, percent: int):
+    await interaction.response.defer()
+    player = player_manager.get_player_by_guild_id(interaction.guild_id)
+    if not player or not player.is_connected:
+        await interaction.followup.send("❌ Бот не подключен к голосовому каналу.", ephemeral=True)
+        return
+
+    err = check_user_can_control(interaction, player)
+    if err:
+        await interaction.followup.send(err, ephemeral=True)
+        return
+
+    clamped = max(0, min(200, percent))
+    player.set_volume(clamped / 100.0)
+    await interaction.followup.send(f"🔊 Громкость установлена на **{clamped}%**.")
 
 
 @bot.tree.command(name="queue", description="Показать очередь треков")
@@ -736,7 +755,7 @@ async def cmd_play(ctx, *, query: str):
             return
 
     try:
-        tracks = await music_service.search(query, source="all", limit=1)
+        tracks = await music_service.search(query, source="all", limit=5)
         if not tracks:
             await ctx.send(f"❌ Ничего не найдено по запросу: `{query}`")
             return
@@ -761,6 +780,27 @@ async def cmd_play(ctx, *, query: str):
     except Exception as e:
         logger.error(f"Error in cmd_play: {e}")
         await ctx.send(f"❌ Ошибка воспроизведения: {e}")
+
+@bot.command(name="volume")
+async def cmd_volume(ctx, percent: int):
+    player = player_manager.get_player_by_guild_id(ctx.guild.id)
+    if not player or not player.is_connected:
+        await ctx.send("❌ Бот не подключен к голосовому каналу.")
+        return
+
+    if player.voice_client and player.voice_client.channel:
+        bot_channel = player.voice_client.channel
+        human_members = [m for m in bot_channel.members if not m.bot]
+        if human_members and ctx.author.id not in [m.id for m in human_members]:
+            is_admin = getattr(ctx.author, "guild_permissions", None) and ctx.author.guild_permissions.administrator
+            is_req = player.current_track and player.current_track.requester_id == ctx.author.id
+            if not is_admin and not is_req:
+                await ctx.send(f"⚠️ Управлять плеером могут только участники голосовой комнаты `🔊 {bot_channel.name}`!")
+                return
+
+    clamped = max(0, min(200, percent))
+    player.set_volume(clamped / 100.0)
+    await ctx.send(f"🔊 Громкость установлена на **{clamped}%**.")
 
 @bot.command(name="skip")
 async def cmd_skip(ctx):
