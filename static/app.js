@@ -343,27 +343,27 @@
 
   // Curated neutral hits from YouTube & SoundCloud
   let CURATED_RECOMMENDED = [
-    { title: 'Blinding Lights', artist: 'The Weeknd', duration_str: '3:20', thumbnail: 'https://i.ytimg.com/vi/4NRXx6U8ABQ/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=4NRXx6U8ABQ' },
-    { title: 'Get Lucky', artist: 'Daft Punk ft. Pharrell Williams', duration_str: '4:08', thumbnail: 'https://i.ytimg.com/vi/5NV6Rdv1a3I/hqdefault.jpg', source: 'soundcloud', url: 'https://api.soundcloud.com/tracks/soundcloud%3Atracks%3A88335161' },
-    { title: 'Starboy', artist: 'The Weeknd ft. Daft Punk', duration_str: '3:50', thumbnail: 'https://i.ytimg.com/vi/34Na4j8AVgA/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=34Na4j8AVgA' },
-    { title: 'Levitating', artist: 'Dua Lipa', duration_str: '3:23', thumbnail: 'https://i.ytimg.com/vi/TUVcZfQe-Kw/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=TUVcZfQe-Kw' },
-    { title: 'Believer', artist: 'Imagine Dragons', duration_str: '3:24', thumbnail: 'https://i.ytimg.com/vi/7wtfhZwyrcc/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=7wtfhZwyrcc' },
-    { title: 'Alone', artist: 'Marshmello', duration_str: '3:19', thumbnail: 'https://i.ytimg.com/vi/ALZHF5UqnU4/hqdefault.jpg', source: 'soundcloud', url: 'https://soundcloud.com/marshmellomusic/marshmello-alone' },
-    { title: 'Faded', artist: 'Alan Walker', duration_str: '3:32', thumbnail: 'https://i.ytimg.com/vi/60ItHLz5WEA/hqdefault.jpg', source: 'soundcloud', url: 'https://soundcloud.com/alanwalker/faded' },
-    { title: 'Bad Guy', artist: 'Billie Eilish', duration_str: '3:14', thumbnail: 'https://i.ytimg.com/vi/DyDfgMOUjCI/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=DyDfgMOUjCI' },
-    { title: 'Animals', artist: 'Martin Garrix', duration_str: '2:56', thumbnail: 'https://i.ytimg.com/vi/gCYcYZW45Uk/hqdefault.jpg', source: 'soundcloud', url: 'https://soundcloud.com/martingarrix/martin-garrix-animals' },
-    { title: 'Stay', artist: 'The Kid LAROI & Justin Bieber', duration_str: '2:21', thumbnail: 'https://i.ytimg.com/vi/kTJczUoc268/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=kTJczUoc268' },
-    { title: 'Midnight City', artist: 'M83', duration_str: '4:03', thumbnail: 'https://i.ytimg.com/vi/dX3k_QDnzHE/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=dX3k_QDnzHE' },
-    { title: 'The Nights', artist: 'Avicii', duration_str: '2:56', thumbnail: 'https://i.ytimg.com/vi/UtF6Jej8yb4/hqdefault.jpg', source: 'soundcloud', url: 'https://soundcloud.com/aviciiofficial/the-nights' }
+    { title: 'Blinding Lights', artist: 'The Weeknd', duration: 200, duration_str: '3:20', thumbnail: 'https://i.ytimg.com/vi/4NRXx6U8ABQ/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=4NRXx6U8ABQ' },
+    { title: 'Get Lucky', artist: 'Daft Punk ft. Pharrell Williams', duration: 248, duration_str: '4:08', thumbnail: 'https://i.ytimg.com/vi/5NV6Rdv1a3I/hqdefault.jpg', source: 'soundcloud', url: 'https://api.soundcloud.com/tracks/soundcloud%3Atracks%3A88335161' },
+    { title: 'Starboy', artist: 'The Weeknd ft. Daft Punk', duration: 230, duration_str: '3:50', thumbnail: 'https://i.ytimg.com/vi/34Na4j8AVgA/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=34Na4j8AVgA' },
+    { title: 'Levitating', artist: 'Dua Lipa', duration: 203, duration_str: '3:23', thumbnail: 'https://i.ytimg.com/vi/TUVcZfQe-Kw/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=TUVcZfQe-Kw' },
+    { title: 'Believer', artist: 'Imagine Dragons', duration: 204, duration_str: '3:24', thumbnail: 'https://i.ytimg.com/vi/7wtfhZwyrcc/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=7wtfhZwyrcc' },
+    { title: 'Alone', artist: 'Marshmello', duration: 199, duration_str: '3:19', thumbnail: 'https://i.ytimg.com/vi/ALZHF5UqnU4/hqdefault.jpg', source: 'soundcloud', url: 'https://soundcloud.com/marshmellomusic/marshmello-alone' },
+    { title: 'Faded', artist: 'Alan Walker', duration: 212, duration_str: '3:32', thumbnail: 'https://i.ytimg.com/vi/60ItHLz5WEA/hqdefault.jpg', source: 'soundcloud', url: 'https://soundcloud.com/alanwalker/faded' },
+    { title: 'Bad Guy', artist: 'Billie Eilish', duration: 194, duration_str: '3:14', thumbnail: 'https://i.ytimg.com/vi/DyDfgMOUjCI/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=DyDfgMOUjCI' },
+    { title: 'Animals', artist: 'Martin Garrix', duration: 176, duration_str: '2:56', thumbnail: 'https://i.ytimg.com/vi/gCYcYZW45Uk/hqdefault.jpg', source: 'soundcloud', url: 'https://soundcloud.com/martingarrix/martin-garrix-animals' },
+    { title: 'Stay', artist: 'The Kid LAROI & Justin Bieber', duration: 141, duration_str: '2:21', thumbnail: 'https://i.ytimg.com/vi/kTJczUoc268/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=kTJczUoc268' },
+    { title: 'Midnight City', artist: 'M83', duration: 243, duration_str: '4:03', thumbnail: 'https://i.ytimg.com/vi/dX3k_QDnzHE/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=dX3k_QDnzHE' },
+    { title: 'The Nights', artist: 'Avicii', duration: 176, duration_str: '2:56', thumbnail: 'https://i.ytimg.com/vi/UtF6Jej8yb4/hqdefault.jpg', source: 'soundcloud', url: 'https://soundcloud.com/aviciiofficial/the-nights' }
   ];
 
   let CURATED_QUICK_PICKS = [
-    { title: 'Bangarang', artist: 'Skrillex', thumbnail: 'https://i.ytimg.com/vi/YJVmu6yttiw/hqdefault.jpg', source: 'soundcloud' },
-    { title: 'First of the Year (Equinox)', artist: 'Skrillex', thumbnail: 'https://i.ytimg.com/vi/2cXDgFwE13g/hqdefault.jpg', source: 'soundcloud' },
-    { title: 'Strobe', artist: 'deadmau5', thumbnail: 'https://i.ytimg.com/vi/tKi9Z-f6qX4/hqdefault.jpg', source: 'soundcloud' },
-    { title: 'One More Time', artist: 'Daft Punk', thumbnail: 'https://i.ytimg.com/vi/FGBhQbmMxH8/hqdefault.jpg', source: 'youtube' },
-    { title: 'Wake Me Up', artist: 'Avicii', thumbnail: 'https://i.ytimg.com/vi/IcrbM1l_BoI/hqdefault.jpg', source: 'youtube' },
-    { title: 'Counting Stars', artist: 'OneRepublic', thumbnail: 'https://i.ytimg.com/vi/hT_nvWreIhg/hqdefault.jpg', source: 'youtube' }
+    { title: 'Bangarang', artist: 'Skrillex', duration: 215, duration_str: '3:35', thumbnail: 'https://i.ytimg.com/vi/YJVmu6yttiw/hqdefault.jpg', source: 'soundcloud' },
+    { title: 'First of the Year (Equinox)', artist: 'Skrillex', duration: 195, duration_str: '3:15', thumbnail: 'https://i.ytimg.com/vi/2cXDgFwE13g/hqdefault.jpg', source: 'soundcloud' },
+    { title: 'Strobe', artist: 'deadmau5', duration: 637, duration_str: '10:37', thumbnail: 'https://i.ytimg.com/vi/tKi9Z-f6qX4/hqdefault.jpg', source: 'soundcloud' },
+    { title: 'One More Time', artist: 'Daft Punk', duration: 320, duration_str: '5:20', thumbnail: 'https://i.ytimg.com/vi/FGBhQbmMxH8/hqdefault.jpg', source: 'youtube' },
+    { title: 'Wake Me Up', artist: 'Avicii', duration: 247, duration_str: '4:07', thumbnail: 'https://i.ytimg.com/vi/IcrbM1l_BoI/hqdefault.jpg', source: 'youtube' },
+    { title: 'Counting Stars', artist: 'OneRepublic', duration: 257, duration_str: '4:17', thumbnail: 'https://i.ytimg.com/vi/hT_nvWreIhg/hqdefault.jpg', source: 'youtube' }
   ];
 
   function t(key, params = {}) {
@@ -593,6 +593,16 @@
     const m = Math.floor(sec / 60);
     const s = Math.floor(sec % 60);
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  }
+
+  // Parse mm:ss or hh:mm:ss string to numeric seconds
+  function parseDurationStr(str) {
+    if (!str || typeof str !== 'string') return 0;
+    const parts = str.trim().split(':').map(Number);
+    if (parts.some(isNaN)) return 0;
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    return 0;
   }
 
   // Toast Notifications
@@ -2194,8 +2204,21 @@
 
     const track = playerState.current_track;
     state.isPlaying = !playerState.is_paused;
-    state.duration = playerState.duration || 0;
-    state.elapsed = playerState.position || 0;
+    
+    // Resolve total duration from track, state, or duration_str
+    let dur = 0;
+    if (track && track.duration) dur = Number(track.duration);
+    else if (playerState.duration) dur = Number(playerState.duration);
+    else if (track && track.duration_str) dur = parseDurationStr(track.duration_str);
+    else if (playerState.duration_str) dur = parseDurationStr(playerState.duration_str);
+    state.duration = (dur > 0 && !isNaN(dur)) ? dur : 0;
+
+    // Resolve elapsed playback position
+    let elap = 0;
+    if (playerState.elapsed_seconds !== undefined) elap = Number(playerState.elapsed_seconds);
+    else if (playerState.position !== undefined) elap = Number(playerState.position);
+    else elap = state.elapsed;
+    state.elapsed = (elap >= 0 && !isNaN(elap)) ? elap : 0;
 
     // Track playback history
     if (track && (!state.historyTracks.length || state.historyTracks[0].title !== track.title)) {
@@ -2268,15 +2291,30 @@
 
   function updateProgressBar() {
     if (el.timeElapsed) el.timeElapsed.textContent = formatTime(state.elapsed);
-    if (el.timeDuration) el.timeDuration.textContent = formatTime(state.duration);
-    if (el.progressFill && state.duration > 0) {
-      const pct = Math.min(100, Math.max(0, (state.elapsed / state.duration) * 100));
-      el.progressFill.style.width = `${pct}%`;
+    if (el.timeDuration) {
+      if (state.duration > 0) {
+        el.timeDuration.textContent = formatTime(state.duration);
+      } else if (state.player && state.player.current_track && state.player.current_track.duration_str) {
+        el.timeDuration.textContent = state.player.current_track.duration_str;
+      } else if (state.player && state.player.duration_str) {
+        el.timeDuration.textContent = state.player.duration_str;
+      } else {
+        el.timeDuration.textContent = '00:00';
+      }
+    }
+    if (el.progressFill) {
+      if (state.duration > 0) {
+        const pct = Math.min(100, Math.max(0, (state.elapsed / state.duration) * 100));
+        el.progressFill.style.width = `${pct}%`;
+      } else {
+        el.progressFill.style.width = '0%';
+      }
     }
   }
 
   function startProgressTicker() {
     stopProgressTicker();
+    updateProgressBar();
     state.progressTimer = setInterval(() => {
       if (state.isPlaying && !state.isScrubbing) {
         state.elapsed += 1;
