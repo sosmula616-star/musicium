@@ -1200,7 +1200,7 @@
         </div>
       `;
 
-      const playBtn = card.querySelector('.live-card-thumb-wrap');
+      const playBtn = card.querySelector('.square-card-play-btn');
       if (playBtn) {
         playBtn.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -1251,7 +1251,7 @@
         </div>
       `;
 
-      const playBtn = card.querySelector('.recent-card-thumb-wrap');
+      const playBtn = card.querySelector('.square-card-play-btn');
       if (playBtn) {
         playBtn.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -1301,12 +1301,13 @@
           </div>
         `;
 
-        row.querySelector('.compact-thumb-wrap').addEventListener('click', () => {
-          playTrack(track, true);
-        });
-        row.querySelector('.compact-info').addEventListener('click', () => {
-          playTrack(track, true);
-        });
+        const playBtn = row.querySelector('.compact-play-hover') || row.querySelector('.compact-thumb-wrap');
+        if (playBtn) {
+          playBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            playTrack(track, true);
+          });
+        }
         row.querySelector('.btn-like-track').addEventListener('click', (e) => {
           e.stopPropagation();
           toggleLikeTrack(track);
@@ -1337,15 +1338,19 @@
           <span class="square-card-title">${escapeHtml(item.title)}</span>
           <span class="square-card-sub">${escapeHtml(item.artist)}</span>
         `;
-        card.addEventListener('click', () => {
-          playTrack({
-            title: item.title,
-            artist: item.artist,
-            thumbnail: item.thumbnail,
-            source: item.source || 'youtube',
-            url: item.url || `https://music.youtube.com/search?q=${encodeURIComponent(item.title + ' ' + item.artist)}`
-          }, true);
-        });
+        const playBtn = card.querySelector('.square-card-play-btn');
+        if (playBtn) {
+          playBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            playTrack({
+              title: item.title,
+              artist: item.artist,
+              thumbnail: item.thumbnail,
+              source: item.source || 'youtube',
+              url: item.url || `https://music.youtube.com/search?q=${encodeURIComponent(item.title + ' ' + item.artist)}`
+            }, true);
+          });
+        }
         el.quickPicksRow.appendChild(card);
       });
     }
@@ -1707,9 +1712,6 @@
         e.stopPropagation();
         playTrack(track, false);
       });
-      item.addEventListener('click', () => {
-        playTrack(track, true);
-      });
 
       el.likedTracksContainer.appendChild(item);
     });
@@ -1800,9 +1802,6 @@
         }
         showToast(t('toast.trackRemovedFromPlaylist'), 'info');
         renderPlaylistView(playlistId);
-      });
-      item.addEventListener('click', () => {
-        playTrack(track, true);
       });
 
       el.customPlaylistTracksContainer.appendChild(item);
@@ -1899,9 +1898,6 @@
       item.querySelector('.btn-add-q').addEventListener('click', (e) => {
         e.stopPropagation();
         playTrack(track, false);
-      });
-      item.addEventListener('click', () => {
-        playTrack(track, true);
       });
       el.historyTracksContainer.appendChild(item);
     });
@@ -2372,7 +2368,6 @@
             return;
           }
           updatePlayerUI(msg.data);
-          fetchFeedDiscovery();
         }
       } catch (e) {
         console.error('WS parse error:', e);
