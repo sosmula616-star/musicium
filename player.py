@@ -95,8 +95,8 @@ def ensure_opus_loaded():
 ensure_opus_loaded()
 
 FFMPEG_BEFORE_OPTIONS = (
-    "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 "
-    "-probesize 65536 -analyzeduration 0 "
+    "-reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5 "
+    "-probesize 131072 -analyzeduration 0 "
     '-user_agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"'
 )
 FFMPEG_OPTIONS = "-vn"
@@ -128,6 +128,7 @@ class GuildPlayer:
         self._play_generation: int = 0
         self._consecutive_failures: int = 0
         self._retried_current: bool = False
+        self._explicit_stop: bool = False
         self._lock = asyncio.Lock()
 
     @property
@@ -297,14 +298,21 @@ class GuildPlayer:
             self.pause_start_time = 0.0
             self.total_paused_duration = 0.0
 
+            self._explicit_stop = False
+
             def _after_play(err):
                 if current_gen != self._play_generation:
                     return
                 elapsed = (time.time() - self.start_time) if self.start_time > 0 else 0
-                is_failed = bool(err) or (elapsed < 3.0)
+                dur = track.duration or 0
+                is_mid_track_drop = (dur > 20 and elapsed < (dur - 15) and elapsed >= 3.0)
+                is_start_fail = bool(err) or (elapsed < 3.0)
+                resume_sec = int(elapsed) if (is_mid_track_drop and not err) else None
+                is_failed = is_start_fail or (is_mid_track_drop and err is not None)
+
                 if err:
                     logger.error(f"Playback error in {self.guild.name}: {err}")
-                coro = self._handle_track_finished_or_failed(is_failed=is_failed, track=track)
+                coro = self._handle_track_finished_or_failed(is_failed=is_failed, track=track, resume_seconds=resume_sec)
                 asyncio.run_coroutine_threadsafe(coro, self.bot.loop)
 
             for _ in range(10):
@@ -341,10 +349,20 @@ class GuildPlayer:
                 return
             await self._play_next()
 
-    async def _handle_track_finished_or_failed(self, is_failed: bool, track: Track):
+    async def _handle_track_finished_or_failed(self, is_failed: bool, track: Track, resume_seconds: Optional[int] = None):
         async with self._lock:
             if not self.current_track:
                 return
+
+            # Mid-track unexpected drop: seamless auto-resume
+            if resume_seconds is not None and resume_seconds >= 3:
+                logger.warning(f"Track '{track.title}' dropped mid-playback at {resume_seconds}s / {track.duration}s. Auto-resuming...")
+                self.music_service.invalidate_stream_cache(track)
+                new_stream = await self.music_service.get_stream_url(track, force_refresh=True)
+                if new_stream and self.voice_client and self.voice_client.is_connected():
+                    track.stream_url = new_stream
+                    await self.seek(max(0, resume_seconds - 1))
+                    return
 
             if is_failed:
                 logger.warning(f"Track '{track.title}' finished prematurely (<3s) or errored.")
@@ -538,10 +556,15 @@ class GuildPlayer:
                 if current_gen != self._play_generation:
                     return
                 elapsed = (time.time() - self.start_time) if self.start_time > 0 else 0
-                is_failed = bool(err) or (elapsed < 3.0)
+                dur = self.current_track.duration if self.current_track else 0
+                is_mid_track_drop = (dur > 20 and elapsed < (dur - 15) and elapsed >= 3.0)
+                is_start_fail = bool(err) or (elapsed < 3.0)
+                resume_sec = int(elapsed) if (is_mid_track_drop and not err) else None
+                is_failed = is_start_fail or (is_mid_track_drop and err is not None)
+
                 if err:
                     logger.error(f"Playback error after seek: {err}")
-                coro = self._handle_track_finished_or_failed(is_failed=is_failed, track=self.current_track)
+                coro = self._handle_track_finished_or_failed(is_failed=is_failed, track=self.current_track, resume_seconds=resume_sec)
                 asyncio.run_coroutine_threadsafe(coro, self.bot.loop)
 
             for _ in range(10):
@@ -560,6 +583,7 @@ class GuildPlayer:
 
     async def stop(self):
         async with self._lock:
+            self._explicit_stop = True
             self.queue.clear()
             self.current_track = None
             self.vote_skips.clear()
@@ -569,6 +593,23 @@ class GuildPlayer:
                 await self.voice_client.disconnect(force=True)
                 self.voice_client = None
             await self._notify_change()
+
+    async def reconnect_and_resume(self, channel: discord.VoiceChannel):
+        """Attempts to reconnect to the voice channel after an unexpected drop and resume playback."""
+        for attempt in range(1, 4):
+            try:
+                await asyncio.sleep(2.0 * attempt)
+                if self._explicit_stop or not self.current_track:
+                    return
+                logger.info(f"Reconnecting to voice channel '{channel.name}' (attempt {attempt}/3)...")
+                await self.connect_to_channel(channel)
+                if self.voice_client and self.voice_client.is_connected():
+                    elapsed = self.get_elapsed_seconds()
+                    logger.info(f"Resuming track '{self.current_track.title}' at {elapsed}s...")
+                    await self.seek(max(0, elapsed - 1))
+                    return
+            except Exception as e:
+                logger.warning(f"Reconnect attempt {attempt} failed: {e}")
 
     def set_volume(self, volume: float) -> float:
         self.volume = max(0.0, min(2.0, volume))
