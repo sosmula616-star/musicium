@@ -933,57 +933,89 @@
             <div class="legal-article">
               <h3><i class="fa-solid fa-gavel text-cyan"></i> 1. Общие положения и принятие Соглашения</h3>
               <p>
-                Настоящие Условия использования («Условия», «Соглашение») представляют собой юридически обязывающее
-                соглашение между Вами («Пользователь») и командой разработчиков <strong>Musicium Team</strong>
-                («Администрация», «Разработчик»), определяющее порядок и правила эксплуатации музыкального бота
-                «Musicium» и встроенного веб-приложения Discord Activity (Mini App).
+                Настоящие Условия использования («Условия», «Соглашение») определяют правила использования сервиса
+                <strong>Musicium</strong> («Сервис», «Бот», «Приложение»), разрабатываемого и поддерживаемого командой
+                <strong>Musicium Team</strong> («Администрация»). Сервис включает в себя Discord-бота и встроенное
+                приложение Discord Activity (Mini App).
               </p>
               <p>
-                Взаимодействуя с Сервисом (добавление бота на сервер Discord, вызов слеш-команд, запуск воспроизведения
-                или открытие веб-интерфейса), Пользователь подтверждает полное и безоговорочное согласие с настоящими
-                Условиями, а также с <a href="https://discord.com/terms" target="_blank"
+                Используя Сервис (запуск активности Discord, авторизация, воспроизведение музыки, добавление треков в
+                очередь или персональные плейлисты), Пользователь («Вы») подтверждает безоговорочное согласие с
+                настоящими Условиями, а также с <a href="https://discord.com/terms" target="_blank"
                   class="legal-link-inline">Условиями обслуживания платформы Discord</a>.
               </p>
             </div>
 
             <div class="legal-article">
-              <h3><i class="fa-solid fa-microchip text-cyan"></i> 2. Характер Сервиса и отказ от ответственности по
-                контенту</h3>
+              <h3><i class="fa-solid fa-right-to-bracket text-cyan"></i> 2. Авторизация и аккаунты пользователей</h3>
               <p>
-                Сервис «Musicium» является исключительно программно-техническим медиа-шлюзом («Media Relay Gateway»),
-                преобразующим общедоступные аудиопотоки из открытых источников сети Интернет в реальном времени для
-                воспроизведения в голосовых каналах Discord.
+                Для предоставления персональных возможностей (создание собственных плейлистов, добавление треков в
+                «Понравившиеся», сохранение истории прослушивания) Сервис осуществляет авторизацию через Discord
+                Activity SDK / Discord OAuth2.
+              </p>
+              <ul>
+                <li>Все созданные плейлисты и персональные коллекции надёжно связываются с уникальным идентификатором
+                  аккаунта Discord (Snowflake ID) в базе данных PostgreSQL;</li>
+                <li>Пользователь несёт единоличную ответственность за сохранность доступа к своему Discord-аккаунту и
+                  любые действия, совершённые под его учётной записью.</li>
+              </ul>
+            </div>
+
+            <div class="legal-article">
+              <h3><i class="fa-solid fa-door-closed text-cyan"></i> 3. Доступ через голосовой канал и Активность (Room Lockdown)</h3>
+              <p>
+                В целях защиты комфорта участников голосовых каналов и исключения несанкционированного вмешательства:
+              </p>
+              <ul>
+                <li>Управление плеером и воспроизведением музыки доступно исключительно участникам, находящимся в том же
+                  голосовом канале Discord, где запущена активность и подключен бот;</li>
+                <li>Сервис не позволяет удалённо перехватывать управление, переносить бота между комнатами или серверами
+                  без фактического присутствия в комнате;</li>
+                <li>Вход в интерфейс плеера осуществляется напрямую через запуск активности в Discord.</li>
+              </ul>
+            </div>
+
+            <div class="legal-article">
+              <h3><i class="fa-solid fa-comment-slash text-cyan"></i> 4. Отказ от рассылки в личные сообщения (No DMs Policy)</h3>
+              <p>
+                Сервис <strong>не рассылает</strong> уведомления о воспроизведении, интерактивные контроллеры плеера
+                или сервисные оповещения в личные сообщения (Direct Messages / DM) участников. Всё взаимодействие
+                происходит исключительно внутри окна активности Discord.
+              </p>
+            </div>
+
+            <div class="legal-article">
+              <h3><i class="fa-solid fa-microchip text-cyan"></i> 5. Характер Сервиса и авторские права (DMCA)</h3>
+              <p>
+                Сервис «Musicium» является исключительно техническим медиа-шлюзом («Media Relay Gateway»),
+                ретранслирующим общедоступные аудиопотоки из открытых источников сети Интернет (YouTube Music,
+                SoundCloud) в реальном времени.
               </p>
               <div class="legal-alert-box">
-                <strong>Уведомление об авторских правах (DMCA):</strong> Сервис не хранит, не скачивает на
-                долговременные носители, не тиражирует, не архивирует и не продает музыкальные файлы и фонограммы. Все
-                права на музыкальные произведения, торговые марки, названия треков и обложки альбомов принадлежат их
-                законным авторам и правообладателям (YouTube, SoundCloud и др.).
+                <strong>Уведомление об авторских правах:</strong> Сервис не хранит, не архивирует, не скачивает на
+                постоянные носители и не продает музыкальные файлы. Все права на музыкальные произведения, торговые
+                марки, метаданные и обложки альбомов принадлежат их законным авторам и правообладателям.
               </div>
             </div>
 
             <div class="legal-article">
-              <h3><i class="fa-solid fa-ban text-cyan"></i> 3. Правила допустимого использования (AUP)</h3>
+              <h3><i class="fa-solid fa-ban text-cyan"></i> 6. Правила допустимого использования (AUP)</h3>
               <p>Пользователю категорически запрещается:</p>
               <ul>
-                <li>Использовать Сервис для распространения противоправных, экстремистских материалов или призывов к
-                  насилию;</li>
-                <li>Осуществлять намеренный акустический спам (earrape/деструктивный шум с целью помешать общению
-                  участников канала);</li>
-                <li>Предпринимать попытки декомпиляции кода, взлома API, перехвата токенов или проведения DoS/DDoS атак;
-                </li>
-                <li>Нарушать действующие <a href="https://discord.com/guidelines" target="_blank"
+                <li>Использовать Сервис для воспроизведения деструктивного шума («earrape»), акустического спама или
+                  намеренного срыва бесед участников канала;</li>
+                <li>Предпринимать попытки взлома API, перехвата токенов, обхода ограничений или проведения DoS/DDoS атак;</li>
+                <li>Нарушать официальные <a href="https://discord.com/guidelines" target="_blank"
                     class="legal-link-inline">Правила сообщества Discord</a>.</li>
               </ul>
             </div>
 
             <div class="legal-article">
-              <h3><i class="fa-solid fa-shield-virus text-cyan"></i> 4. Ограничение ответственности («AS IS»)</h3>
+              <h3><i class="fa-solid fa-shield-virus text-cyan"></i> 7. Ограничение ответственности («AS IS»)</h3>
               <p>
-                Сервис предоставляется по принципу «КАК ЕСТЬ» («AS IS») и «ПО МЕРЕ ДОСТУПНОСТИ» («AS AVAILABLE»).
-                Musicium Team не гарантирует бесперебойную и безошибочную работу при сбоях внешних поставщиков (Discord
-                Gateway, YouTube API, SoundCloud CDN), блокировках хостинга или сетевых разрывах. Разработчики не несут
-                ответственности за любые прямые или косвенные убытки, возникшие вследствие использования Сервиса.
+                Сервис предоставляется по принципу «КАК ЕСТЬ» («AS IS»). Musicium Team не несёт ответственности за сбои
+                или перерывы в трансляции, вызванные неполадками инфраструктуры Discord, изменениями внешних API
+                (YouTube, SoundCloud) или сбоями каналов связи.
               </p>
             </div>
           </div>
@@ -993,53 +1025,83 @@
             <div class="legal-article">
               <h3><i class="fa-solid fa-gavel text-cyan"></i> 1. General Provisions & Acceptance of Terms</h3>
               <p>
-                These Terms of Service ("Terms", "Agreement") constitute a legally binding agreement between you
-                ("User") and the <strong>Musicium Team</strong> ("Administration", "Developer"), governing the use and
-                operation of the "Musicium" music bot and the embedded Discord Activity (Mini App).
+                These Terms of Service ("Terms", "Agreement") govern the use of the <strong>Musicium</strong> service
+                ("Service", "Bot", "Application") developed and operated by the <strong>Musicium Team</strong>
+                ("Administration"). The Service includes the Discord bot and the embedded Discord Activity (Mini App).
               </p>
               <p>
-                By interacting with the Service (adding the bot to a Discord server, invoking slash commands, initiating
-                playback, or opening the web interface), you confirm your full and unconditional acceptance of these
-                Terms, as well as the <a href="https://discord.com/terms" target="_blank"
-                  class="legal-link-inline">Discord Terms of Service</a>.
+                By interacting with the Service (launching the Discord Activity, authenticating, playing music, or
+                curating playlists), you ("User") accept these Terms and agree to abide by the <a
+                  href="https://discord.com/terms" target="_blank" class="legal-link-inline">Discord Terms of Service</a>.
               </p>
             </div>
 
             <div class="legal-article">
-              <h3><i class="fa-solid fa-microchip text-cyan"></i> 2. Nature of Service & Content Disclaimer</h3>
+              <h3><i class="fa-solid fa-right-to-bracket text-cyan"></i> 2. Authorization & User Accounts</h3>
               <p>
-                The "Musicium" Service functions strictly as a software-technical media relay gateway ("Media Relay
-                Gateway"), relaying publicly available audio streams from open internet sources in real time for
-                playback in Discord voice channels.
+                To provide personalized features (creating custom playlists, saving "Liked" music, preserving playback
+                history), the Service authorizes users via the Discord Activity SDK / Discord OAuth2.
+              </p>
+              <ul>
+                <li>Your created playlists and collections are bound to your unique Discord Snowflake ID in our
+                  PostgreSQL database;</li>
+                <li>You remain solely responsible for the security of your Discord account and any activities occurring
+                  under your session.</li>
+              </ul>
+            </div>
+
+            <div class="legal-article">
+              <h3><i class="fa-solid fa-door-closed text-cyan"></i> 3. Voice Channel Presence & Room Lockdown</h3>
+              <p>
+                To safeguard the listening experience and prevent unauthorized cross-channel interference:
+              </p>
+              <ul>
+                <li>Playback controls and queue management are restricted exclusively to members present in the same
+                  voice channel where the bot is connected;</li>
+                <li>Remote room manipulation or switching the bot across servers/channels without presence is disabled;</li>
+                <li>Access to the player is conducted directly through the voice channel Activity interface.</li>
+              </ul>
+            </div>
+
+            <div class="legal-article">
+              <h3><i class="fa-solid fa-comment-slash text-cyan"></i> 4. No Direct Messages Policy (No DMs)</h3>
+              <p>
+                The Service does <strong>not send</strong> playback notifications, track controller embeds, or
+                unsolicited alerts to users' private Direct Messages (DMs). All interactions occur strictly inside the
+                Discord Activity window.
+              </p>
+            </div>
+
+            <div class="legal-article">
+              <h3><i class="fa-solid fa-microchip text-cyan"></i> 5. Nature of Service & DMCA Notice</h3>
+              <p>
+                Musicium functions strictly as a real-time technical media relay gateway ("Media Relay"), streaming
+                public audio from open Internet platforms (YouTube Music, SoundCloud) upon member requests.
               </p>
               <div class="legal-alert-box">
-                <strong>Copyright Notice (DMCA):</strong> The Service does not store, download to persistent storage,
-                distribute, archive, or sell music files or phonograms. All rights to musical compositions, trademarks,
-                track titles, and album artworks belong to their respective authors and copyright owners (YouTube,
-                SoundCloud, etc.).
+                <strong>Copyright Notice:</strong> The Service does not download, persistently store, archive, or sell
+                musical files. All rights to compositions, trademarks, metadata, and album artworks remain the exclusive
+                property of their respective copyright holders.
               </div>
             </div>
 
             <div class="legal-article">
-              <h3><i class="fa-solid fa-ban text-cyan"></i> 3. Acceptable Use Policy (AUP)</h3>
-              <p>The User is strictly prohibited from:</p>
+              <h3><i class="fa-solid fa-ban text-cyan"></i> 6. Acceptable Use Policy (AUP)</h3>
+              <p>You may not:</p>
               <ul>
-                <li>Using the Service to distribute unlawful, harmful, or extremist materials;</li>
-                <li>Engaging in intentional acoustic spam (earrape/destructive noise intended to disrupt voice
-                  communications);</li>
-                <li>Attempting to decompile code, exploit APIs, intercept tokens, or conduct DoS/DDoS attacks;</li>
-                <li>Violating the official <a href="https://discord.com/guidelines" target="_blank"
+                <li>Broadcast disruptive acoustic noise ("earrape"), spam streams, or intentionally disrupt conversations;</li>
+                <li>Conduct attacks, token interceptions, reverse-engineering, or DoS/DDoS disruptions;</li>
+                <li>Violate the official <a href="https://discord.com/guidelines" target="_blank"
                     class="legal-link-inline">Discord Community Guidelines</a>.</li>
               </ul>
             </div>
 
             <div class="legal-article">
-              <h3><i class="fa-solid fa-shield-virus text-cyan"></i> 4. Limitation of Liability ("AS IS")</h3>
+              <h3><i class="fa-solid fa-shield-virus text-cyan"></i> 7. Limitation of Liability ("AS IS")</h3>
               <p>
-                The Service is provided on an "AS IS" and "AS AVAILABLE" basis. Musicium Team does not warrant
-                uninterrupted or error-free operation in the event of third-party provider failures (Discord Gateway,
-                YouTube API, SoundCloud CDN), hosting restrictions, or network disruptions. Developers assume no
-                liability for any direct or indirect damages resulting from using the Service.
+                The Service is provided on an "AS IS" and "AS AVAILABLE" basis. Musicium Team assumes no liability for
+                interruptions resulting from Discord Gateway issues, external API modifications (YouTube, SoundCloud), or
+                hosting network disruptions.
               </p>
             </div>
           </div>
@@ -1050,50 +1112,66 @@
           <!-- Russian Privacy -->
           <div class="lang-ru">
             <div class="legal-article">
-              <h3><i class="fa-solid fa-shield-heart text-cyan"></i> 1. Принцип минимизации данных (Privacy by Design)
-              </h3>
+              <h3><i class="fa-solid fa-shield-heart text-cyan"></i> 1. Принцип минимизации данных (Privacy by Design)</h3>
               <p>
-                Команда <strong>Musicium Team</strong> придерживается строгой политики защиты конфиденциальности в
-                соответствии с положениями GDPR и применимого законодательства. Мы обрабатываем исключительно
-                минимальный объем технических метаданных, критически необходимых для работы бота в голосовом канале
-                Discord.
+                Команда <strong>Musicium Team</strong> ответственно относится к конфиденциальности пользователей. Мы
+                обрабатываем и храним исключительно те данные, которые необходимы для авторизации, стабильной работы плеера
+                в голосовом канале и обеспечения доступа к вашим персональным плейлистам и избранному.
               </p>
             </div>
 
             <div class="legal-article">
-              <h3><i class="fa-solid fa-database text-cyan"></i> 2. Категории обрабатываемых данных</h3>
+              <h3><i class="fa-solid fa-database text-cyan"></i> 2. Какие данные мы обрабатываем и сохраняем в БД</h3>
               <ul>
-                <li><strong>Discord User ID:</strong> уникальный идентификатор пользователя для авторизации прав на
-                  добавление треков, перемотку и учет голосов при скипе (`vote_skip`).</li>
-                <li><strong>Guild ID и Voice Channel ID:</strong> технические номера сервера и голосового канала для
-                  подключения голосового клиента бота и изоляции плееров между разными серверами.</li>
-                <li><strong>Отображаемое имя и аватар:</strong> считываются локально через Discord Embedded App SDK для
-                  визуализации текущего пользователя в шапке приложения.</li>
-                <li><strong>Очередь треков:</strong> названия и ссылки на воспроизводимые треки сохраняются только в
-                  оперативной памяти (RAM) на период воспроизведения.</li>
+                <li><strong>Discord User ID (Snowflake):</strong> уникальный идентификатор пользователя, используемый для
+                  авторизации в сервисе, привязки созданных плейлистов, отметок «Нравится» и истории прослушивания в
+                  базе данных PostgreSQL, а также для подсчёта голосов за пропуск трека (`vote_skip`);</li>
+                <li><strong>Пользовательские плейлисты:</strong> названия плейлистов и списки добавленных треков,
+                  созданные пользователем, хранятся в защищённой базе данных и доступны только под его учётной записью;</li>
+                <li><strong>Понравившаяся музыка («Лайки»):</strong> треки, отмеченные пользователем сердечком,
+                  сохраняются в персональной коллекции в БД;</li>
+                <li><strong>История прослушивания:</strong> список недавно воспроизведённых треков, доступный для
+                  полного удаления пользователем в один клик;</li>
+                <li><strong>Отображаемое имя и аватар:</strong> считываются через Discord OAuth2 / Activity SDK
+                  исключительно для отображения в профиле приложения;</li>
+                <li><strong>Guild ID и Voice Channel ID:</strong> технические номера сервера и канала для направления
+                  аудиопотока бота и отображения списка слушателей в комнате.</li>
               </ul>
             </div>
 
             <div class="legal-article">
-              <h3><i class="fa-solid fa-microphone-slash text-cyan"></i> 3. Что мы КАТЕГОРИЧЕСКИ НЕ собираем</h3>
+              <h3><i class="fa-solid fa-microphone-slash text-cyan"></i> 3. Абсолютный запрет на запись и прослушивание речи</h3>
               <div class="legal-alert-box alert-danger">
-                <strong>Абсолютный запрет на запись речи:</strong> Бот работает исключительно на трансляцию аудио в
-                канал (Output). Сервис <strong>НЕ ЗАПИСЫВАЕТ, НЕ ПРОСЛУШИВАЕТ И НЕ СОХРАНЯЕТ ГОЛОСА И РАЗГОВОРЫ</strong>
-                участников в голосовых каналах Discord.
+                <strong>Голосовые разговоры не записываются:</strong> Бот функционирует исключительно в режиме исходящего
+                звукового вещания (Audio Output). Сервис <strong>НЕ ЗАПИСЫВАЕТ, НЕ ПРОСЛУШИВАЕТ И НЕ СОХРАНЯЕТ ГОЛОСА И
+                  РАЗГОВОРЫ</strong> участников в голосовых каналах Discord.
               </div>
+            </div>
+
+            <div class="legal-article">
+              <h3><i class="fa-solid fa-user-shield text-cyan"></i> 4. Что мы КАТЕГОРИЧЕСКИ НЕ собираем и не делаем</h3>
               <ul>
-                <li>Мы НЕ собираем пароли, адреса электронной почты, телефоны, банковские реквизиты или IP-адреса;</li>
-                <li>Мы НЕ используем рекламные трекеры и не профилируем пользователей;</li>
-                <li>Мы НИКОГДА НЕ ПРОДАЕМ и не передаем пользовательские данные третьим лицам.</li>
+                <li>Мы НЕ собираем пароли, адреса электронной почты, телефоны или платёжные реквизиты;</li>
+                <li>Мы НЕ рассылаем уведомления или плееры в личные сообщения (Direct Messages / DM);</li>
+                <li>Мы НЕ используем рекламные трекеры и НЕ профилируем пользователей;</li>
+                <li>Мы НИКОГДА НЕ ПРОДАЁМ и не передаём пользовательские данные третьим лицам или аналитическим сервисам.</li>
               </ul>
             </div>
 
             <div class="legal-article">
-              <h3><i class="fa-solid fa-cookie text-cyan"></i> 4. Локальное хранилище браузера (LocalStorage)</h3>
+              <h3><i class="fa-solid fa-trash-can text-cyan"></i> 5. Управление данными и удаление</h3>
               <p>
-                В веб-интерфейсе Mini App используется клиентское хранилище LocalStorage исключительно для запоминания
-                ваших персональных предпочтений: уровня громкости, языка интерфейса, режима повтора треков и кэша
-                отображения профиля. Эти данные хранятся локально на вашем компьютере/смартфоне.
+                Пользователь обладает полным контролем над своими данными: Вы в любой момент можете удалить созданный
+                плейлист, убрать треки из «Понравившихся» или полностью очистить историю прослушивания через кнопку
+                «Очистить историю» в интерфейсе приложения.
+              </p>
+            </div>
+
+            <div class="legal-article">
+              <h3><i class="fa-solid fa-cookie text-cyan"></i> 6. Клиентское хранилище (LocalStorage)</h3>
+              <p>
+                В браузере или приложении Discord Activity сохраняются исключительно локальные настройки интерфейса:
+                выбранная громкость, язык (RU/EN), режим повтора и кэш профиля для мгновенной загрузки.
               </p>
             </div>
           </div>
@@ -1101,49 +1179,64 @@
           <!-- English Privacy -->
           <div class="lang-en">
             <div class="legal-article">
-              <h3><i class="fa-solid fa-shield-heart text-cyan"></i> 1. Data Minimization Principle (Privacy by Design)
-              </h3>
+              <h3><i class="fa-solid fa-shield-heart text-cyan"></i> 1. Privacy by Design Principle</h3>
               <p>
-                The <strong>Musicium Team</strong> is committed to strict privacy standards in compliance with GDPR
-                principles and applicable regulations. We process solely the minimal volume of technical metadata
-                necessary for bot operation inside Discord voice channels.
+                The <strong>Musicium Team</strong> takes user privacy seriously. We collect and store only technical
+                metadata strictly required to authorize users, stream music to voice channels, and maintain your
+                personalized playlists and favorite tracks.
               </p>
             </div>
 
             <div class="legal-article">
-              <h3><i class="fa-solid fa-database text-cyan"></i> 2. Categories of Processed Data</h3>
+              <h3><i class="fa-solid fa-database text-cyan"></i> 2. Categories of Processed & Stored Data</h3>
               <ul>
-                <li><strong>Discord User ID:</strong> unique user identifier used to authorize playback management,
-                  seeking, and voting during track skips (`vote_skip`).</li>
-                <li><strong>Guild ID & Voice Channel ID:</strong> technical identifiers for server and voice channel
-                  connectivity, ensuring strict isolation between servers.</li>
-                <li><strong>Display Name & Avatar:</strong> retrieved locally via Discord Embedded App SDK for
-                  visualizing your user avatar in the application header.</li>
-                <li><strong>Track Queue:</strong> track titles and stream links kept strictly in volatile memory (RAM)
-                  during active playback.</li>
+                <li><strong>Discord User ID (Snowflake):</strong> unique identifier used for authentication, associating
+                  user-created playlists, liked music, and playback history in our PostgreSQL database, as well as
+                  tallying skip votes (`vote_skip`);</li>
+                <li><strong>Custom Playlists:</strong> playlist titles and saved track listings created by the user,
+                  stored securely in the database under your Discord account;</li>
+                <li><strong>Liked Music:</strong> tracks marked with a heart saved to your private collection in the DB;</li>
+                <li><strong>Listening History:</strong> list of recently played tracks saved to DB, which can be cleared
+                  at any time with a single click;</li>
+                <li><strong>Display Name & Avatar:</strong> retrieved via Discord OAuth2 / Activity SDK solely to render
+                  your profile badge in the header;</li>
+                <li><strong>Guild ID & Voice Channel ID:</strong> technical routing identifiers for Discord servers and
+                  channels to stream audio and display active listeners.</li>
               </ul>
             </div>
 
             <div class="legal-article">
-              <h3><i class="fa-solid fa-microphone-slash text-cyan"></i> 3. What We Strictly DO NOT Collect</h3>
+              <h3><i class="fa-solid fa-microphone-slash text-cyan"></i> 3. Absolute Prohibition of Voice Recording</h3>
               <div class="legal-alert-box alert-danger">
-                <strong>Absolute Voice Recording Prohibition:</strong> The bot operates exclusively as an audio
-                broadcaster (Audio Output). The Service <strong>DOES NOT RECORD, LISTEN TO, OR STORE VOICES AND PRIVATE
-                  CONVERSATIONS</strong> of voice channel participants.
+                <strong>No Voice Recording:</strong> The bot operates exclusively as an audio transmitter (Audio Output).
+                The Service <strong>DOES NOT RECORD, LISTEN TO, OR STORE VOICES AND PRIVATE CONVERSATIONS</strong> of
+                voice channel participants.
               </div>
+            </div>
+
+            <div class="legal-article">
+              <h3><i class="fa-solid fa-user-shield text-cyan"></i> 4. What We Strictly DO NOT Collect</h3>
               <ul>
-                <li>We do NOT collect passwords, emails, phone numbers, payment details, or IP addresses;</li>
-                <li>We do NOT deploy advertising trackers or profile users;</li>
-                <li>We NEVER sell or transfer user data to third parties.</li>
+                <li>We do NOT collect passwords, email addresses, phone numbers, or payment data;</li>
+                <li>We do NOT send notifications, spam, or player embeds to your personal Direct Messages (DMs);</li>
+                <li>We do NOT employ advertising trackers or profile users;</li>
+                <li>We NEVER sell or transfer user data to third parties or marketing platforms.</li>
               </ul>
             </div>
 
             <div class="legal-article">
-              <h3><i class="fa-solid fa-cookie text-cyan"></i> 4. Browser Local Storage (LocalStorage)</h3>
+              <h3><i class="fa-solid fa-trash-can text-cyan"></i> 5. User Control & Data Deletion</h3>
               <p>
-                The Mini App utilizes client-side LocalStorage exclusively to remember your personal preferences: volume
-                level, interface language, repeat mode, and cached profile display. This data remains stored locally on
-                your device.
+                You retain complete control over your music data: you can delete playlists, un-like tracks, and wipe
+                your entire playback history at any time with a single click using the "Clear History" button.
+              </p>
+            </div>
+
+            <div class="legal-article">
+              <h3><i class="fa-solid fa-cookie text-cyan"></i> 6. Local Storage (LocalStorage)</h3>
+              <p>
+                Client-side LocalStorage is used exclusively to remember interface preferences on your device: volume
+                slider level, language choice (RU/EN), and repeat mode.
               </p>
             </div>
           </div>
