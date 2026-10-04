@@ -180,34 +180,57 @@ class GuildPlayer:
 
     async def connect_to_channel(self, channel: discord.VoiceChannel):
         guild_vc = self.guild.voice_client
-        if guild_vc and guild_vc.is_connected() and guild_vc.channel:
-            self.voice_client = guild_vc
-            if self.voice_client.channel.id != channel.id:
-                raise RuntimeError(f"Бот уже находится в канале «{self.voice_client.channel.name}». Перемещение бота по серверу запрещено!")
-            return
+        if guild_vc and guild_vc.channel:
+            if guild_vc.channel.id == channel.id:
+                if guild_vc.is_connected():
+                    self.voice_client = guild_vc
+                    return
+            else:
+                if guild_vc.is_connected():
+                    raise RuntimeError(f"Бот уже находится в канале «{guild_vc.channel.name}». Перемещение бота по серверу запрещено!")
 
-        if self.voice_client and self.voice_client.is_connected() and self.voice_client.channel:
-            if self.voice_client.channel.id != channel.id:
-                raise RuntimeError(f"Бот уже находится в канале «{self.voice_client.channel.name}». Перемещение бота по серверу запрещено!")
-            return
+        if self.voice_client and self.voice_client.channel:
+            if self.voice_client.channel.id == channel.id:
+                if self.voice_client.is_connected():
+                    return
+            else:
+                if self.voice_client.is_connected():
+                    raise RuntimeError(f"Бот уже находится в канале «{self.voice_client.channel.name}». Перемещение бота по серверу запрещено!")
 
         if guild_vc:
             try:
                 await guild_vc.disconnect(force=True)
+                await asyncio.sleep(0.4)
             except Exception as e:
                 logger.warning(f"Error disconnecting stale voice client in guild {self.guild.id}: {e}")
 
-        try:
-            self.voice_client = await channel.connect(timeout=20.0, reconnect=True, self_deaf=True, self_mute=False)
-        except discord.ClientException as ce:
-            logger.warning(f"ClientException connecting to {channel.id}: {ce}. Attempting to use existing guild.voice_client...")
-            guild_vc = self.guild.voice_client
-            if guild_vc and guild_vc.is_connected() and guild_vc.channel:
-                self.voice_client = guild_vc
-                if self.voice_client.channel.id != channel.id:
-                    raise RuntimeError(f"Бот уже находится в канале «{self.voice_client.channel.name}». Перемещение бота по серверу запрещено!")
-            else:
-                raise
+        last_err = None
+        for attempt in range(1, 3):
+            try:
+                self.voice_client = await channel.connect(timeout=15.0, reconnect=True, self_deaf=True, self_mute=False)
+                return
+            except (asyncio.TimeoutError, TimeoutError) as te:
+                last_err = te
+                logger.warning(f"Voice connection to {channel.name} timed out (attempt {attempt}/2). Cleaning up and retrying...")
+                g_vc = self.guild.voice_client
+                if g_vc:
+                    try:
+                        await g_vc.disconnect(force=True)
+                    except Exception:
+                        pass
+                await asyncio.sleep(0.8)
+            except discord.ClientException as ce:
+                logger.warning(f"ClientException connecting to {channel.id}: {ce}. Attempting to use existing guild.voice_client...")
+                g_vc = self.guild.voice_client
+                if g_vc and g_vc.is_connected() and g_vc.channel:
+                    self.voice_client = g_vc
+                    if self.voice_client.channel.id != channel.id:
+                        raise RuntimeError(f"Бот уже находится в канале «{self.voice_client.channel.name}». Перемещение бота по серверу запрещено!")
+                    return
+                else:
+                    raise
+        if last_err:
+            raise last_err
 
     async def enqueue(self, track: Track, play_now: bool = False) -> Dict[str, Any]:
         async with self._lock:
