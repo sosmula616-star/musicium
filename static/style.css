@@ -2936,6 +2936,28 @@ html:not([data-lang="en"]) .lang-en { display: none !important; }
   border-color: var(--border-light);
 }
 
+.btn-create-pl-shelf {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--r-full);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--t-fast);
+}
+.btn-create-pl-shelf:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
 .modal-target-track {
   font-size: 12.5px;
   color: var(--text-primary);
