@@ -65,6 +65,7 @@
     searchTimeout: null,
     isScrubbing: false,
     isAdjustingVolume: false,
+    lastUserVolumeChange: 0,
     lang: localStorage.getItem('musicium_lang') || 'ru',
     lastTracks: [],
     likedTracks: loadJson('musicium_liked_tracks', []),
@@ -2210,16 +2211,9 @@
       el.btnLoop.className = `control-btn btn-sm ${mode !== 'off' ? 'active' : ''}`;
     }
 
-    if (playerState.volume !== undefined && !state.isAdjustingVolume) {
-      let rawVol = Number(playerState.volume);
-      let vol;
-      // If server sends a fraction 0.0 - 1.0 (e.g. 0.09 or 0.15), multiply by 100.
-      // If server sends already a percentage (e.g. 9 or 15 or 100), use as is.
-      if (rawVol > 0 && rawVol <= 1.0) {
-        vol = Math.round(rawVol * 100);
-      } else {
-        vol = Math.round(rawVol);
-      }
+    if (playerState.volume !== undefined && !state.isAdjustingVolume && (Date.now() - state.lastUserVolumeChange > 1200)) {
+      let vol = Math.round(Number(playerState.volume));
+      if (isNaN(vol)) vol = 100;
       vol = Math.max(0, Math.min(200, vol));
       if (el.volumeSlider) el.volumeSlider.value = vol;
       if (el.volumeVal) el.volumeVal.textContent = `${vol}%`;
@@ -2838,13 +2832,19 @@
 
     // Volume Slider
     let volDebounce = null;
-    el.volumeSlider.addEventListener('mousedown', () => { state.isAdjustingVolume = true; });
-    el.volumeSlider.addEventListener('touchstart', () => { state.isAdjustingVolume = true; }, { passive: true });
+    el.volumeSlider.addEventListener('mousedown', () => {
+      state.isAdjustingVolume = true;
+      state.lastUserVolumeChange = Date.now();
+    });
+    el.volumeSlider.addEventListener('touchstart', () => {
+      state.isAdjustingVolume = true;
+      state.lastUserVolumeChange = Date.now();
+    }, { passive: true });
     document.addEventListener('mouseup', () => {
-      if (state.isAdjustingVolume) setTimeout(() => { state.isAdjustingVolume = false; }, 350);
+      if (state.isAdjustingVolume) setTimeout(() => { state.isAdjustingVolume = false; }, 600);
     });
     document.addEventListener('touchend', () => {
-      if (state.isAdjustingVolume) setTimeout(() => { state.isAdjustingVolume = false; }, 350);
+      if (state.isAdjustingVolume) setTimeout(() => { state.isAdjustingVolume = false; }, 600);
     });
 
     el.volumeSlider.addEventListener('input', (e) => {
@@ -2852,9 +2852,12 @@
       el.volumeVal.textContent = `${val}%`;
       updateVolumeIcon(val);
       state.isMuted = (val === 0);
+      state.isAdjustingVolume = true;
+      state.lastUserVolumeChange = Date.now();
       clearTimeout(volDebounce);
       volDebounce = setTimeout(() => {
         sendPlayerAction('volume', { value: val });
+        setTimeout(() => { state.isAdjustingVolume = false; }, 600);
       }, 80);
     });
 
