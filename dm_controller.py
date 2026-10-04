@@ -299,10 +299,8 @@ class DMController:
         return embed
 
     async def notify_track_started(self, user_id: int, guild_id: int, track: Track):
-        """Sends or updates DM message to the user with the interactive player menu."""
-        player = self.get_player(guild_id)
-        if not player:
-            return
+        """DM sending disabled per user request."""
+        return
 
         try:
             user = self.bot.get_user(user_id)
@@ -344,11 +342,8 @@ class DMController:
             logger.error(f"Error in notify_track_started: {e}", exc_info=True)
 
     async def update_dm_message(self, user_id: int, guild_id: int):
-        """Updates the active DM controller message for the user."""
-        player = self.get_player(guild_id)
-        existing_msg = self.user_dm_messages.get(user_id)
-        if not existing_msg:
-            return
+        """DM updating disabled per user request."""
+        return
 
         if not player or not player.current_track:
             embed = discord.Embed(
