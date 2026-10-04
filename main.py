@@ -175,8 +175,13 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
         if after.channel is None:
             logger.info(f"Bot was disconnected from voice channel in guild '{member.guild.name}'")
             if player:
+                was_playing = player.current_track is not None
+                channel_to_rejoin = before.channel
                 player.voice_client = None
                 await player._notify_change()
+                if was_playing and not player._explicit_stop and channel_to_rejoin:
+                    logger.warning(f"Unexpected voice disconnect from '{channel_to_rejoin.name}' during playback. Auto-reconnecting...")
+                    asyncio.create_task(player.reconnect_and_resume(channel_to_rejoin))
         elif before.channel is not None and after.channel is not None and before.channel.id != after.channel.id:
             # Bot was moved to another channel on the server: Revert it!
             logger.warning(f"Bot move attempted in '{member.guild.name}' from '{before.channel.name}' to '{after.channel.name}'. Reverting move!")
