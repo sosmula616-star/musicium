@@ -478,6 +478,16 @@ class WebServer:
                     }, status=403)
 
         try:
+            # If client supplied explicit volume preference, apply it
+            vol_arg = data.get("volume")
+            if vol_arg is not None:
+                try:
+                    vol_float = float(vol_arg) / 100.0
+                    player.set_volume(vol_float)
+                    self.player_manager.guild_volumes[target_guild.id] = vol_float
+                except Exception:
+                    pass
+
             # Connect to channel
             await player.connect_to_channel(target_channel)
 
@@ -590,10 +600,23 @@ class WebServer:
             return web.json_response({"success": True, "action": "left"})
 
         if not player:
-            return web.json_response({"success": False, "error": "Плеер не найден или не активен"}, status=404)
+            if action == "volume":
+                if guild_id:
+                    g = self.bot.get_guild(guild_id)
+                    if g:
+                        player = self.player_manager.get_or_create_player(g)
+                if not player and len(self.bot.guilds) == 1:
+                    player = self.player_manager.get_or_create_player(self.bot.guilds[0])
+                if not player and user_id:
+                    for g in self.bot.guilds:
+                        if g.get_member(user_id):
+                            player = self.player_manager.get_or_create_player(g)
+                            break
+            if not player:
+                return web.json_response({"success": False, "error": "Плеер не найден или не активен"}, status=404)
 
         # Enforce that only members in the bot's voice channel can control the player if listeners present
-        if player.voice_client and player.voice_client.channel:
+        if action != "volume" and player.voice_client and player.voice_client.channel:
             bot_channel = player.voice_client.channel
             human_members = [m for m in bot_channel.members if not m.bot]
             if human_members and user_id and user_id not in [m.id for m in human_members]:
@@ -634,6 +657,7 @@ class WebServer:
             elif action == "volume":
                 vol_val = float(data.get("value", 100)) / 100.0
                 new_vol = player.set_volume(vol_val)
+                self.player_manager.guild_volumes[player.guild.id] = new_vol
                 res_data["volume"] = int(new_vol * 100)
 
             elif action == "loop":
