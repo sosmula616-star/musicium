@@ -586,12 +586,9 @@ class MusicService:
                 try:
                     with yt_dlp.YoutubeDL(sc_opts) as ydl:
                         info = ydl.extract_info(target_url, download=False)
-                        if info:
-                            if "entries" in info and info["entries"]:
-                                info = info["entries"][0]
-                            stream = info.get("url")
-                            if stream and not info.get("has_drm"):
-                                return stream
+                        stream = self._extract_audio_stream_url(info)
+                        if stream:
+                            return stream
                 except Exception as e:
                     logger.warning(f"Direct SoundCloud extraction failed for {target_url}: {e}")
 
@@ -605,15 +602,80 @@ class MusicService:
                 search_q = f"scsearch5:{clean_title} {clean_artist}".strip()
                 with yt_dlp.YoutubeDL(sc_opts) as ydl:
                     info = ydl.extract_info(search_q, download=False)
-                    for entry in (info.get("entries") or []):
-                        if entry and entry.get("url") and not entry.get("has_drm"):
-                            return entry.get("url")
+                    stream = self._extract_audio_stream_url(info)
+                    if stream:
+                        return stream
             except Exception as e2:
                 logger.error(f"SoundCloud fallback search failed: {e2}")
 
             return None
 
         return await asyncio.to_thread(_get)
+
+    def _extract_audio_stream_url(self, info: Optional[Dict[str, Any]]) -> Optional[str]:
+        """Extracts the direct playable audio stream URL from yt-dlp info dictionary."""
+        if not info:
+            return None
+
+        if "entries" in info and info["entries"]:
+            for entry in info["entries"]:
+                url = self._extract_audio_stream_url(entry)
+                if url:
+                    return url
+            return None
+
+        # 1. Top-level url (ensure it is a media stream, not a YouTube watch page)
+        url = info.get("url")
+        if url and not info.get("has_drm"):
+            str_url = str(url)
+            if not str_url.startswith("https://www.youtube.com/watch") and not str_url.startswith("https://youtu.be/"):
+                return str_url
+
+        # 2. requested_formats selected by yt-dlp format selector
+        for f in info.get("requested_formats") or []:
+            f_url = f.get("url")
+            if f_url and not f.get("has_drm"):
+                acodec = f.get("acodec")
+                vcodec = f.get("vcodec")
+                if acodec and acodec != "none" and (vcodec is None or vcodec == "none"):
+                    return str(f_url)
+        for f in info.get("requested_formats") or []:
+            f_url = f.get("url")
+            if f_url and not f.get("has_drm") and f.get("acodec") != "none":
+                return str(f_url)
+
+        # 3. formats list, prefer highest quality audio-only
+        formats = info.get("formats") or []
+        audio_only = []
+        audio_video = []
+
+        for f in formats:
+            f_url = f.get("url")
+            if not f_url or f.get("has_drm"):
+                continue
+            acodec = f.get("acodec")
+            vcodec = f.get("vcodec")
+            if acodec and acodec != "none":
+                bitrate = f.get("abr") or f.get("tbr") or 0
+                if vcodec in (None, "none", ""):
+                    audio_only.append((bitrate, str(f_url)))
+                else:
+                    audio_video.append((bitrate, str(f_url)))
+
+        if audio_only:
+            audio_only.sort(key=lambda x: x[0], reverse=True)
+            return audio_only[0][1]
+
+        if audio_video:
+            audio_video.sort(key=lambda x: x[0], reverse=True)
+            return audio_video[0][1]
+
+        # 4. Fallback to any valid format with a url
+        for f in reversed(formats):
+            if f.get("url") and not f.get("has_drm"):
+                return str(f["url"])
+
+        return None
 
     async def _get_youtube_stream(self, track: Track) -> Optional[str]:
         def _get():
@@ -627,46 +689,53 @@ class MusicService:
 
             cookie_file = self.youtube_cookie_path if (self.youtube_cookie_path and os.path.exists(self.youtube_cookie_path)) else None
 
-            # Client strategies to try in order. mweb, web_embedded, and tv_embedded bypass bot sign-in checks on datacenter IPs.
-            client_configs = [
-                {"client": ["mweb"], "format": "ba/b/bestaudio/best"},
-                {"client": ["web_embedded", "tv_embedded"], "format": "ba/b/bestaudio/best"},
-                {"client": ["android_creator"], "format": "ba/b/bestaudio/best"},
-                {"client": ["ios", "web"], "format": "ba/b/bestaudio/best"},
+            # Strategy 1: Default yt-dlp client configuration
+            base_opts = {
+                "format": "ba/b/bestaudio/best",
+                "quiet": True,
+                "no_warnings": True,
+                "extract_flat": False,
+                "noplaylist": True,
+                "source_address": "0.0.0.0",
+            }
+            if cookie_file:
+                base_opts["cookiefile"] = cookie_file
+
+            try:
+                with yt_dlp.YoutubeDL(base_opts) as ydl:
+                    info = ydl.extract_info(target_url, download=False)
+                    stream = self._extract_audio_stream_url(info)
+                    if stream:
+                        logger.info(f"Resolved YouTube stream (standard) for: {track.title}")
+                        return stream
+            except Exception as e_base:
+                logger.debug(f"Standard YouTube extraction failed for {track.title}: {e_base}")
+
+            # Strategy 2: Alternate player clients to bypass datacenter/bot verification
+            client_fallbacks = [
+                ["mweb"],
+                ["web_embedded", "tv_embedded"],
+                ["ios", "web"],
             ]
-
-            for cfg in client_configs:
+            for clients in client_fallbacks:
                 try:
-                    opts = {
-                        "format": cfg["format"],
-                        "quiet": True,
-                        "no_warnings": True,
-                        "extract_flat": False,
-                        "noplaylist": True,
-                        "source_address": "0.0.0.0",
-                        "extractor_args": {
-                            "youtube": {
-                                "player_client": cfg["client"],
-                            },
-                        },
+                    alt_opts = dict(base_opts)
+                    alt_opts["extractor_args"] = {
+                        "youtube": {
+                            "player_client": clients,
+                        }
                     }
-                    if cookie_file:
-                        opts["cookiefile"] = cookie_file
-
-                    with yt_dlp.YoutubeDL(opts) as ydl:
+                    with yt_dlp.YoutubeDL(alt_opts) as ydl:
                         info = ydl.extract_info(target_url, download=False)
-                        if info:
-                            if "entries" in info and info["entries"]:
-                                info = info["entries"][0]
-                            stream = info.get("url")
-                            if stream and not info.get("has_drm"):
-                                logger.info(f"Resolved YouTube stream using client {cfg['client']} for: {track.title}")
-                                return stream
-                except Exception as ex:
-                    logger.debug(f"YouTube client {cfg['client']} failed: {ex}")
+                        stream = self._extract_audio_stream_url(info)
+                        if stream:
+                            logger.info(f"Resolved YouTube stream with clients {clients} for: {track.title}")
+                            return stream
+                except Exception as e_client:
+                    logger.debug(f"YouTube client {clients} failed: {e_client}")
                     continue
 
-            # Fallback 1: Search alternative YouTube uploads with mweb/web_embedded if direct video URL is region/bot blocked
+            # Strategy 3: Search alternative YouTube uploads if direct video URL is restricted
             clean_title = re.sub(r'[\U00010000-\U0010ffff]', '', track.title)
             clean_title = re.sub(r'#\w+', '', clean_title)
             clean_title = re.sub(r'\|.*', '', clean_title)
@@ -675,34 +744,19 @@ class MusicService:
             search_query = f"{clean_title} {clean_artist}".strip() or track.title
 
             try:
-                alt_opts = {
-                    "format": "ba/b/bestaudio/best",
-                    "quiet": True,
-                    "no_warnings": True,
-                    "extract_flat": False,
-                    "noplaylist": True,
-                    "ignoreerrors": True,
-                    "source_address": "0.0.0.0",
-                    "extractor_args": {
-                        "youtube": {
-                            "player_client": ["mweb", "web_embedded"],
-                        },
-                    },
-                }
-                if cookie_file:
-                    alt_opts["cookiefile"] = cookie_file
-
-                with yt_dlp.YoutubeDL(alt_opts) as ydl:
+                search_opts = dict(base_opts)
+                search_opts["ignoreerrors"] = True
+                with yt_dlp.YoutubeDL(search_opts) as ydl:
                     alt_info = ydl.extract_info(f"ytsearch3:{search_query}", download=False)
-                    for entry in (alt_info.get("entries") or []):
-                        if entry and entry.get("url") and not entry.get("has_drm"):
-                            logger.info(f"Alternative YouTube stream resolved for: {track.title}")
-                            return entry.get("url")
+                    stream = self._extract_audio_stream_url(alt_info)
+                    if stream:
+                        logger.info(f"Resolved alternative YouTube stream for: {track.title}")
+                        return stream
             except Exception as alt_err:
                 logger.debug(f"Alternative YouTube search failed: {alt_err}")
 
-            # Fallback 2: SoundCloud search
-            logger.warning("All YouTube stream extraction attempts failed, attempting SoundCloud fallback...")
+            # Strategy 4: SoundCloud fallback search
+            logger.warning(f"All YouTube stream extraction attempts failed for '{track.title}', attempting SoundCloud fallback...")
             try:
                 sc_opts = {
                     "format": "bestaudio/best",
@@ -711,15 +765,16 @@ class MusicService:
                     "extract_flat": False,
                     "noplaylist": True,
                     "ignoreerrors": True,
+                    "source_address": "0.0.0.0",
                 }
                 with yt_dlp.YoutubeDL(sc_opts) as ydl:
                     sc_info = ydl.extract_info(f"scsearch5:{search_query}", download=False)
-                    for entry in (sc_info.get("entries") or []):
-                        if entry and entry.get("url") and not entry.get("has_drm"):
-                            logger.info(f"SoundCloud fallback stream resolved for: {track.title}")
-                            return entry.get("url")
+                    stream = self._extract_audio_stream_url(sc_info)
+                    if stream:
+                        logger.info(f"Resolved SoundCloud fallback stream for: {track.title}")
+                        return stream
             except Exception as sc_err:
-                logger.error(f"SoundCloud fallback failed as well: {sc_err}")
+                logger.error(f"SoundCloud fallback search failed: {sc_err}")
 
             return None
 
