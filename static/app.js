@@ -872,8 +872,17 @@
 
   function renderVoiceRooms() {
     if (!el.voiceRoomsList) return;
+    const currentGuildId = state.guildId || (state.botVoice ? state.botVoice.guild_id : null);
     const filter = el.guildFilterSelect ? el.guildFilterSelect.value : (state.selectedGuildFilter || 'all');
-    const targetGuilds = filter === 'all' ? state.guilds : state.guilds.filter(g => String(g.id) === String(filter));
+    let targetGuilds = filter === 'all' ? state.guilds : state.guilds.filter(g => String(g.id) === String(filter));
+
+    // If on a specific guild, restrict view to that guild to prevent cross-server moving
+    if (currentGuildId) {
+      const currentGuildMatches = targetGuilds.filter(g => String(g.id) === String(currentGuildId));
+      if (currentGuildMatches.length > 0) {
+        targetGuilds = currentGuildMatches;
+      }
+    }
 
     if (!targetGuilds || targetGuilds.length === 0) {
       el.voiceRoomsList.innerHTML = `<div class="dropdown-empty-state"><p>${t('voice.dropdownEmpty')}</p></div>`;
@@ -919,6 +928,15 @@
             avatarsHtml += '</div>';
           }
 
+          let actionBtnHtml = '';
+          if (isBot) {
+            actionBtnHtml = `<button class="voice-room-join-btn is-bot-btn" data-guild-id="${g.id}" data-channel-id="${ch.id}">${t('voice.disconnectBot')}</button>`;
+          } else if (g.bot_in_voice) {
+            actionBtnHtml = `<span style="font-size:11px;color:var(--text-secondary);display:inline-flex;align-items:center;gap:4px;padding:4px 8px;background:rgba(255,255,255,0.05);border-radius:6px;" title="Бот уже находится в другой комнате. Перемещение запрещено."><i class="fa-solid fa-lock" style="font-size:10px;"></i> Занято</span>`;
+          } else {
+            actionBtnHtml = `<button class="voice-room-join-btn" data-guild-id="${g.id}" data-channel-id="${ch.id}">${t('voice.connectBot')}</button>`;
+          }
+
           card.innerHTML = `
             <div class="voice-room-info">
               <span class="voice-room-title">
@@ -932,9 +950,7 @@
               </div>
               ${avatarsHtml}
             </div>
-            <button class="voice-room-join-btn" data-guild-id="${g.id}" data-channel-id="${ch.id}">
-              ${isBot ? t('voice.disconnectBot') : (g.bot_in_voice ? t('voice.moveBot') : t('voice.connectBot'))}
-            </button>
+            ${actionBtnHtml}
           `;
 
           card.style.cursor = 'pointer';
@@ -942,20 +958,24 @@
             if (e.target.closest('.voice-room-join-btn')) return;
             if (isBot) {
               await disconnectBotVoice(g.id);
+            } else if (g.bot_in_voice) {
+              showToast(`Бот уже находится в комнате «${g.bot_channel_name || 'другой комнате'}». Перемещение бота по серверу запрещено!`, 'warning', 'fa-lock');
             } else {
               await joinVoiceChannel(g.id, ch.id, ch.name);
             }
           });
 
           const btn = card.querySelector('.voice-room-join-btn');
-          btn.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            if (isBot) {
-              await disconnectBotVoice(g.id);
-            } else {
-              await joinVoiceChannel(g.id, ch.id, ch.name);
-            }
-          });
+          if (btn) {
+            btn.addEventListener('click', async (e) => {
+              e.stopPropagation();
+              if (isBot) {
+                await disconnectBotVoice(g.id);
+              } else {
+                await joinVoiceChannel(g.id, ch.id, ch.name);
+              }
+            });
+          }
 
           group.appendChild(card);
         });
@@ -970,7 +990,7 @@
       const resp = await fetch('/api/join-channel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ guild_id: guildId, channel_id: channelId })
+        body: JSON.stringify({ guild_id: guildId, channel_id: channelId, user_id: state.userId })
       });
       const data = await resp.json();
       if (data && data.success) {
@@ -998,13 +1018,15 @@
       const resp = await fetch('/api/join-channel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ guild_id: guildId || state.guildId, action: 'leave' })
+        body: JSON.stringify({ guild_id: guildId || state.guildId, action: 'leave', user_id: state.userId })
       });
       const data = await resp.json();
       if (data && data.success) {
         showToast('🤖 Бот отключился от голосовой комнаты', 'info', 'fa-stop');
         await checkUserVoice();
         await fetchGuilds();
+      } else if (data && data.error) {
+        showToast(data.error, 'warning');
       }
     } catch (e) {
       showToast('Ошибка отключения бота', 'error');
@@ -2007,21 +2029,21 @@
 
   // Send play request to backend
   async function playTrack(track, playNow = false) {
-    if (!state.inVoice && !state.botVoice && !state.channelId) {
+    if (!state.inVoice && !state.channelId) {
       await checkUserVoice();
-      if (!state.inVoice && !state.botVoice && !state.channelId) {
+      if (!state.inVoice && !state.channelId) {
         if (el.voiceWidgetContainer) {
           el.voiceWidgetContainer.classList.add('dropdown-open');
         }
-        showToast('Выберите голосовую комнату для воспроизведения', 'info', 'fa-volume-high');
+        showToast('Вы должны находиться в голосовом канале на сервере, чтобы включить музыку!', 'warning', 'fa-triangle-exclamation');
         return;
       }
     }
 
     showToast(t('toast.request', { title: track.title }), 'info', 'fa-music');
 
-    const effectiveGuildId = state.guildId || (state.botVoice ? state.botVoice.guild_id : null);
-    const effectiveChannelId = state.channelId || (state.botVoice ? state.botVoice.channel_id : null);
+    const effectiveGuildId = state.guildId;
+    const effectiveChannelId = state.channelId;
 
     try {
       const resp = await fetch('/api/play', {
@@ -2064,11 +2086,11 @@
     }
   }
 
-  // Send player action (checks if user, bot, or channel is active)
+  // Send player action (checks if user is in voice)
   async function sendPlayerAction(action, payload = {}) {
-    if (!state.inVoice && !state.botVoice && !state.channelId) {
+    if (!state.inVoice && !state.channelId) {
       await checkUserVoice();
-      if (!state.inVoice && !state.botVoice && !state.channelId) {
+      if (!state.inVoice && !state.channelId) {
         if (el.voiceWidgetContainer) {
           el.voiceWidgetContainer.classList.add('dropdown-open');
         }
@@ -2084,7 +2106,8 @@
         body: JSON.stringify({
           action: action,
           user_id: state.userId,
-          guild_id: state.guildId || (state.botVoice ? state.botVoice.guild_id : null),
+          guild_id: state.guildId,
+          channel_id: state.channelId,
           ...payload
         })
       });
