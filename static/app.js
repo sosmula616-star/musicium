@@ -30,17 +30,31 @@
   }
   saveJson('musicium_custom_playlists', loadedCustom);
 
-  let initialUserId = urlParams.get('user_id') || localStorage.getItem('music_user_id') || '';
-  if (!initialUserId) {
-    initialUserId = 'user_' + Math.random().toString(36).substring(2, 12);
-    localStorage.setItem('music_user_id', initialUserId);
+  // Handle URL query parameters for Discord OAuth2 callback (?user_id=...&user_name=...&user_avatar=...)
+  const queryUserId = urlParams.get('user_id');
+  const queryUserName = urlParams.get('user_name');
+  const queryUserAvatar = urlParams.get('user_avatar');
+
+  if (queryUserId) {
+    localStorage.setItem('music_user_id', queryUserId);
+    if (queryUserName) localStorage.setItem('music_user_name', decodeURIComponent(queryUserName));
+    if (queryUserAvatar) localStorage.setItem('music_user_avatar', decodeURIComponent(queryUserAvatar));
+    localStorage.setItem('music_authenticated', 'true');
+    try {
+      const cleanUrl = window.location.pathname + (initialGuildId ? `?guild_id=${initialGuildId}${initialChannelId ? `&channel_id=${initialChannelId}` : ''}` : '');
+      window.history.replaceState({}, document.title, cleanUrl);
+    } catch (_) {}
   }
+
+  let storedUserId = localStorage.getItem('music_user_id') || '';
+  const isRealUser = Boolean(storedUserId && !storedUserId.startsWith('user_'));
 
   // State
   const state = {
-    userId: initialUserId,
+    userId: storedUserId,
     userName: localStorage.getItem('music_user_name') || 'Пользователь Discord',
     userAvatar: localStorage.getItem('music_user_avatar') || '/static/activity_icon.jpg',
+    isAuthenticated: isRealUser,
     currentSource: 'all',
     currentView: 'home', // 'home' | 'search' | 'liked' | 'playlist' | 'history' | 'queue'
     selectedPlaylistId: null,
@@ -52,8 +66,6 @@
     channelName: '',
     channelMembers: [],
     botVoice: null,
-    guilds: [],
-    selectedGuildFilter: 'all',
     player: null,
     ws: null,
     progressTimer: null,
@@ -90,7 +102,7 @@
       'nav.home': 'Главная',
       'nav.search': 'Поиск',
       'nav.queue': 'Очередь',
-      'sidebar.newPlaylist': 'Новый',
+      'sidebar.newPlaylist': 'Создать плейлист',
       'sidebar.liked': 'Понравившаяся музыка',
       'sidebar.autoCreated': 'Создан автоматически',
       'sidebar.history': 'История',
@@ -472,32 +484,26 @@
     notifText: document.getElementById('notifText'),
     notifClose: document.getElementById('notifClose'),
 
-    // Voice Widget & Rooms/Servers
+    // Voice Widget (Streamlined Room & Listeners Status)
     voiceWidgetContainer: document.getElementById('voiceWidgetContainer'),
     voiceStatusPill: document.getElementById('voiceStatusPill'),
     voiceIndicator: document.getElementById('voiceIndicator'),
     voiceChannelName: document.getElementById('voiceChannelName'),
     voiceMembersCountBadge: document.getElementById('voiceMembersCountBadge'),
     voiceMembersDropdown: document.getElementById('voiceMembersDropdown'),
-    dropdownMembersCount: document.getElementById('dropdownMembersCount'),
+    voiceDropdownTitle: document.getElementById('voiceDropdownTitle'),
+    voiceDropdownSub: document.getElementById('voiceDropdownSub'),
     voiceMembersList: document.getElementById('voiceMembersList'),
     refreshVoiceBtn: document.getElementById('refreshVoiceBtn'),
-    botVoiceBanner: document.getElementById('botVoiceBanner'),
-    botVoiceTitle: document.getElementById('botVoiceTitle'),
-    botVoiceChannel: document.getElementById('botVoiceChannel'),
-    btnDisconnectBotVoice: document.getElementById('btnDisconnectBotVoice'),
-    tabVoiceChannels: document.getElementById('tabVoiceChannels'),
-    tabVoiceMembers: document.getElementById('tabVoiceMembers'),
-    tabContentChannels: document.getElementById('tabContentChannels'),
-    tabContentMembers: document.getElementById('tabContentMembers'),
-    guildFilterSelect: document.getElementById('guildFilterSelect'),
-    voiceRoomsList: document.getElementById('voiceRoomsList'),
 
-    // Profile
+    // Profile & Auth
     userBadge: document.getElementById('userBadge'),
     userAvatar: document.getElementById('userAvatar'),
     userName: document.getElementById('userName'),
     userTag: document.getElementById('userTag'),
+    authDiscordModal: document.getElementById('authDiscordModal'),
+    btnDiscordLoginAction: document.getElementById('btnDiscordLoginAction'),
+    btnContinueAsGuest: document.getElementById('btnContinueAsGuest'),
 
     // Home Shelves
     liveServersShelf: document.getElementById('liveServersShelf'),
@@ -513,6 +519,7 @@
     albumsRow: document.getElementById('albumsRow'),
     communityPlaylistsShelf: document.getElementById('communityPlaylistsShelf'),
     communityPlaylistsRow: document.getElementById('communityPlaylistsRow'),
+    btnCreatePlHome: document.getElementById('btnCreatePlHome'),
     commArrowLeft: document.getElementById('commArrowLeft'),
     commArrowRight: document.getElementById('commArrowRight'),
 
@@ -546,6 +553,7 @@
     dockSourceBadge: document.getElementById('dockSourceBadge'),
     equalizerBars: document.getElementById('equalizerBars'),
     btnLikeCurrent: document.getElementById('btnLikeCurrent'),
+    btnAddToPlCurrent: document.getElementById('btnAddToPlCurrent'),
     btnPlayPause: document.getElementById('btnPlayPause'),
     playIconSvg: document.getElementById('playIconSvg'),
     btnPrev: document.getElementById('btnPrev'),
@@ -575,10 +583,39 @@
     closeNewPlaylistBtn: document.getElementById('closeNewPlaylistBtn'),
     addToPlaylistModal: document.getElementById('addToPlaylistModal'),
     addToPlaylistTrackInfo: document.getElementById('addToPlaylistTrackInfo'),
+    btnShowCreatePlInline: document.getElementById('btnShowCreatePlInline'),
+    inlineCreatePlForm: document.getElementById('inlineCreatePlForm'),
+    inlinePlNameInput: document.getElementById('inlinePlNameInput'),
+    btnInlineCreateAndAdd: document.getElementById('btnInlineCreateAndAdd'),
     addToPlaylistList: document.getElementById('addToPlaylistList'),
     closeAddToPlaylistBtn: document.getElementById('closeAddToPlaylistBtn'),
     closeAddToPlaylistModalBtn: document.getElementById('closeAddToPlaylistModalBtn'),
+
+    // Custom in-app confirmation modal (safe in Discord iframe sandbox)
+    confirmActionModal: document.getElementById('confirmActionModal'),
+    confirmModalTitle: document.getElementById('confirmModalTitle'),
+    confirmModalDesc: document.getElementById('confirmModalDesc'),
+    closeConfirmModalBtn: document.getElementById('closeConfirmModalBtn'),
+    cancelConfirmModalBtn: document.getElementById('cancelConfirmModalBtn'),
+    acceptConfirmModalBtn: document.getElementById('acceptConfirmModalBtn'),
   };
+
+  // Safe in-app Confirmation Dialog Helper (replaces window.confirm which is blocked by iframe sandbox)
+  let confirmActionCallback = null;
+  function showConfirmModal({ title, message, confirmText = 'Подтвердить', confirmDanger = true, onConfirm }) {
+    if (!el.confirmActionModal) {
+      if (onConfirm) onConfirm();
+      return;
+    }
+    if (el.confirmModalTitle) el.confirmModalTitle.textContent = title;
+    if (el.confirmModalDesc) el.confirmModalDesc.textContent = message;
+    if (el.acceptConfirmModalBtn) {
+      el.acceptConfirmModalBtn.textContent = confirmText;
+      el.acceptConfirmModalBtn.style.background = confirmDanger ? '#ef4444' : '#ff0000';
+    }
+    confirmActionCallback = onConfirm;
+    el.confirmActionModal.style.display = 'flex';
+  }
 
   // Safe Image URL Proxy Helper
   function getSafeImageUrl(url) {
@@ -638,8 +675,8 @@
     }, 3500);
   }
 
-  // Discord Embedded App SDK Init
-  async function initDiscordSdk() {
+  // Discord Embedded App SDK Init & OAuth Authorization
+  async function initDiscordSdk(forceConsent = false) {
     if (window.DiscordSDK) {
       try {
         const discordSdk = new window.DiscordSDK.DiscordSDK();
@@ -652,7 +689,7 @@
           client_id: '1555020109507199066',
           response_type: 'code',
           state: '',
-          prompt: 'none',
+          prompt: forceConsent ? 'consent' : 'none',
           scope: ['identify', 'guilds', 'rpc.voice.read'],
         });
 
@@ -671,13 +708,26 @@
             state.userAvatar = auth.user.avatar
               ? `https://cdn.discordapp.com/avatars/${auth.user.id}/${auth.user.avatar}.png`
               : '/static/activity_icon.jpg';
+            state.isAuthenticated = true;
+            localStorage.setItem('music_authenticated', 'true');
             saveUser();
+            if (el.authDiscordModal) el.authDiscordModal.style.display = 'none';
+            showToast(`Вы авторизованы как ${state.userName}`, 'success', 'fa-user-check');
+            return true;
           }
         }
       } catch (err) {
-        console.warn('Discord SDK running in standalone/web browser mode:', err);
+        console.warn('Discord SDK auth attempt:', err);
       }
     }
+
+    // If not authenticated and not a real user ID: show modal prompt
+    if (!state.isAuthenticated && (!state.userId || state.userId.startsWith('user_'))) {
+      if (el.authDiscordModal) {
+        el.authDiscordModal.style.display = 'flex';
+      }
+    }
+    return false;
   }
 
   function saveUser() {
@@ -704,350 +754,77 @@
     const guildQuery = state.guildId ? `&guild_id=${encodeURIComponent(state.guildId)}` : '';
     const chanQuery = state.channelId ? `&channel_id=${encodeURIComponent(state.channelId)}` : '';
 
-    let userVoiceFound = false;
+    let voiceData = null;
 
     // 1. Check user voice directly if authenticated Discord ID
     if (state.userId && !state.userId.startsWith('user_')) {
       try {
         const resp = await fetch(`/api/user-voice?user_id=${encodeURIComponent(state.userId)}${guildQuery}${chanQuery}`);
         const data = await resp.json();
-
-        if (data.bot_voice) {
-          state.botVoice = data.bot_voice;
-        }
-
-        if (data.in_voice) {
-          userVoiceFound = true;
-          state.inVoice = true;
-          state.guildId = data.guild_id || state.guildId;
-          state.guildName = data.guild_name || state.guildName;
-          state.channelId = data.channel_id || state.channelId;
-          state.channelName = data.channel_name || state.channelName;
-          state.channelMembers = data.channel_members || [];
-
-          if (el.voiceIndicator) el.voiceIndicator.className = 'status-indicator connected';
-          if (el.voiceChannelName) el.voiceChannelName.textContent = state.channelName;
-          if (el.voiceMembersCountBadge) el.voiceMembersCountBadge.textContent = state.channelMembers.length;
-          if (el.dropdownMembersCount) el.dropdownMembersCount.textContent = state.channelMembers.length;
-          if (el.voiceStatusPill) el.voiceStatusPill.classList.add('active');
-
-          renderVoiceMembers(state.channelMembers);
-          sendWsSubscribe();
+        if (data.in_voice || (data.bot_voice && data.bot_voice.channel_name)) {
+          voiceData = data;
         }
       } catch (e) {
         console.error('Error checking user voice:', e);
       }
     }
 
-    // 2. If user is not directly detected in a channel: check bot's active voice room
-    if (!userVoiceFound) {
+    // 2. If not detected via user ID: check bot's active voice room
+    if (!voiceData) {
       try {
         const botCheckResp = await fetch(`/api/user-voice?user_id=0${guildQuery}`);
         const botCheckData = await botCheckResp.json();
-        if (botCheckData.bot_voice) {
-          state.botVoice = botCheckData.bot_voice;
+        if (botCheckData.bot_voice && botCheckData.bot_voice.channel_name) {
+          voiceData = {
+            in_voice: true,
+            guild_id: botCheckData.bot_voice.guild_id,
+            guild_name: botCheckData.bot_voice.guild_name,
+            channel_id: botCheckData.bot_voice.channel_id,
+            channel_name: botCheckData.bot_voice.channel_name,
+            channel_members: botCheckData.bot_voice.channel_members || []
+          };
         }
       } catch (_) {}
-
-      // Auto-detect & adopt room: if bot is in a room, automatically connect UI to that room!
-      if (state.botVoice && state.botVoice.channel_name) {
-        state.inVoice = true;
-        state.guildId = state.botVoice.guild_id || state.guildId;
-        state.guildName = state.botVoice.guild_name || state.guildName;
-        state.channelId = state.botVoice.channel_id;
-        state.channelName = state.botVoice.channel_name;
-        state.channelMembers = state.botVoice.channel_members || [];
-
-        if (el.voiceIndicator) el.voiceIndicator.className = 'status-indicator connected';
-        if (el.voiceChannelName) el.voiceChannelName.textContent = state.botVoice.channel_name;
-        const countDisplay = state.channelMembers.length > 0 ? state.channelMembers.length : '1';
-        if (el.voiceMembersCountBadge) el.voiceMembersCountBadge.textContent = countDisplay;
-        if (el.dropdownMembersCount) el.dropdownMembersCount.textContent = state.channelMembers.length;
-        if (el.voiceStatusPill) el.voiceStatusPill.classList.add('active');
-
-        renderVoiceMembers(state.channelMembers);
-        sendWsSubscribe();
-      } else {
-        // Neither user nor bot is connected: user will need to choose from dropdown
-        state.inVoice = false;
-        state.channelMembers = [];
-
-        if (el.voiceIndicator) el.voiceIndicator.className = 'status-indicator';
-        if (el.voiceChannelName) el.voiceChannelName.textContent = t('voice.notConnected');
-        if (el.voiceMembersCountBadge) el.voiceMembersCountBadge.textContent = '0';
-        if (el.voiceStatusPill) el.voiceStatusPill.classList.remove('active');
-
-        if (el.dropdownMembersCount) el.dropdownMembersCount.textContent = '0';
-        renderVoiceMembers([]);
-
-        // Auto-detect user from voice-users scan if guest or user_ ID
-        try {
-          const vuUrl = state.guildId ? `/api/voice-users?guild_id=${encodeURIComponent(state.guildId)}` : '/api/voice-users';
-          const vuResp = await fetch(vuUrl);
-          const vuData = await vuResp.json();
-          if (vuData.voice_users && vuData.voice_users.length > 0 && (!state.userId || state.userId.startsWith('user_'))) {
-            const u = vuData.voice_users[0];
-            state.userId = u.id;
-            state.userName = u.display_name;
-            state.userAvatar = u.avatar;
-            saveUser();
-            showToast(t('toast.profileConnected', { name: u.display_name, channel: u.channel_name }), 'success');
-            checkUserVoice();
-            return;
-          }
-        } catch (_) {}
-      }
     }
 
-    // Update Bot Voice Banner
-    if (el.botVoiceBanner) {
-      if (state.botVoice && state.botVoice.channel_name) {
-        el.botVoiceBanner.style.display = 'flex';
-        if (el.botVoiceChannel) el.botVoiceChannel.textContent = `${state.botVoice.guild_name} • 🔊 ${state.botVoice.channel_name}`;
-      } else {
-        el.botVoiceBanner.style.display = 'none';
-      }
-    }
-  }
+    if (voiceData && (voiceData.in_voice || (voiceData.bot_voice && voiceData.bot_voice.channel_name))) {
+      state.inVoice = true;
+      state.guildId = voiceData.guild_id || (voiceData.bot_voice ? voiceData.bot_voice.guild_id : state.guildId);
+      state.guildName = voiceData.guild_name || (voiceData.bot_voice ? voiceData.bot_voice.guild_name : state.guildName);
+      state.channelId = voiceData.channel_id || (voiceData.bot_voice ? voiceData.bot_voice.channel_id : state.channelId);
+      state.channelName = voiceData.channel_name || (voiceData.bot_voice ? voiceData.bot_voice.channel_name : state.channelName);
+      state.channelMembers = voiceData.channel_members || (voiceData.bot_voice ? voiceData.bot_voice.channel_members : []) || [];
 
-  // Multi-server & voice rooms discovery
-  async function fetchGuilds() {
-    try {
-      const q = state.userId && !state.userId.startsWith('user_') ? `?user_id=${encodeURIComponent(state.userId)}` : '';
-      const resp = await fetch(`/api/guilds${q}`);
-      const data = await resp.json();
-      if (data && Array.isArray(data.guilds)) {
-        state.guilds = data.guilds;
+      const count = state.channelMembers.length;
+      if (el.voiceIndicator) el.voiceIndicator.className = 'status-indicator connected';
+      if (el.voiceChannelName) el.voiceChannelName.textContent = state.channelName;
+      if (el.voiceMembersCountBadge) el.voiceMembersCountBadge.textContent = count;
+      if (el.voiceStatusPill) el.voiceStatusPill.classList.add('active');
 
-        // Auto-detect bot voice if found in any guild
-        const activeBotGuild = state.guilds.find(g => g.bot_in_voice);
-        if (activeBotGuild && activeBotGuild.bot_channel_name) {
-          const botCh = activeBotGuild.channels ? activeBotGuild.channels.find(c => c.id === activeBotGuild.bot_channel_id) : null;
-          state.botVoice = {
-            guild_id: activeBotGuild.id,
-            guild_name: activeBotGuild.name,
-            channel_id: activeBotGuild.bot_channel_id,
-            channel_name: activeBotGuild.bot_channel_name,
-            channel_members: botCh ? (botCh.members || []) : [],
-          };
-          // Auto-adopt bot's room if not already in another room
-          if (!state.inVoice || !state.channelId) {
-            state.inVoice = true;
-            state.guildId = activeBotGuild.id;
-            state.guildName = activeBotGuild.name;
-            state.channelId = activeBotGuild.bot_channel_id;
-            state.channelName = activeBotGuild.bot_channel_name;
-            state.channelMembers = state.botVoice.channel_members;
+      if (el.voiceDropdownTitle) el.voiceDropdownTitle.textContent = `🔊 ${state.channelName}`;
+      if (el.voiceDropdownSub) el.voiceDropdownSub.textContent = `${count} ${count === 1 ? 'слушатель' : (count >= 2 && count <= 4 ? 'слушателя' : 'слушателей')} в комнате:`;
 
-            if (el.voiceChannelName) el.voiceChannelName.textContent = activeBotGuild.bot_channel_name;
-            if (el.voiceIndicator) el.voiceIndicator.className = 'status-indicator connected';
-            if (el.voiceStatusPill) el.voiceStatusPill.classList.add('active');
-            if (el.voiceMembersCountBadge) el.voiceMembersCountBadge.textContent = state.channelMembers.length || '1';
-          }
-          if (el.botVoiceBanner) {
-            el.botVoiceBanner.style.display = 'flex';
-            if (el.botVoiceChannel) el.botVoiceChannel.textContent = `${activeBotGuild.name} • 🔊 ${activeBotGuild.bot_channel_name}`;
-          }
-        } else {
-          if (!state.guildId && state.guilds.length > 0) {
-            state.guildId = state.guilds[0].id;
-            state.guildName = state.guilds[0].name;
-          }
-          if (!state.channelId && state.guilds.length === 1 && state.guilds[0].channels && state.guilds[0].channels.length === 1) {
-            const onlyCh = state.guilds[0].channels[0];
-            state.channelId = onlyCh.id;
-            state.channelName = onlyCh.name;
-          }
-        }
-
-        updateGuildFilterOptions();
-        renderVoiceRooms();
-      }
-    } catch (e) {
-      console.error('Error fetching guilds:', e);
-    }
-  }
-
-  function updateGuildFilterOptions() {
-    if (!el.guildFilterSelect) return;
-    const currentVal = el.guildFilterSelect.value || state.selectedGuildFilter || 'all';
-    el.guildFilterSelect.innerHTML = `<option value="all">${t('voice.allServers')} (${state.guilds.length})</option>`;
-    state.guilds.forEach(g => {
-      const opt = document.createElement('option');
-      opt.value = g.id;
-      const botBadge = g.bot_in_voice ? ' 🤖' : '';
-      opt.textContent = `${g.name} (${g.channels ? g.channels.length : 0} комнат)${botBadge}`;
-      el.guildFilterSelect.appendChild(opt);
-    });
-    if (state.guilds.some(g => String(g.id) === String(currentVal))) {
-      el.guildFilterSelect.value = currentVal;
+      renderVoiceMembers(state.channelMembers);
+      sendWsSubscribe();
     } else {
-      el.guildFilterSelect.value = 'all';
+      state.inVoice = false;
+      state.channelMembers = [];
+
+      if (el.voiceIndicator) el.voiceIndicator.className = 'status-indicator';
+      if (el.voiceChannelName) el.voiceChannelName.textContent = t('voice.notConnected');
+      if (el.voiceMembersCountBadge) el.voiceMembersCountBadge.textContent = '0';
+      if (el.voiceStatusPill) el.voiceStatusPill.classList.remove('active');
+
+      if (el.voiceDropdownTitle) el.voiceDropdownTitle.textContent = 'Голосовой канал';
+      if (el.voiceDropdownSub) el.voiceDropdownSub.textContent = 'Бот не подключен к голосовой комнате';
+
+      renderVoiceMembers([]);
     }
   }
 
-  function renderVoiceRooms() {
-    if (!el.voiceRoomsList) return;
-    const currentGuildId = state.guildId || (state.botVoice ? state.botVoice.guild_id : null);
-    const filter = el.guildFilterSelect ? el.guildFilterSelect.value : (state.selectedGuildFilter || 'all');
-    let targetGuilds = filter === 'all' ? state.guilds : state.guilds.filter(g => String(g.id) === String(filter));
-
-    // If on a specific guild, restrict view to that guild to prevent cross-server moving
-    if (currentGuildId) {
-      const currentGuildMatches = targetGuilds.filter(g => String(g.id) === String(currentGuildId));
-      if (currentGuildMatches.length > 0) {
-        targetGuilds = currentGuildMatches;
-      }
-    }
-
-    if (!targetGuilds || targetGuilds.length === 0) {
-      el.voiceRoomsList.innerHTML = `<div class="dropdown-empty-state"><p>${t('voice.dropdownEmpty')}</p></div>`;
-      return;
-    }
-
-    el.voiceRoomsList.innerHTML = '';
-    targetGuilds.forEach(g => {
-      const group = document.createElement('div');
-      group.className = 'voice-guild-group';
-
-      const botBadge = g.bot_in_voice ? ` • <span style="color:#22c55e;">🤖 ${escapeHtml(g.bot_channel_name || 'В комнате')}</span>` : '';
-      const header = document.createElement('div');
-      header.className = 'voice-guild-header';
-      header.innerHTML = `
-        <i class="fa-solid fa-server" style="color:var(--text-tertiary);"></i>
-        <span style="font-weight:700;">${escapeHtml(g.name)}</span>
-        ${botBadge}
-      `;
-      group.appendChild(header);
-
-      if (!g.channels || g.channels.length === 0) {
-        const empty = document.createElement('div');
-        empty.className = 'dropdown-empty-state';
-        empty.innerHTML = '<p style="font-size:11px;padding:4px 0;">Нет доступных комнат</p>';
-        group.appendChild(empty);
-      } else {
-        g.channels.forEach(ch => {
-          const isBot = Boolean(ch.bot_is_here);
-          const isUser = Boolean(ch.user_is_here) || (state.channelId && String(state.channelId) === String(ch.id));
-          const card = document.createElement('div');
-          card.className = `voice-room-card ${isBot ? 'is-bot-room' : ''} ${isUser ? 'is-user-room' : ''}`;
-
-          let avatarsHtml = '';
-          if (ch.members && ch.members.length > 0) {
-            avatarsHtml = '<div class="voice-room-members-avatars">';
-            ch.members.slice(0, 4).forEach(m => {
-              avatarsHtml += `<img src="${getSafeImageUrl(m.avatar || '/static/activity_icon.jpg')}" title="${escapeHtml(m.display_name || m.name)}" onerror="this.src='/static/activity_icon.jpg'">`;
-            });
-            if (ch.members.length > 4) {
-              avatarsHtml += `<span style="font-size:9.5px;color:var(--text-secondary);margin-left:5px;">+${ch.members.length - 4}</span>`;
-            }
-            avatarsHtml += '</div>';
-          }
-
-          let actionBtnHtml = '';
-          if (isBot) {
-            actionBtnHtml = `<button class="voice-room-join-btn is-bot-btn" data-guild-id="${g.id}" data-channel-id="${ch.id}">${t('voice.disconnectBot')}</button>`;
-          } else if (g.bot_in_voice) {
-            actionBtnHtml = `<span style="font-size:11px;color:var(--text-secondary);display:inline-flex;align-items:center;gap:4px;padding:4px 8px;background:rgba(255,255,255,0.05);border-radius:6px;" title="Бот уже находится в другой комнате. Перемещение запрещено."><i class="fa-solid fa-lock" style="font-size:10px;"></i> Занято</span>`;
-          } else {
-            actionBtnHtml = `<button class="voice-room-join-btn" data-guild-id="${g.id}" data-channel-id="${ch.id}">${t('voice.connectBot')}</button>`;
-          }
-
-          card.innerHTML = `
-            <div class="voice-room-info">
-              <span class="voice-room-title">
-                <i class="fa-solid fa-volume-high" style="font-size:11px;color:${isBot ? '#22c55e' : (isUser ? '#3b82f6' : 'var(--text-tertiary)')};"></i>
-                ${escapeHtml(ch.name)}
-              </span>
-              <div class="voice-room-badges">
-                ${isBot ? `<span class="badge-bot-here">${t('voice.botIsHere')}</span>` : ''}
-                ${isUser ? `<span class="badge-user-here">${t('voice.youAreHere')}</span>` : ''}
-                ${ch.user_count > 0 ? `<span style="font-size:10px;color:var(--text-secondary);">${ch.user_count} уч.</span>` : ''}
-              </div>
-              ${avatarsHtml}
-            </div>
-            ${actionBtnHtml}
-          `;
-
-          card.style.cursor = 'pointer';
-          card.addEventListener('click', async (e) => {
-            if (e.target.closest('.voice-room-join-btn')) return;
-            if (isBot) {
-              await disconnectBotVoice(g.id);
-            } else if (g.bot_in_voice) {
-              showToast(`Бот уже находится в комнате «${g.bot_channel_name || 'другой комнате'}». Перемещение бота по серверу запрещено!`, 'warning', 'fa-lock');
-            } else {
-              await joinVoiceChannel(g.id, ch.id, ch.name);
-            }
-          });
-
-          const btn = card.querySelector('.voice-room-join-btn');
-          if (btn) {
-            btn.addEventListener('click', async (e) => {
-              e.stopPropagation();
-              if (isBot) {
-                await disconnectBotVoice(g.id);
-              } else {
-                await joinVoiceChannel(g.id, ch.id, ch.name);
-              }
-            });
-          }
-
-          group.appendChild(card);
-        });
-      }
-      el.voiceRoomsList.appendChild(group);
-    });
-  }
-
-  async function joinVoiceChannel(guildId, channelId, channelName = '') {
-    try {
-      showToast(t('voice.searching'), 'info');
-      const resp = await fetch('/api/join-channel', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ guild_id: guildId, channel_id: channelId, user_id: state.userId })
-      });
-      const data = await resp.json();
-      if (data && data.success) {
-        state.inVoice = true;
-        state.guildId = guildId;
-        state.channelId = channelId;
-        if (data.channel_name) state.channelName = data.channel_name;
-        if (el.voiceWidgetContainer) {
-          el.voiceWidgetContainer.classList.remove('dropdown-open');
-        }
-        showToast(`🤖 Бот подключен к комнате «${channelName || data.channel_name || 'Комната'}»`, 'success', 'fa-microphone');
-        sendWsSubscribe();
-        await checkUserVoice();
-        await fetchGuilds();
-      } else {
-        showToast(data.error || 'Ошибка подключения к комнате', 'warning');
-      }
-    } catch (e) {
-      showToast('Ошибка сети при подключении к комнате', 'error');
-    }
-  }
-
-  async function disconnectBotVoice(guildId) {
-    try {
-      const resp = await fetch('/api/join-channel', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ guild_id: guildId || state.guildId, action: 'leave', user_id: state.userId })
-      });
-      const data = await resp.json();
-      if (data && data.success) {
-        showToast('🤖 Бот отключился от голосовой комнаты', 'info', 'fa-stop');
-        await checkUserVoice();
-        await fetchGuilds();
-      } else if (data && data.error) {
-        showToast(data.error, 'warning');
-      }
-    } catch (e) {
-      showToast('Ошибка отключения бота', 'error');
-    }
-  }
+  // Room moving and cross-server switching are disabled per design (entry strictly via Activity)
+  async function fetchGuilds() {}
+  function renderVoiceRooms() {}
 
   function renderVoiceMembers(members) {
     if (!el.voiceMembersList) return;
@@ -1808,52 +1585,114 @@
     });
   }
 
+  async function addTrackToCustomPlaylist(pl, track) {
+    if (!pl.tracks) pl.tracks = [];
+    const exists = pl.tracks.some(t => t.title === track.title && (t.artist === track.artist || (track.url && t.url === track.url)));
+    if (exists) {
+      showToast(t('toast.alreadyInPlaylist'), 'warning');
+      return false;
+    }
+    const newTr = {
+      title: track.title,
+      artist: track.artist || 'Неизвестный исполнитель',
+      thumbnail: track.thumbnail || '/static/activity_icon.jpg',
+      duration_str: track.duration_str || '3:00',
+      duration: track.duration || 0,
+      source: track.source || 'youtube',
+      url: track.url || `https://music.youtube.com/search?q=${encodeURIComponent(track.title + ' ' + (track.artist || ''))}`,
+      added_at: Date.now()
+    };
+    pl.tracks.push(newTr);
+    saveJson('musicium_custom_playlists', state.customPlaylists);
+    if (state.userId && !isNaN(parseInt(pl.id, 10))) {
+      fetch(`/api/user/playlists/${encodeURIComponent(pl.id)}/tracks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ track: newTr })
+      }).catch(() => {});
+    }
+    showToast(t('toast.trackAddedToPlaylist', { name: pl.name }), 'success');
+    renderSidebarPlaylists();
+    return true;
+  }
+
+  function renderAddToPlaylistList() {
+    if (!el.addToPlaylistList) return;
+    el.addToPlaylistList.innerHTML = '';
+    const track = state.trackToAddToPlaylist;
+    if (!track) return;
+
+    if (!state.customPlaylists || state.customPlaylists.length === 0) {
+      el.addToPlaylistList.innerHTML = `
+        <div style="padding: 16px 8px; text-align: center; color: #888; font-size: 13px;">
+          <p style="margin: 0;">У вас пока нет плейлистов.<br>Нажмите «+ Создать новый плейлист» выше!</p>
+        </div>
+      `;
+      return;
+    }
+
+    state.customPlaylists.forEach(pl => {
+      const row = document.createElement('div');
+      row.className = 'modal-playlist-select-item';
+      const count = pl.tracks ? pl.tracks.length : 0;
+      const alreadyIn = pl.tracks && pl.tracks.some(t => t.title === track.title && (t.artist === track.artist || (track.url && t.url === track.url)));
+
+      row.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1;">
+          <div style="width:34px;height:34px;border-radius:6px;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+          </div>
+          <div style="min-width:0;flex:1;">
+            <div style="font-weight:600;font-size:13px;color:#eee;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(pl.name)}</div>
+            <div style="font-size:11px;color:#888;">${count} треков</div>
+          </div>
+        </div>
+        <div>
+          ${alreadyIn
+            ? `<span style="font-size:12px;color:#10b981;font-weight:600;display:inline-flex;align-items:center;gap:4px;">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="#10b981"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg> Добавлен
+               </span>`
+            : `<button class="btn-primary-yt btn-add-to-this-pl" style="height:32px;padding:0 12px;font-size:12px;">+ Добавить</button>`
+          }
+        </div>
+      `;
+
+      const addBtn = row.querySelector('.btn-add-to-this-pl');
+      if (addBtn) {
+        addBtn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const ok = await addTrackToCustomPlaylist(pl, track);
+          if (ok) {
+            renderAddToPlaylistList();
+          }
+        });
+      }
+
+      el.addToPlaylistList.appendChild(row);
+    });
+  }
+
   function openAddToPlaylistModal(track) {
     state.trackToAddToPlaylist = track;
     if (el.addToPlaylistTrackInfo) {
-      el.addToPlaylistTrackInfo.innerHTML = `<strong>${escapeHtml(track.title)}</strong><br><span style="color:#aaa;font-size:12px;">${escapeHtml(track.artist || '')}</span>`;
+      const thumb = track.thumbnail || '/static/activity_icon.jpg';
+      el.addToPlaylistTrackInfo.innerHTML = `
+        <div style="display:flex;align-items:center;gap:12px;background:rgba(255,255,255,0.04);padding:10px 12px;border-radius:10px;margin-bottom:14px;border:1px solid rgba(255,255,255,0.06);">
+          <img src="${getSafeImageUrl(thumb)}" style="width:44px;height:44px;border-radius:6px;object-fit:cover;" onerror="this.src='/static/activity_icon.jpg'">
+          <div style="min-width:0;flex:1;">
+            <div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;">${escapeHtml(track.title)}</div>
+            <div style="font-size:12px;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(track.artist || '')}</div>
+          </div>
+        </div>
+      `;
     }
-    if (el.addToPlaylistList) {
-      el.addToPlaylistList.innerHTML = '';
-      state.customPlaylists.forEach(pl => {
-        const row = document.createElement('div');
-        row.className = 'modal-playlist-select-item';
-        row.innerHTML = `
-          <span>📁 ${escapeHtml(pl.name)} (${pl.tracks ? pl.tracks.length : 0})</span>
-          <button class="btn-primary-yt" style="height:30px;padding:0 12px;font-size:12px;">+ Добавить</button>
-        `;
-        row.querySelector('button').addEventListener('click', () => {
-          if (!pl.tracks) pl.tracks = [];
-          const exists = pl.tracks.some(t => t.title === track.title && t.artist === track.artist);
-          if (exists) {
-            showToast(t('toast.alreadyInPlaylist'), 'warning');
-            return;
-          }
-          const newTr = {
-            title: track.title,
-            artist: track.artist || 'Неизвестный исполнитель',
-            thumbnail: track.thumbnail || '/static/activity_icon.jpg',
-            duration_str: track.duration_str || '3:00',
-            source: track.source || 'youtube',
-            url: track.url || `https://music.youtube.com/search?q=${encodeURIComponent(track.title + ' ' + (track.artist || ''))}`,
-            added_at: Date.now()
-          };
-          pl.tracks.push(newTr);
-          saveJson('musicium_custom_playlists', state.customPlaylists);
-          if (state.userId && !isNaN(parseInt(pl.id, 10))) {
-            fetch(`/api/user/playlists/${encodeURIComponent(pl.id)}/tracks`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ track: newTr })
-            }).catch(() => {});
-          }
-          showToast(t('toast.trackAddedToPlaylist', { name: pl.name }), 'success');
-          if (el.addToPlaylistModal) el.addToPlaylistModal.style.display = 'none';
-          renderSidebarPlaylists();
-        });
-        el.addToPlaylistList.appendChild(row);
-      });
-    }
+
+    if (el.inlineCreatePlForm) el.inlineCreatePlForm.style.display = 'none';
+    if (el.btnShowCreatePlInline) el.btnShowCreatePlInline.style.display = 'flex';
+    if (el.inlinePlNameInput) el.inlinePlNameInput.value = '';
+
+    renderAddToPlaylistList();
+
     if (el.addToPlaylistModal) el.addToPlaylistModal.style.display = 'flex';
   }
 
@@ -2476,6 +2315,88 @@
       });
     }
 
+    // Home Create Playlist button
+    if (el.btnCreatePlHome) {
+      el.btnCreatePlHome.addEventListener('click', () => {
+        if (el.newPlaylistTitleInput) el.newPlaylistTitleInput.value = '';
+        if (el.newPlaylistModal) el.newPlaylistModal.style.display = 'flex';
+        if (el.newPlaylistTitleInput) el.newPlaylistTitleInput.focus();
+      });
+    }
+
+    // Dock Add To Playlist button
+    if (el.btnAddToPlCurrent) {
+      el.btnAddToPlCurrent.addEventListener('click', () => {
+        const cur = state.player && state.player.current_track;
+        if (cur) {
+          openAddToPlaylistModal(cur);
+        } else {
+          showToast('Сейчас ничего не играет', 'info');
+        }
+      });
+    }
+
+    // Add To Playlist Modal: Inline create playlist
+    if (el.btnShowCreatePlInline) {
+      el.btnShowCreatePlInline.addEventListener('click', () => {
+        if (el.inlineCreatePlForm) {
+          const isHidden = el.inlineCreatePlForm.style.display === 'none';
+          el.inlineCreatePlForm.style.display = isHidden ? 'block' : 'none';
+          if (isHidden && el.inlinePlNameInput) el.inlinePlNameInput.focus();
+        }
+      });
+    }
+
+    if (el.btnInlineCreateAndAdd) {
+      el.btnInlineCreateAndAdd.addEventListener('click', async () => {
+        const name = (el.inlinePlNameInput.value || '').trim();
+        if (!name) {
+          showToast('Введите название плейлиста', 'warning');
+          return;
+        }
+        let newId = 'pl_' + Date.now();
+        if (state.userId) {
+          try {
+            const resp = await fetch('/api/user/playlists', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                user_id: state.userId,
+                title: name,
+                author_name: state.userName || 'Пользователь',
+                author_avatar: state.userAvatar || '/static/activity_icon.jpg'
+              })
+            });
+            const data = await resp.json();
+            if (data.success && data.playlist) {
+              newId = String(data.playlist.id);
+            }
+          } catch (e) {
+            console.warn('Failed to create playlist in DB:', e);
+          }
+        }
+        const newPl = {
+          id: newId,
+          name: name,
+          author: state.userName || 'Вы',
+          tracks: []
+        };
+        state.customPlaylists.push(newPl);
+        saveJson('musicium_custom_playlists', state.customPlaylists);
+        showToast(t('toast.playlistCreated', { name }), 'success');
+        renderSidebarPlaylists();
+        fetchCommunityPlaylists();
+
+        if (state.trackToAddToPlaylist) {
+          await addTrackToCustomPlaylist(newPl, state.trackToAddToPlaylist);
+        }
+
+        if (el.inlinePlNameInput) el.inlinePlNameInput.value = '';
+        if (el.inlineCreatePlForm) el.inlineCreatePlForm.style.display = 'none';
+        renderAddToPlaylistList();
+      });
+    }
+
     // Add To Playlist Modal close
     if (el.closeAddToPlaylistBtn) {
       el.closeAddToPlaylistBtn.addEventListener('click', () => {
@@ -2485,6 +2406,30 @@
     if (el.closeAddToPlaylistModalBtn) {
       el.closeAddToPlaylistModalBtn.addEventListener('click', () => {
         if (el.addToPlaylistModal) el.addToPlaylistModal.style.display = 'none';
+      });
+    }
+
+    // Custom Confirmation Modal events
+    if (el.acceptConfirmModalBtn) {
+      el.acceptConfirmModalBtn.addEventListener('click', () => {
+        if (el.confirmActionModal) el.confirmActionModal.style.display = 'none';
+        if (confirmActionCallback) {
+          const cb = confirmActionCallback;
+          confirmActionCallback = null;
+          cb();
+        }
+      });
+    }
+    if (el.closeConfirmModalBtn) {
+      el.closeConfirmModalBtn.addEventListener('click', () => {
+        if (el.confirmActionModal) el.confirmActionModal.style.display = 'none';
+        confirmActionCallback = null;
+      });
+    }
+    if (el.cancelConfirmModalBtn) {
+      el.cancelConfirmModalBtn.addEventListener('click', () => {
+        if (el.confirmActionModal) el.confirmActionModal.style.display = 'none';
+        confirmActionCallback = null;
       });
     }
 
@@ -2510,41 +2455,57 @@
     }
 
     if (el.btnDeleteCurrentPlaylist) {
-      el.btnDeleteCurrentPlaylist.addEventListener('click', async () => {
+      el.btnDeleteCurrentPlaylist.addEventListener('click', () => {
         const plId = state.selectedPlaylistId;
         if (!plId) return;
         const pl = state.customPlaylists.find(p => p.id === plId);
         const name = pl ? pl.name : '';
-        if (confirm(`Удалить плейлист «${name}»?`)) {
-          state.customPlaylists = state.customPlaylists.filter(p => p.id !== plId);
-          saveJson('musicium_custom_playlists', state.customPlaylists);
-          if (state.userId && !isNaN(parseInt(plId, 10))) {
-            fetch(`/api/user/playlists/${encodeURIComponent(plId)}?user_id=${encodeURIComponent(state.userId)}`, {
-              method: 'DELETE'
-            }).catch(() => {});
+        showConfirmModal({
+          title: 'Удалить плейлист',
+          message: `Удалить плейлист «${name}»? Это действие нельзя отменить.`,
+          confirmText: 'Удалить',
+          confirmDanger: true,
+          onConfirm: async () => {
+            state.customPlaylists = state.customPlaylists.filter(p => p.id !== plId);
+            saveJson('musicium_custom_playlists', state.customPlaylists);
+            if (state.userId && !isNaN(parseInt(plId, 10))) {
+              fetch(`/api/user/playlists/${encodeURIComponent(plId)}?user_id=${encodeURIComponent(state.userId)}`, {
+                method: 'DELETE'
+              }).catch(() => {});
+            }
+            showToast(t('toast.playlistDeleted', { name }), 'info');
+            renderSidebarPlaylists();
+            switchView('home');
+            fetchCommunityPlaylists();
           }
-          showToast(t('toast.playlistDeleted'), 'info');
-          renderSidebarPlaylists();
-          switchView('home');
-        }
+        });
       });
     }
 
     // History actions
     if (el.btnClearHistoryBtn) {
-      el.btnClearHistoryBtn.addEventListener('click', async () => {
-        if (!state.historyTracks.length) return;
-        if (confirm('Очистить всю историю прослушанного?')) {
-          state.historyTracks = [];
-          saveJson('musicium_history_tracks', []);
-          if (state.userId) {
-            fetch(`/api/user/history?user_id=${encodeURIComponent(state.userId)}`, {
-              method: 'DELETE'
-            }).catch(() => {});
-          }
-          showToast('История очищена', 'info');
-          renderHistoryView();
+      el.btnClearHistoryBtn.addEventListener('click', () => {
+        if (!state.historyTracks.length) {
+          showToast('История прослушивания уже пуста', 'info');
+          return;
         }
+        showConfirmModal({
+          title: 'Очистить историю',
+          message: 'Вы действительно хотите удалить все треки из истории прослушивания?',
+          confirmText: 'Очистить',
+          confirmDanger: true,
+          onConfirm: async () => {
+            state.historyTracks = [];
+            saveJson('musicium_history_tracks', []);
+            if (state.userId) {
+              fetch(`/api/user/history?user_id=${encodeURIComponent(state.userId)}`, {
+                method: 'DELETE'
+              }).catch(() => {});
+            }
+            showToast('История прослушивания очищена', 'info');
+            renderHistoryView();
+          }
+        });
       });
     }
 
@@ -2668,7 +2629,6 @@
           el.voiceWidgetContainer.classList.toggle('dropdown-open');
         }
         checkUserVoice();
-        fetchGuilds();
       });
     }
 
@@ -2676,7 +2636,6 @@
       el.refreshVoiceBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
         await checkUserVoice();
-        await fetchGuilds();
         showToast(t('toast.channelRefreshed'), 'info', 'fa-arrows-rotate');
       });
     }
@@ -2688,10 +2647,41 @@
       }
     });
 
-    // User badge
-    el.userBadge.addEventListener('click', () => {
-      showToast(state.userName ? t('user.loggedInAs', { name: state.userName }) : t('user.profileActive'), 'info', 'fa-user');
-    });
+    // User badge: click opens auth modal if not authenticated, or shows status
+    if (el.userBadge) {
+      el.userBadge.addEventListener('click', () => {
+        if (!state.isAuthenticated) {
+          if (el.authDiscordModal) el.authDiscordModal.style.display = 'flex';
+        } else {
+          showToast(state.userName ? t('user.loggedInAs', { name: state.userName }) : t('user.profileActive'), 'info', 'fa-user');
+        }
+      });
+    }
+
+    // Discord Login Action buttons in modal
+    if (el.btnDiscordLoginAction) {
+      el.btnDiscordLoginAction.addEventListener('click', async () => {
+        if (window.DiscordSDK) {
+          const success = await initDiscordSdk(true);
+          if (!success) {
+            window.location.href = '/api/auth/discord';
+          }
+        } else {
+          window.location.href = '/api/auth/discord';
+        }
+      });
+    }
+
+    if (el.btnContinueAsGuest) {
+      el.btnContinueAsGuest.addEventListener('click', () => {
+        if (el.authDiscordModal) el.authDiscordModal.style.display = 'none';
+        if (!state.userId) {
+          state.userId = 'user_' + Math.random().toString(36).substring(2, 12);
+          saveUser();
+        }
+        showToast('Вы вошли как гость', 'info');
+      });
+    }
 
     // Language switcher buttons
     const langBtnRu = document.getElementById('langBtnRu');
@@ -2927,40 +2917,7 @@
       sendPlayerAction('volume', { value: val });
     });
 
-    // Voice Widget Dropdown Tabs
-    if (el.tabVoiceChannels) {
-      el.tabVoiceChannels.addEventListener('click', () => {
-        el.tabVoiceChannels.classList.add('active');
-        if (el.tabVoiceMembers) el.tabVoiceMembers.classList.remove('active');
-        if (el.tabContentChannels) el.tabContentChannels.classList.add('active');
-        if (el.tabContentMembers) el.tabContentMembers.classList.remove('active');
-      });
-    }
-
-    if (el.tabVoiceMembers) {
-      el.tabVoiceMembers.addEventListener('click', () => {
-        el.tabVoiceMembers.classList.add('active');
-        if (el.tabVoiceChannels) el.tabVoiceChannels.classList.remove('active');
-        if (el.tabContentMembers) el.tabContentMembers.classList.add('active');
-        if (el.tabContentChannels) el.tabContentChannels.classList.remove('active');
-      });
-    }
-
-    // Guild filter select
-    if (el.guildFilterSelect) {
-      el.guildFilterSelect.addEventListener('change', (e) => {
-        state.selectedGuildFilter = e.target.value;
-        renderVoiceRooms();
-      });
-    }
-
-    // Disconnect bot voice button in banner
-    if (el.btnDisconnectBotVoice) {
-      el.btnDisconnectBotVoice.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        await disconnectBotVoice(state.botVoice ? state.botVoice.guild_id : state.guildId);
-      });
-    }
+    // Voice Widget: room selection removed (lockdown mode)
 
     // Mute toggle
     el.btnMute.addEventListener('click', () => {
@@ -3006,13 +2963,11 @@
     loadUserDataFromDB();
     await checkSystemStatus();
     await checkUserVoice();
-    await fetchGuilds();
     setupWebSocket();
     await fetchCurrentPlayer();
 
-    // Periodic voice check every 12s, guilds refresh every 15s, feed discovery every 25s
-    setInterval(checkUserVoice, 12000);
-    setInterval(fetchGuilds, 15000);
+    // Periodic voice check every 10s, feed discovery every 25s
+    setInterval(checkUserVoice, 10000);
     setInterval(fetchFeedDiscovery, 25000);
   }
 
