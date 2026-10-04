@@ -14,6 +14,7 @@ class PlayerManager:
         self.bot = bot
         self.music_service = music_service
         self.players: Dict[int, GuildPlayer] = {}  # guild_id -> GuildPlayer
+        self.guild_volumes: Dict[int, float] = {}  # guild_id -> remembered volume float
         self.dm_controller = None  # Will be assigned after DMController init
         self.ws_clients: Set[Any] = set()
         self.ws_subscriptions: Dict[Any, Optional[int]] = {}  # ws -> guild_id
@@ -23,19 +24,23 @@ class PlayerManager:
 
     def get_or_create_player(self, guild: discord.Guild) -> GuildPlayer:
         if guild.id not in self.players:
-            self.players[guild.id] = GuildPlayer(
+            p = GuildPlayer(
                 guild=guild,
                 bot=self.bot,
                 music_service=self.music_service,
                 on_change_callback=self._on_player_state_change
             )
+            # Restore saved volume for this guild if previously set
+            if guild.id in self.guild_volumes:
+                p.volume = self.guild_volumes[guild.id]
+            self.players[guild.id] = p
         return self.players[guild.id]
 
     def get_player_by_guild_id(self, guild_id: int) -> Optional[GuildPlayer]:
         if guild_id in self.players:
             return self.players[guild_id]
         guild = self.bot.get_guild(guild_id)
-        if guild and getattr(guild, 'voice_client', None) and guild.voice_client.is_connected():
+        if guild:
             return self.get_or_create_player(guild)
         return None
 
@@ -164,6 +169,7 @@ class PlayerManager:
         return guilds_data
 
     async def _on_player_state_change(self, player: GuildPlayer, track_started: bool = False):
+        self.guild_volumes[player.guild.id] = player.volume
         state = player.get_state()
 
         # Broadcast via WebSockets only to clients connected to this guild (or unassigned)
