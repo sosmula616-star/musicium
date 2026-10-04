@@ -134,8 +134,12 @@ class WebServer:
 
     async def handle_guilds(self, request: web.Request) -> web.Response:
         user_id_str = request.query.get("user_id")
+        guild_id_str = request.query.get("guild_id")
         current_user_id = safe_int(user_id_str)
+        target_guild_id = safe_int(guild_id_str)
         guilds = self.player_manager.get_all_guilds_info(current_user_id=current_user_id)
+        if target_guild_id:
+            guilds = [g for g in guilds if g["id"] == str(target_guild_id)]
         return web.json_response({"guilds": guilds})
 
     async def handle_join_channel(self, request: web.Request) -> web.Response:
@@ -146,12 +150,24 @@ class WebServer:
 
         channel_id_str = data.get("channel_id")
         guild_id_str = data.get("guild_id")
+        user_id_str = data.get("user_id")
         action = data.get("action", "join")
 
         guild_id = safe_int(guild_id_str)
+        user_id = safe_int(user_id_str)
+
         if action == "leave":
             player = self.player_manager.get_player_by_guild_id(guild_id) if guild_id else None
-            if player:
+            if player and player.voice_client and player.voice_client.channel:
+                bot_channel = player.voice_client.channel
+                human_members = [m for m in bot_channel.members if not m.bot]
+                if human_members and user_id and user_id not in [m.id for m in human_members]:
+                    member = player.guild.get_member(user_id)
+                    if not (member and member.guild_permissions.administrator):
+                        return web.json_response({
+                            "success": False,
+                            "error": "Отключить бота могут только участники голосовой комнаты, в которой он находится!"
+                        }, status=403)
                 await player.stop()
             elif guild_id:
                 g = self.bot.get_guild(guild_id)
@@ -174,6 +190,25 @@ class WebServer:
             return web.json_response({"success": False, "error": "Голосовой канал не найден или недоступен"}, status=404)
 
         guild = channel.guild
+
+        # Check: User must belong to this guild
+        if user_id:
+            member = guild.get_member(user_id)
+            if not member:
+                return web.json_response({
+                    "success": False,
+                    "error": "Вы не являетесь участником этого сервера!"
+                }, status=403)
+
+        # Check: If bot is already connected in a channel on this guild, prevent moving across channels
+        guild_vc = getattr(guild, "voice_client", None)
+        if guild_vc and guild_vc.is_connected() and guild_vc.channel:
+            if guild_vc.channel.id != channel.id:
+                return web.json_response({
+                    "success": False,
+                    "error": f"Бот уже находится в комнате «{guild_vc.channel.name}». Перемещение бота по серверу запрещено!"
+                }, status=403)
+
         player = self.player_manager.get_or_create_player(guild)
         try:
             await player.connect_to_channel(channel)
@@ -380,12 +415,20 @@ class WebServer:
         guild_id = safe_int(guild_id_str)
         channel_id = safe_int(channel_id_str)
 
-        # 1. Check if channel_id was explicitly provided (e.g. from UI room selector)
+        # 1. Resolve user's voice channel
         target_channel = None
         target_guild = None
         member_name = "Пользователь Discord" if user_id else "Гость"
 
-        if channel_id:
+        if user_id:
+            found = self.player_manager.find_user_voice(user_id, guild_id=guild_id)
+            if found:
+                target_guild, target_channel, member = found
+                if member:
+                    member_name = member.display_name
+
+        # If user explicitly provided channel_id from UI, verify user membership
+        if not target_channel and channel_id:
             try:
                 ch = self.bot.get_channel(channel_id)
                 if not ch:
@@ -394,62 +437,48 @@ class WebServer:
                     except Exception:
                         pass
                 if ch and isinstance(ch, (discord.VoiceChannel, getattr(discord, "StageChannel", ()))):
-                    target_channel = ch
-                    target_guild = ch.guild
+                    if not guild_id or guild_id == ch.guild.id:
+                        is_member = False
+                        if user_id:
+                            is_member = bool(ch.guild.get_member(user_id))
+                        if is_member:
+                            target_channel = ch
+                            target_guild = ch.guild
             except Exception as e:
                 logger.warning(f"Could not resolve explicit channel_id {channel_id}: {e}")
 
-        # 2. Find user's voice channel across guilds (prioritizing guild_id if provided)
-        if not target_channel and user_id:
-            found = self.player_manager.find_user_voice(user_id, guild_id=guild_id)
-            if found:
-                target_guild, target_channel, member = found
-                if member:
-                    member_name = member.display_name
-
-        # 3. Fallback: If bot is ALREADY connected in target_guild, use that room!
-        if not target_channel and guild_id:
-            g = self.bot.get_guild(guild_id)
-            if g and getattr(g, "voice_client", None) and g.voice_client.is_connected() and g.voice_client.channel:
-                target_guild = g
-                target_channel = g.voice_client.channel
-
-        # 4. Fallback: If bot is connected to ANY voice channel on ANY guild, use that room!
-        if not target_channel:
-            for g in self.bot.guilds:
-                if getattr(g, "voice_client", None) and g.voice_client.is_connected() and g.voice_client.channel:
-                    target_guild = g
-                    target_channel = g.voice_client.channel
-                    break
-
-        # 5. Fallback: If target_guild is known, pick first available voice channel
-        if not target_channel and guild_id:
-            g = self.bot.get_guild(guild_id)
-            if g:
-                all_vcs = list(getattr(g, "voice_channels", [])) + list(getattr(g, "stage_channels", []))
-                if all_vcs:
-                    target_guild = g
-                    target_channel = all_vcs[0]
-
-        # 6. Fallback: Pick first voice channel from any bot guild
-        if not target_channel:
-            for g in self.bot.guilds:
-                all_vcs = list(getattr(g, "voice_channels", [])) + list(getattr(g, "stage_channels", []))
-                if all_vcs:
-                    target_guild = g
-                    target_channel = all_vcs[0]
-                    break
-
+        # Strictly reject if user has not joined any voice room! Never fall back to arbitrary rooms/servers!
         if not target_channel or not target_guild:
             return web.json_response({
                 "success": False,
-                "error": "Не удалось определить голосовой канал! Выберите комнату в списке каналов или зайдите в любой голосовой канал на сервере.",
+                "error": "Вы должны находиться в голосовом канале на сервере, чтобы включить музыку!",
             }, status=400)
+
+        # Rule: Bot cannot be moved across channels on the server
+        guild_vc = getattr(target_guild, "voice_client", None)
+        if guild_vc and guild_vc.is_connected() and guild_vc.channel:
+            if guild_vc.channel.id != target_channel.id:
+                return web.json_response({
+                    "success": False,
+                    "error": f"Бот уже находится в комнате «{guild_vc.channel.name}». Перемещение бота по серверу запрещено! Перейдите в комнату к боту, чтобы слушать музыку.",
+                }, status=403)
 
         player = self.player_manager.get_or_create_player(target_guild)
 
+        # Rule: If bot is in room with human listeners, only participants (or requester / admin) can add music
+        if player.voice_client and player.voice_client.channel:
+            bot_channel = player.voice_client.channel
+            human_members = [m for m in bot_channel.members if not m.bot]
+            if human_members and user_id and user_id not in [m.id for m in human_members]:
+                member = target_guild.get_member(user_id) if target_guild else None
+                if not (member and member.guild_permissions.administrator):
+                    return web.json_response({
+                        "success": False,
+                        "error": f"Бот сейчас играет в комнате «{bot_channel.name}». Добавлять музыку могут только слушатели в этой комнате!",
+                    }, status=403)
+
         try:
-            # Connect or move to channel
+            # Connect to channel
             await player.connect_to_channel(target_channel)
 
             # Build Track object
@@ -531,12 +560,28 @@ class WebServer:
                     except Exception:
                         pass
                 if ch and isinstance(ch, (discord.VoiceChannel, getattr(discord, "StageChannel", ()))):
+                    # Check if already connected to another channel on this server
+                    guild_vc = getattr(ch.guild, "voice_client", None)
+                    if guild_vc and guild_vc.is_connected() and guild_vc.channel and guild_vc.channel.id != ch.id:
+                        return web.json_response({
+                            "success": False,
+                            "error": f"Бот уже находится в комнате «{guild_vc.channel.name}». Перемещение бота по серверу запрещено!"
+                        }, status=403)
                     p = self.player_manager.get_or_create_player(ch.guild)
                     await p.connect_to_channel(ch)
                     return web.json_response({"success": True, "action": "joined", "player": p.get_state()})
 
         if action == "leave":
-            if player:
+            if player and player.voice_client and player.voice_client.channel:
+                bot_channel = player.voice_client.channel
+                human_members = [m for m in bot_channel.members if not m.bot]
+                if human_members and user_id and user_id not in [m.id for m in human_members]:
+                    member = player.guild.get_member(user_id)
+                    if not (member and member.guild_permissions.administrator):
+                        return web.json_response({
+                            "success": False,
+                            "error": "Отключить бота могут только участники голосовой комнаты, в которой он находится!"
+                        }, status=403)
                 await player.stop()
             elif guild_id:
                 g = self.bot.get_guild(guild_id)
@@ -552,10 +597,15 @@ class WebServer:
             bot_channel = player.voice_client.channel
             human_members = [m for m in bot_channel.members if not m.bot]
             if human_members and user_id and user_id not in [m.id for m in human_members]:
-                if action not in ("stop", "volume", "join", "leave"):
+                is_admin = False
+                member = player.guild.get_member(user_id) if player.guild else None
+                if member and member.guild_permissions.administrator:
+                    is_admin = True
+                is_requester = bool(player.current_track and player.current_track.requester_id == user_id)
+                if not is_admin and not is_requester:
                     return web.json_response({
                         "success": False,
-                        "error": "Управлять плеером могут только участники голосового канала!",
+                        "error": f"Управлять плеером могут только участники голосовой комнаты «{bot_channel.name}»!",
                     }, status=403)
 
         try:
