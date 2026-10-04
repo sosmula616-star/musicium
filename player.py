@@ -682,6 +682,9 @@ class GuildPlayer:
             "loop_mode": self.loop_mode,
             "current_track": self.current_track.to_dict() if self.current_track else None,
             "elapsed_seconds": self.get_elapsed_seconds(),
+            "position": self.get_elapsed_seconds(),
+            "duration": (self.current_track.duration if self.current_track and self.current_track.duration else 0),
+            "duration_str": (self.current_track.duration_str if self.current_track and self.current_track.duration_str else "00:00"),
             "queue": [t.to_dict() for t in self.queue],
             "history": [t.to_dict() for t in self.history[:10]],
             "votes": {
