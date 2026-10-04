@@ -625,76 +625,56 @@ class MusicService:
                 else:
                     target_url = f"ytsearch1:{track.title} {track.artist}"
 
-            # 1. Primary: Fast iOS/mweb client (bypasses web n-sig challenge & Android SABR 403 blocks)
-            try:
-                primary_opts = {
-                    "format": "bestaudio[ext=m4a]/bestaudio[acodec=opus]/bestaudio/best",
-                    "quiet": True,
-                    "no_warnings": True,
-                    "extract_flat": False,
-                    "noplaylist": True,
-                    "source_address": "0.0.0.0",
-                    "extractor_args": {
-                        "youtube": {
-                            "player_client": ["ios", "mweb", "android"],
+            cookie_file = self.youtube_cookie_path if (self.youtube_cookie_path and os.path.exists(self.youtube_cookie_path)) else None
+
+            # Client strategies to try in order. mweb, web_embedded, and tv_embedded bypass bot sign-in checks on datacenter IPs.
+            client_configs = [
+                {"client": ["mweb"], "format": "ba/b/bestaudio/best"},
+                {"client": ["web_embedded", "tv_embedded"], "format": "ba/b/bestaudio/best"},
+                {"client": ["android_creator"], "format": "ba/b/bestaudio/best"},
+                {"client": ["ios", "web"], "format": "ba/b/bestaudio/best"},
+            ]
+
+            for cfg in client_configs:
+                try:
+                    opts = {
+                        "format": cfg["format"],
+                        "quiet": True,
+                        "no_warnings": True,
+                        "extract_flat": False,
+                        "noplaylist": True,
+                        "source_address": "0.0.0.0",
+                        "extractor_args": {
+                            "youtube": {
+                                "player_client": cfg["client"],
+                            },
                         },
-                    },
-                }
-                with yt_dlp.YoutubeDL(primary_opts) as ydl:
-                    info = ydl.extract_info(target_url, download=False)
-                    if info:
-                        if "entries" in info and info["entries"]:
-                            info = info["entries"][0]
-                        stream = info.get("url")
-                        if stream:
-                            return stream
-            except Exception as e:
-                logger.warning(f"Primary YouTube extraction failed ({e}), attempting secondary clients...")
+                    }
+                    if cookie_file:
+                        opts["cookiefile"] = cookie_file
 
-            # 2. Secondary: Authenticated / visionOS / web fallback with cookies (for age-restricted or member tracks)
+                    with yt_dlp.YoutubeDL(opts) as ydl:
+                        info = ydl.extract_info(target_url, download=False)
+                        if info:
+                            if "entries" in info and info["entries"]:
+                                info = info["entries"][0]
+                            stream = info.get("url")
+                            if stream and not info.get("has_drm"):
+                                logger.info(f"Resolved YouTube stream using client {cfg['client']} for: {track.title}")
+                                return stream
+                except Exception as ex:
+                    logger.debug(f"YouTube client {cfg['client']} failed: {ex}")
+                    continue
+
+            # Fallback 1: Search alternative YouTube uploads with mweb/web_embedded if direct video URL is region/bot blocked
+            clean_title = re.sub(r'[\U00010000-\U0010ffff]', '', track.title)
+            clean_title = re.sub(r'#\w+', '', clean_title)
+            clean_title = re.sub(r'\|.*', '', clean_title)
+            clean_title = re.sub(r'\[.*?\]|\(.*?\)', '', clean_title).strip()
+            clean_artist = track.artist if track.artist and track.artist != "Неизвестный автор" else ""
+            search_query = f"{clean_title} {clean_artist}".strip() or track.title
+
             try:
-                auth_opts = {
-                    "format": "ba/b/bestaudio/best",
-                    "quiet": True,
-                    "no_warnings": True,
-                    "extract_flat": False,
-                    "noplaylist": True,
-                    "source_address": "0.0.0.0",
-                    "extractor_args": {
-                        "youtube": {
-                            "player_client": ["visionos", "web", "mweb"],
-                        },
-                    },
-                    "remote_components": ["ejs:github"],
-                    "js_runtimes": {"node": {}, "deno": {}, "quickjs": {}},
-                    "http_headers": {
-                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-                        "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
-                    },
-                }
-                if self.youtube_cookie_path and os.path.exists(self.youtube_cookie_path):
-                    auth_opts["cookiefile"] = self.youtube_cookie_path
-
-                with yt_dlp.YoutubeDL(auth_opts) as ydl:
-                    sec_info = ydl.extract_info(target_url, download=False)
-                    if sec_info:
-                        if "entries" in sec_info and sec_info["entries"]:
-                            sec_info = sec_info["entries"][0]
-                        sec_stream = sec_info.get("url")
-                        if sec_stream:
-                            return sec_stream
-            except Exception as e2:
-                logger.warning(f"Secondary YouTube stream extraction failed: {e2}")
-
-            # 3. Tertiary: Search alternative YouTube uploads with android client (if original video is region/SABR blocked)
-            try:
-                clean_title = re.sub(r'[\U00010000-\U0010ffff]', '', track.title)
-                clean_title = re.sub(r'#\w+', '', clean_title)
-                clean_title = re.sub(r'\|.*', '', clean_title)
-                clean_title = re.sub(r'\[.*?\]|\(.*?\)', '', clean_title).strip()
-                clean_artist = track.artist if track.artist and track.artist != "Неизвестный автор" else ""
-                search_query = f"{clean_title} {clean_artist}".strip() or track.title
-
                 alt_opts = {
                     "format": "ba/b/bestaudio/best",
                     "quiet": True,
@@ -705,21 +685,24 @@ class MusicService:
                     "source_address": "0.0.0.0",
                     "extractor_args": {
                         "youtube": {
-                            "player_client": ["android"],
+                            "player_client": ["mweb", "web_embedded"],
                         },
                     },
                 }
+                if cookie_file:
+                    alt_opts["cookiefile"] = cookie_file
+
                 with yt_dlp.YoutubeDL(alt_opts) as ydl:
                     alt_info = ydl.extract_info(f"ytsearch3:{search_query}", download=False)
                     for entry in (alt_info.get("entries") or []):
-                        if entry and entry.get("url"):
+                        if entry and entry.get("url") and not entry.get("has_drm"):
                             logger.info(f"Alternative YouTube stream resolved for: {track.title}")
                             return entry.get("url")
             except Exception as alt_err:
                 logger.debug(f"Alternative YouTube search failed: {alt_err}")
 
-            # 4. Quaternary attempt: SoundCloud fallback with DRM filtering
-            logger.warning("YouTube stream extraction failed, attempting SoundCloud fallback...")
+            # Fallback 2: SoundCloud search
+            logger.warning("All YouTube stream extraction attempts failed, attempting SoundCloud fallback...")
             try:
                 sc_opts = {
                     "format": "bestaudio/best",
