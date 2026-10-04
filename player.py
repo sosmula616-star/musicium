@@ -94,7 +94,11 @@ def ensure_opus_loaded():
 
 ensure_opus_loaded()
 
-FFMPEG_BEFORE_OPTIONS = "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -probesize 32768 -analyzeduration 0"
+FFMPEG_BEFORE_OPTIONS = (
+    "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 "
+    "-probesize 65536 -analyzeduration 0 "
+    '-user_agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"'
+)
 FFMPEG_OPTIONS = "-vn"
 
 class GuildPlayer:
@@ -122,6 +126,8 @@ class GuildPlayer:
         self.audio_source: Optional[discord.PCMVolumeTransformer] = None
         self._is_seeking: bool = False
         self._play_generation: int = 0
+        self._consecutive_failures: int = 0
+        self._retried_current: bool = False
         self._lock = asyncio.Lock()
 
     @property
@@ -294,9 +300,11 @@ class GuildPlayer:
             def _after_play(err):
                 if current_gen != self._play_generation:
                     return
+                elapsed = (time.time() - self.start_time) if self.start_time > 0 else 0
+                is_failed = bool(err) or (elapsed < 3.0)
                 if err:
-                    logger.error(f"Playback error: {err}")
-                coro = self._on_track_finished()
+                    logger.error(f"Playback error in {self.guild.name}: {err}")
+                coro = self._handle_track_finished_or_failed(is_failed=is_failed, track=track)
                 asyncio.run_coroutine_threadsafe(coro, self.bot.loop)
 
             for _ in range(10):
@@ -323,29 +331,62 @@ class GuildPlayer:
 
         except Exception as e:
             logger.error(f"Error starting track {track.title}: {e}", exc_info=True)
+            self._consecutive_failures += 1
+            if self._consecutive_failures >= 3:
+                logger.error(f"Stopping playback in {self.guild.name}: 3 consecutive track start errors.")
+                self.current_track = None
+                self.queue.clear()
+                self._consecutive_failures = 0
+                await self._notify_change()
+                return
             await self._play_next()
 
-    async def _on_track_finished(self):
+    async def _handle_track_finished_or_failed(self, is_failed: bool, track: Track):
         async with self._lock:
             if not self.current_track:
                 return
 
-            # Add to history
-            self.history.insert(0, self.current_track)
-            if len(self.history) > 25:
-                self.history.pop()
+            if is_failed:
+                logger.warning(f"Track '{track.title}' finished prematurely (<3s) or errored.")
+                # Attempt 1 fresh retry with invalidated cache
+                if not self._retried_current:
+                    self._retried_current = True
+                    logger.info(f"Retrying '{track.title}' with freshly resolved stream URL...")
+                    self.music_service.invalidate_stream_cache(track)
+                    new_stream = await self.music_service.get_stream_url(track, force_refresh=True)
+                    if new_stream:
+                        track.stream_url = new_stream
+                        await self._start_track(track)
+                        return
 
-            finished_track = self.current_track
+                self._consecutive_failures += 1
+                if self._consecutive_failures >= 3:
+                    logger.error(f"Stopping playback loop in {self.guild.name}: 3 consecutive stream failures.")
+                    self.current_track = None
+                    self.queue.clear()
+                    self._consecutive_failures = 0
+                    self._retried_current = False
+                    if self.voice_client and (self.voice_client.is_playing() or self.voice_client.is_paused()):
+                        self.voice_client.stop()
+                    await self._notify_change()
+                    return
+            else:
+                self._consecutive_failures = 0
+                self._retried_current = False
 
-            # Handle repeat modes
-            if self.loop_mode == "track":
-                # Replay same track
-                await self._start_track(finished_track)
-                return
-            elif self.loop_mode == "queue":
-                # Add to back of queue
-                self.queue.append(finished_track)
+                # Add to history
+                self.history.insert(0, track)
+                if len(self.history) > 25:
+                    self.history.pop()
 
+                # Handle repeat modes
+                if self.loop_mode == "track":
+                    await self._start_track(track)
+                    return
+                elif self.loop_mode == "queue":
+                    self.queue.append(track)
+
+            self._retried_current = False
             await self._play_next()
 
     async def _prefetch_next(self):
@@ -496,9 +537,11 @@ class GuildPlayer:
             def _after_play(err):
                 if current_gen != self._play_generation:
                     return
+                elapsed = (time.time() - self.start_time) if self.start_time > 0 else 0
+                is_failed = bool(err) or (elapsed < 3.0)
                 if err:
                     logger.error(f"Playback error after seek: {err}")
-                coro = self._on_track_finished()
+                coro = self._handle_track_finished_or_failed(is_failed=is_failed, track=self.current_track)
                 asyncio.run_coroutine_threadsafe(coro, self.bot.loop)
 
             for _ in range(10):
