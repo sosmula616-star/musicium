@@ -327,7 +327,7 @@ class GuildPlayer:
                 if current_gen != self._play_generation:
                     return
                 elapsed = (time.time() - self.start_time) if self.start_time > 0 else 0
-                is_failed = bool(err) or (elapsed < 3.0)
+                is_failed = bool(err) or (elapsed < 3.0 and (not track.duration or track.duration > 5))
 
                 if err:
                     logger.error(f"Playback error in {self.guild.name}: {err}")
@@ -560,12 +560,13 @@ class GuildPlayer:
             self.start_time = time.time() - seconds
             self.pause_start_time = 0.0
             self.total_paused_duration = 0.0
+            seek_started_at = time.time()
 
             def _after_play(err):
                 if current_gen != self._play_generation:
                     return
-                elapsed = (time.time() - self.start_time) if self.start_time > 0 else 0
-                is_failed = bool(err) or (elapsed < 3.0)
+                elapsed = time.time() - seek_started_at
+                is_failed = bool(err) or (elapsed < 3.0 and (not self.current_track or not self.current_track.duration or self.current_track.duration > 5))
 
                 if err:
                     logger.error(f"Playback error after seek: {err}")
