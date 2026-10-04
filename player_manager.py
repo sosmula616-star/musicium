@@ -175,13 +175,8 @@ class PlayerManager:
         # Broadcast via WebSockets only to clients connected to this guild (or unassigned)
         await self.broadcast_event("player_update", state, target_guild_id=player.guild.id)
 
-        # DM Notifications
-        if self.dm_controller:
-            req_id = player.current_track.requester_id if player.current_track else None
-            if track_started and req_id:
-                await self.dm_controller.notify_track_started(req_id, player.guild.id, player.current_track)
-            elif req_id:
-                await self.dm_controller.update_dm_message(req_id, player.guild.id)
+        # DM Notifications disabled per user request (player controlled exclusively via Activity)
+        pass
 
     async def broadcast_event(self, event_type: str, data: Any, target_guild_id: Optional[int] = None):
         if not self.ws_clients:
