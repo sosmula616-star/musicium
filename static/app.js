@@ -1926,8 +1926,8 @@
     });
   }
 
-  // Search tracks
-  async function performSearch(query = null) {
+  // Search tracks (autoPlayFirst = true when user explicitly hits Enter in search box)
+  async function performSearch(query = null, autoPlayFirst = false) {
     const q = query !== null ? query : el.searchInput.value.trim();
     if (!q) {
       switchView('home');
@@ -1955,6 +1955,9 @@
       } else {
         el.resultsCount.textContent = t('results.found', { count: data.tracks.length });
         renderTracks(data.tracks);
+        if (autoPlayFirst && data.tracks.length > 0) {
+          playTrack(data.tracks[0], true);
+        }
       }
     } catch (err) {
       el.loadingState.style.display = 'none';
@@ -2022,6 +2025,12 @@
       });
       card.querySelector('.btn-card-add-pl').addEventListener('click', () => {
         openAddToPlaylistModal(track);
+      });
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('.btn-card-like') || e.target.closest('.btn-card-add-pl') || e.target.closest('.btn-add-queue') || e.target.closest('.card-title')) {
+          return;
+        }
+        playTrack(track, true);
       });
 
       el.tracksGrid.appendChild(card);
@@ -2507,12 +2516,12 @@
     el.searchInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         clearTimeout(state.searchTimeout);
-        performSearch();
+        performSearch(null, true);
       }
     });
 
     el.searchSubmitBtn.addEventListener('click', () => {
-      performSearch();
+      performSearch(null, false);
     });
 
     el.searchClearBtn.addEventListener('click', () => {
