@@ -215,7 +215,7 @@
           <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
             <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
           </svg>
-          <span data-i18n="sidebar.newPlaylist">Новый</span>
+          <span data-i18n="sidebar.newPlaylist">Создать плейлист</span>
         </button>
       </div>
 
@@ -281,9 +281,9 @@
 
         <!-- Header Right: Voice Widget (Requirement 2) & Profile -->
         <div class="ytm-header-right">
-          <!-- Voice Channel Pill Widget with Hover Dropdown (Requirement 2) -->
+          <!-- Voice Channel Status Pill: Real-time room info without switching -->
           <div class="ytm-voice-widget" id="voiceWidgetContainer">
-            <div class="voice-status-pill" id="voiceStatusPill" title="Статус голосового канала (наведите для списка)">
+            <div class="voice-status-pill" id="voiceStatusPill" title="Текущая голосовая комната и слушатели">
               <div class="status-indicator" id="voiceIndicator"></div>
               <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="voice-speaker-icon">
                 <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
@@ -292,63 +292,22 @@
                 <span class="voice-channel-name" id="voiceChannelName" data-i18n="voice.notConnected">Не подключен</span>
               </div>
               <span class="voice-members-count-badge" id="voiceMembersCountBadge">0</span>
-              <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" class="voice-chevron">
-                <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
-              </svg>
             </div>
 
-            <!-- Dropdown List of Channel Members, Rooms and Servers -->
-            <div class="voice-members-dropdown" id="voiceMembersDropdown">
-              <!-- Bot Voice Status Banner -->
-              <div class="bot-voice-banner" id="botVoiceBanner" style="display: none;">
-                <div class="bot-voice-banner-left">
-                  <div class="bot-pulse-dot"></div>
-                  <div class="bot-voice-text">
-                    <span class="bot-voice-title" id="botVoiceTitle">Бот в комнате</span>
-                    <span class="bot-voice-channel" id="botVoiceChannel">—</span>
-                  </div>
-                </div>
-                <button class="bot-voice-disconnect-btn" id="btnDisconnectBotVoice" title="Отключить бота от комнаты">
-                  <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-                </button>
-              </div>
-
-              <!-- Dropdown Tabs -->
-              <div class="voice-dropdown-tabs">
-                <button type="button" class="voice-tab-btn active" id="tabVoiceChannels" data-tab="channels">
-                  <i class="fa-solid fa-server"></i>
-                  <span data-i18n="voice.serversTitle">Серверы и комнаты</span>
-                </button>
-                <button type="button" class="voice-tab-btn" id="tabVoiceMembers" data-tab="members">
-                  <i class="fa-solid fa-users"></i>
-                  <span data-i18n="voice.membersTitle">Участники</span>
-                  <span class="dropdown-count-badge" id="dropdownMembersCount">0</span>
-                </button>
+            <!-- Popover: Listeners in this room -->
+            <div class="voice-members-dropdown" id="voiceMembersDropdown" style="width: 270px; padding: 14px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <div style="font-size: 13px; font-weight: 700; color: #fff;" id="voiceDropdownTitle">Голосовой канал</div>
                 <button class="dropdown-refresh-btn" id="refreshVoiceBtn" title="Обновить статус">
                   <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
                     <path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
                   </svg>
                 </button>
               </div>
-
-              <!-- Tab Content 1: Channels and Servers Picker -->
-              <div class="voice-tab-content active" id="tabContentChannels">
-                <div class="guild-filter-wrap">
-                  <select id="guildFilterSelect" class="guild-filter-select">
-                    <option value="all">Все серверы</option>
-                  </select>
-                </div>
-                <div class="voice-rooms-list" id="voiceRoomsList">
-                  <div class="dropdown-empty-state"><p>Загрузка комнат...</p></div>
-                </div>
-              </div>
-
-              <!-- Tab Content 2: Current Channel Members -->
-              <div class="voice-tab-content" id="tabContentMembers">
-                <div class="dropdown-members-list" id="voiceMembersList">
-                  <div class="dropdown-empty-state">
-                    <p data-i18n="voice.dropdownEmpty">Подключитесь к голосовому каналу Discord, чтобы управлять ботом</p>
-                  </div>
+              <div style="font-size: 11px; color: #888; margin-bottom: 10px;" id="voiceDropdownSub">Слушатели в комнате:</div>
+              <div class="dropdown-members-list" id="voiceMembersList" style="max-height: 180px; overflow-y: auto;">
+                <div class="dropdown-empty-state">
+                  <p data-i18n="voice.dropdownEmpty">Подключитесь к голосовому каналу Discord, чтобы слушать музыку</p>
                 </div>
               </div>
             </div>
@@ -481,8 +440,12 @@
           <!-- Section 5: Плейлисты пользователей (User & Community Playlists from DB) -->
           <div class="ytm-shelf" id="communityPlaylistsShelf">
             <div class="ytm-shelf-header">
-              <div class="shelf-brand-title">
+              <div class="shelf-brand-title" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
                 <h2><span>Плейлисты пользователей</span></h2>
+                <button class="btn-create-pl-shelf" id="btnCreatePlHome" title="Создать свой плейлист">
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                  <span>Создать плейлист</span>
+                </button>
               </div>
               <div class="shelf-nav-arrows">
                 <button class="shelf-arrow-btn" id="commArrowLeft" title="Назад"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
@@ -710,6 +673,12 @@
             <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
           </svg>
         </button>
+        <!-- Add To Playlist Button in Dock -->
+        <button class="btn-like-dock" id="btnAddToPlCurrent" title="Добавить текущий трек в плейлист" aria-label="Add to Playlist">
+          <svg viewBox="0 0 24 24" width="19" height="19" fill="currentColor">
+            <path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z"/>
+          </svg>
+        </button>
       </div>
 
       <!-- Center: Playback Controls & Progress Bar -->
@@ -819,7 +788,7 @@
 
   <!-- Modal: Add Track to Playlist -->
   <div class="custom-modal-overlay" id="addToPlaylistModal" style="display: none;">
-    <div class="custom-modal-box glass-panel">
+    <div class="custom-modal-box glass-panel" style="width: 440px; max-width: 92vw;">
       <div class="custom-modal-header">
         <div class="modal-title-with-icon">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="#ff0000"><path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z"/></svg>
@@ -831,13 +800,78 @@
       </div>
       <div class="custom-modal-body">
         <div class="modal-target-track" id="addToPlaylistTrackInfo"></div>
-        <div class="modal-playlists-list" id="addToPlaylistList">
+
+        <!-- Button to trigger inline create playlist form -->
+        <button type="button" class="btn-create-pl-shelf" id="btnShowCreatePlInline" style="width: 100%; height: 38px; justify-content: center; margin-bottom: 12px; background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12);">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+          <span>Создать новый плейлист</span>
+        </button>
+
+        <!-- Inline create playlist form (hidden by default) -->
+        <div id="inlineCreatePlForm" style="display: none; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px; margin-bottom: 12px;">
+          <div style="font-size: 11px; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px;">Название нового плейлиста</div>
+          <div style="display: flex; gap: 8px; margin-top: 6px;">
+            <input type="text" id="inlinePlNameInput" class="custom-modal-input" placeholder="Например: Мой микс..." style="margin-top:0;height:34px;font-size:12.5px;" maxlength="50" autocomplete="off">
+            <button type="button" class="btn-primary-yt" id="btnInlineCreateAndAdd" style="height:34px;padding:0 12px;font-size:12px;white-space:nowrap;">Создать и добавить</button>
+          </div>
+        </div>
+
+        <div style="font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Выберите плейлист:</div>
+        <div class="modal-playlists-list" id="addToPlaylistList" style="max-height: 200px; overflow-y: auto;">
           <!-- Injected dynamically -->
         </div>
       </div>
       <div class="custom-modal-footer">
         <button type="button" class="btn-secondary-modal" id="closeAddToPlaylistModalBtn" data-i18n="playlist.done">Готово</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Modal: Confirmation Modal (Sandboxed iframe safe) -->
+  <div class="custom-modal-overlay" id="confirmActionModal" style="display: none;">
+    <div class="custom-modal-box glass-panel" style="max-width: 380px;">
+      <div class="custom-modal-header">
+        <div class="modal-title-with-icon">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="#ef4444" id="confirmModalIcon"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+          <h3 id="confirmModalTitle">Подтверждение</h3>
+        </div>
+        <button class="btn-close-legal" id="closeConfirmModalBtn" title="Закрыть">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="custom-modal-body">
+        <p id="confirmModalDesc" style="font-size: 13.5px; color: #ccc; line-height: 1.5; margin: 0 0 16px 0;">Вы уверены?</p>
+      </div>
+      <div class="custom-modal-footer" style="display: flex; gap: 10px; justify-content: flex-end;">
+        <button type="button" class="btn-secondary-modal" id="cancelConfirmModalBtn">Отмена</button>
+        <button type="button" class="btn-primary-yt" id="acceptConfirmModalBtn" style="background: #ef4444;">Подтвердить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Discord Authorization -->
+  <div class="custom-modal-overlay" id="authDiscordModal" style="display: none;">
+    <div class="custom-modal-box glass-panel" style="max-width: 400px; text-align: center; padding: 28px 24px;">
+      <div style="width: 60px; height: 60px; border-radius: 50%; background: #5865F2; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto; box-shadow: 0 8px 24px rgba(88,101,242,0.35);">
+        <svg viewBox="0 0 24 24" width="32" height="32" fill="#ffffff">
+          <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.893.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+        </svg>
+      </div>
+      <h2 style="font-size: 19px; font-weight: 700; color: #fff; margin-bottom: 8px;">Вход через Discord</h2>
+      <p style="font-size: 13px; color: #aaa; line-height: 1.5; margin-bottom: 22px;">
+        Авторизуйтесь через Discord, чтобы бот узнал ваш аккаунт и сохранил ваши персональные лайки, историю и плейлисты в базе данных.
+      </p>
+
+      <button type="button" id="btnDiscordLoginAction" style="width: 100%; height: 42px; background: #5865F2; color: #fff; border: none; border-radius: 21px; font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 9px; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 4px 16px rgba(88,101,242,0.4);">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="#ffffff">
+          <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.893.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+        </svg>
+        <span>Войти через Discord</span>
+      </button>
+
+      <button type="button" id="btnContinueAsGuest" style="background: none; border: none; color: #888; font-size: 12px; margin-top: 14px; cursor: pointer; text-decoration: underline;">
+        Продолжить как гость (без сохранения)
+      </button>
     </div>
   </div>
   <!-- Comprehensive Legal Document Modal (Terms of Service & Privacy Policy) -->
@@ -1129,7 +1163,7 @@
   <!-- Toast Notification Container -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="/static/app.js?v=14.0"></script>
+  <script src="/static/app.js?v=15.0"></script>
 </body>
 
 </html>
