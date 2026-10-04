@@ -522,6 +522,7 @@ class WebServer:
                     logger.warning(f"Could not batch-resolve playlist {track_url}: {ex}")
 
             # Enqueue or play single track
+            logger.info(f"handle_play: user {user_id} ({member_name}) requested '{track.title}' (play_now={play_now}) in {target_guild.name} / {target_channel.name}")
             res = await player.enqueue(track, play_now=play_now)
 
             # Record track in user history in PostgreSQL
