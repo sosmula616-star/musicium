@@ -62,6 +62,7 @@
     isPlaying: false,
     isMuted: false,
     savedVolume: 100,
+    userExplicitVolume: loadJson('musicium_volume', null),
     searchTimeout: null,
     isScrubbing: false,
     isAdjustingVolume: false,
@@ -837,12 +838,16 @@
             el.botVoiceBanner.style.display = 'flex';
             if (el.botVoiceChannel) el.botVoiceChannel.textContent = `${activeBotGuild.name} • 🔊 ${activeBotGuild.bot_channel_name}`;
           }
-        } else if (!state.channelId && state.guilds.length === 1 && state.guilds[0].channels && state.guilds[0].channels.length === 1) {
-          // If server only has 1 voice room, set it as default candidate
-          const onlyCh = state.guilds[0].channels[0];
-          state.channelId = onlyCh.id;
-          state.channelName = onlyCh.name;
-          state.guildId = state.guilds[0].id;
+        } else {
+          if (!state.guildId && state.guilds.length > 0) {
+            state.guildId = state.guilds[0].id;
+            state.guildName = state.guilds[0].name;
+          }
+          if (!state.channelId && state.guilds.length === 1 && state.guilds[0].channels && state.guilds[0].channels.length === 1) {
+            const onlyCh = state.guilds[0].channels[0];
+            state.channelId = onlyCh.id;
+            state.channelName = onlyCh.name;
+          }
         }
 
         updateGuildFilterOptions();
@@ -1926,8 +1931,8 @@
     });
   }
 
-  // Search tracks (autoPlayFirst = true when user explicitly hits Enter in search box)
-  async function performSearch(query = null, autoPlayFirst = false) {
+  // Search tracks (only searches and renders results, never automatically plays)
+  async function performSearch(query = null) {
     const q = query !== null ? query : el.searchInput.value.trim();
     if (!q) {
       switchView('home');
@@ -1955,9 +1960,6 @@
       } else {
         el.resultsCount.textContent = t('results.found', { count: data.tracks.length });
         renderTracks(data.tracks);
-        if (autoPlayFirst && data.tracks.length > 0) {
-          playTrack(data.tracks[0], true);
-        }
       }
     } catch (err) {
       el.loadingState.style.display = 'none';
@@ -2056,6 +2058,7 @@
     const effectiveChannelId = state.channelId;
 
     try {
+      const explicitVol = (state.userExplicitVolume !== null) ? state.userExplicitVolume : (el.volumeSlider ? parseInt(el.volumeSlider.value) : 100);
       const resp = await fetch('/api/play', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2065,6 +2068,7 @@
           channel_id: effectiveChannelId,
           track: track,
           play_now: playNow,
+          volume: explicitVol,
         })
       });
 
@@ -2096,9 +2100,9 @@
     }
   }
 
-  // Send player action (checks if user is in voice)
+  // Send player action (checks if user is in voice, except for volume setting)
   async function sendPlayerAction(action, payload = {}) {
-    if (!state.inVoice && !state.channelId) {
+    if (action !== 'volume' && !state.inVoice && !state.channelId) {
       await checkUserVoice();
       if (!state.inVoice && !state.channelId) {
         if (el.voiceWidgetContainer) {
@@ -2145,6 +2149,27 @@
 
     state.player = playerState;
 
+    // Volume sync (runs regardless of playback state)
+    if (playerState && playerState.volume !== undefined && !state.isAdjustingVolume && (Date.now() - state.lastUserVolumeChange > 1200)) {
+      let serverVol = Math.round(Number(playerState.volume));
+      if (isNaN(serverVol)) serverVol = 100;
+
+      if (state.userExplicitVolume !== null) {
+        const myVol = Math.max(0, Math.min(200, state.userExplicitVolume));
+        if (el.volumeSlider) el.volumeSlider.value = myVol;
+        if (el.volumeVal) el.volumeVal.textContent = `${myVol}%`;
+        updateVolumeIcon(myVol);
+        if (serverVol !== myVol) {
+          sendPlayerAction('volume', { value: myVol });
+        }
+      } else {
+        const vol = Math.max(0, Math.min(200, serverVol));
+        if (el.volumeSlider) el.volumeSlider.value = vol;
+        if (el.volumeVal) el.volumeVal.textContent = `${vol}%`;
+        updateVolumeIcon(vol);
+      }
+    }
+
     if (!playerState || !playerState.is_playing) {
       state.isPlaying = false;
       state.duration = 0;
@@ -2163,7 +2188,7 @@
       if (el.timeElapsed) el.timeElapsed.textContent = '00:00';
       if (el.timeDuration) el.timeDuration.textContent = '00:00';
       if (el.progressFill) el.progressFill.style.width = '0%';
-      if (el.sidebarQueueCount) el.sidebarQueueCount.textContent = '0';
+      if (el.sidebarQueueCount) el.sidebarQueueCount.textContent = (playerState && playerState.queue) ? playerState.queue.length : '0';
 
       updateDockLikeBtn();
       if (state.currentView === 'queue') renderQueueView();
@@ -2218,15 +2243,6 @@
     if (el.btnLoop) {
       const mode = playerState.loop_mode || 'off';
       el.btnLoop.className = `control-btn btn-sm ${mode !== 'off' ? 'active' : ''}`;
-    }
-
-    if (playerState.volume !== undefined && !state.isAdjustingVolume && (Date.now() - state.lastUserVolumeChange > 1200)) {
-      let vol = Math.round(Number(playerState.volume));
-      if (isNaN(vol)) vol = 100;
-      vol = Math.max(0, Math.min(200, vol));
-      if (el.volumeSlider) el.volumeSlider.value = vol;
-      if (el.volumeVal) el.volumeVal.textContent = `${vol}%`;
-      updateVolumeIcon(vol);
     }
 
     if (el.sidebarQueueCount) {
@@ -2516,12 +2532,12 @@
     el.searchInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         clearTimeout(state.searchTimeout);
-        performSearch(null, true);
+        performSearch();
       }
     });
 
     el.searchSubmitBtn.addEventListener('click', () => {
-      performSearch(null, false);
+      performSearch();
     });
 
     el.searchClearBtn.addEventListener('click', () => {
@@ -2862,12 +2878,23 @@
       updateVolumeIcon(val);
       state.isMuted = (val === 0);
       state.isAdjustingVolume = true;
+      state.userExplicitVolume = val;
+      state.savedVolume = val;
+      saveJson('musicium_volume', val);
       state.lastUserVolumeChange = Date.now();
       clearTimeout(volDebounce);
       volDebounce = setTimeout(() => {
         sendPlayerAction('volume', { value: val });
         setTimeout(() => { state.isAdjustingVolume = false; }, 600);
       }, 80);
+    });
+
+    el.volumeSlider.addEventListener('change', (e) => {
+      const val = parseInt(e.target.value) || 0;
+      state.userExplicitVolume = val;
+      state.savedVolume = val;
+      saveJson('musicium_volume', val);
+      sendPlayerAction('volume', { value: val });
     });
 
     // Voice Widget Dropdown Tabs
@@ -2928,6 +2955,15 @@
   // Boot
   async function init() {
     setLanguage(state.lang, false);
+
+    // Restore saved volume preference if exists
+    if (state.userExplicitVolume !== null) {
+      const stored = Math.max(0, Math.min(200, state.userExplicitVolume));
+      if (el.volumeSlider) el.volumeSlider.value = stored;
+      if (el.volumeVal) el.volumeVal.textContent = `${stored}%`;
+      updateVolumeIcon(stored);
+    }
+
     updateUserUI();
     renderSidebarPlaylists();
     renderHomeView();
