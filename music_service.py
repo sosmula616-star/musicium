@@ -67,11 +67,27 @@ class Track:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Track":
+        raw_dur = data.get("duration", 0)
+        dur = 0
+        try:
+            dur = int(raw_dur or 0)
+        except Exception:
+            dur = 0
+        if dur <= 0 and data.get("duration_str"):
+            parts = str(data["duration_str"]).strip().split(":")
+            try:
+                if len(parts) == 2:
+                    dur = int(parts[0]) * 60 + int(parts[1])
+                elif len(parts) == 3:
+                    dur = int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+            except Exception:
+                dur = 0
+
         return cls(
             id=data.get("id", ""),
             title=data.get("title", "Неизвестный трек"),
             artist=data.get("artist", "Неизвестный исполнитель"),
-            duration=data.get("duration", 0),
+            duration=dur,
             thumbnail=data.get("thumbnail", DEFAULT_THUMBNAIL),
             url=data.get("url", ""),
             source=data.get("source", "youtube"),
@@ -586,6 +602,9 @@ class MusicService:
                 try:
                     with yt_dlp.YoutubeDL(sc_opts) as ydl:
                         info = ydl.extract_info(target_url, download=False)
+                        if info and not track.duration and info.get("duration"):
+                            track.duration = int(info["duration"])
+                            track.duration_str = format_duration(track.duration)
                         stream = self._extract_audio_stream_url(info)
                         if stream:
                             return stream
@@ -704,6 +723,9 @@ class MusicService:
             try:
                 with yt_dlp.YoutubeDL(base_opts) as ydl:
                     info = ydl.extract_info(target_url, download=False)
+                    if info and not track.duration and info.get("duration"):
+                        track.duration = int(info["duration"])
+                        track.duration_str = format_duration(track.duration)
                     stream = self._extract_audio_stream_url(info)
                     if stream:
                         logger.info(f"Resolved YouTube stream (standard) for: {track.title}")
@@ -727,6 +749,9 @@ class MusicService:
                     }
                     with yt_dlp.YoutubeDL(alt_opts) as ydl:
                         info = ydl.extract_info(target_url, download=False)
+                        if info and not track.duration and info.get("duration"):
+                            track.duration = int(info["duration"])
+                            track.duration_str = format_duration(track.duration)
                         stream = self._extract_audio_stream_url(info)
                         if stream:
                             logger.info(f"Resolved YouTube stream with clients {clients} for: {track.title}")
