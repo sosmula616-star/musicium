@@ -177,8 +177,19 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
             if player:
                 player.voice_client = None
                 await player._notify_change()
+        elif before.channel is not None and after.channel is not None and before.channel.id != after.channel.id:
+            # Bot was moved to another channel on the server: Revert it!
+            logger.warning(f"Bot move attempted in '{member.guild.name}' from '{before.channel.name}' to '{after.channel.name}'. Reverting move!")
+            try:
+                await member.move_to(before.channel)
+                return
+            except Exception as e:
+                logger.error(f"Could not revert bot move: {e}")
+                if player:
+                    player.voice_client = member.guild.voice_client
+                    await player._notify_change()
         else:
-            logger.info(f"Bot connected or moved to room '{after.channel.name}' in guild '{member.guild.name}'")
+            logger.info(f"Bot connected to room '{after.channel.name}' in guild '{member.guild.name}'")
             if not player:
                 player = player_manager.get_or_create_player(member.guild)
             player.voice_client = member.guild.voice_client
@@ -238,10 +249,13 @@ class ActivityLaunchButton(discord.ui.Button):
             msg += f"👉 **[Запустить Mini App в канале]({invite_url})**\n"
         msg += f"🌐 Веб-версия в браузере: {PUBLIC_URL}{guild_param}"
 
-        if not interaction.response.is_done():
-            await interaction.response.send_message(msg, ephemeral=True)
-        else:
-            await interaction.followup.send(msg, ephemeral=True)
+        try:
+            if not interaction.response.is_done():
+                await interaction.response.send_message(msg, ephemeral=True)
+            else:
+                await interaction.followup.send(msg, ephemeral=True)
+        except Exception as send_err:
+            logger.debug(f"Could not send activity launch response: {send_err}")
 
 
 class PersistentActivityView(discord.ui.View):
@@ -249,14 +263,25 @@ class PersistentActivityView(discord.ui.View):
         super().__init__(timeout=None)
         self.add_item(ActivityLaunchButton())
 
+    async def on_error(self, interaction: discord.Interaction, error: Exception, item: discord.ui.Item) -> None:
+        logger.error(f"Error in PersistentActivityView ({item}): {error}", exc_info=error)
+        try:
+            msg = "⚠️ Не удалось открыть активность напрямую. Попробуйте воспользоваться веб-версией."
+            if interaction.response.is_done():
+                await interaction.followup.send(msg, ephemeral=True)
+            else:
+                await interaction.response.send_message(msg, ephemeral=True)
+        except Exception:
+            pass
+
 
 async def get_activity_view(guild: Optional[discord.Guild] = None, voice_channel: Optional[discord.VoiceChannel] = None) -> discord.ui.View:
     view = discord.ui.View(timeout=None)
 
-    # 1. Native Activity launch button (triggers Discord client to launch Mini App without opening browser)
+    # 1. Native Activity launch button
     view.add_item(ActivityLaunchButton())
 
-    # 2. Activity Voice Channel Invite Link (Discord renders this as a native embedded Activity launch button)
+    # 2. Activity Voice Channel Invite Link
     target_vc = voice_channel
     if not target_vc and guild and getattr(guild, "voice_client", None) and guild.voice_client.channel:
         target_vc = guild.voice_client.channel
@@ -287,33 +312,78 @@ async def get_activity_view(guild: Optional[discord.Guild] = None, voice_channel
 
     return view
 
+# ----------------- Helper: Control Permissions -----------------
+
+def check_user_can_control(interaction: discord.Interaction, player) -> Optional[str]:
+    """Ensures that only participants in the bot's current room or admins/requester can control playback."""
+    if not player or not player.voice_client or not player.voice_client.channel:
+        return None
+    bot_channel = player.voice_client.channel
+    human_members = [m for m in bot_channel.members if not m.bot]
+    if not human_members:
+        return None
+    if interaction.user.id in [m.id for m in human_members]:
+        return None
+    if player.current_track and player.current_track.requester_id == interaction.user.id:
+        return None
+    if getattr(interaction.user, "guild_permissions", None) and interaction.user.guild_permissions.administrator:
+        return None
+    return f"⚠️ Управлять плеером могут только участники голосовой комнаты `🔊 {bot_channel.name}`!"
+
+# ----------------- Global Slash Command Error Handler -----------------
+
+@bot.tree.error
+async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+    logger.error(f"App command error in '{interaction.command.name if interaction.command else 'unknown'}': {error}", exc_info=error)
+    msg = "❌ Произошла ошибка при выполнении взаимодействия."
+    if isinstance(error, app_commands.CommandOnCooldown):
+        msg = f"⏳ Команда на перезарядке. Подождите {error.retry_after:.1f} сек."
+    elif isinstance(error, app_commands.MissingPermissions):
+        msg = "⛔ У вас недостаточно прав для этой команды."
+    elif isinstance(error, app_commands.BotMissingPermissions):
+        msg = "⛔ У бота недостаточно прав для выполнения этой команды."
+    try:
+        if interaction.response.is_done():
+            await interaction.followup.send(msg, ephemeral=True)
+        else:
+            await interaction.response.send_message(msg, ephemeral=True)
+    except Exception:
+        pass
+
 # ----------------- Slash Commands -----------------
 
 @bot.tree.command(name="player", description="Открыть мини-приложение музыкального плеера")
 async def slash_player(interaction: discord.Interaction):
-    await interaction.response.defer()
-    embed = discord.Embed(
-        title="🎵 Музыкальный плеер Discord Mini App",
-        description=(
-            "Нажмите кнопку **🚀 Открыть Mini App в Discord**, чтобы открыть интерактивное мини-приложение плеера прямо внутри Discord!\n\n"
-            "✨ **Возможности:**\n"
-            "• Поиск в YouTube Music, SoundCloud и Яндекс Музыке\n"
-            "• Воспроизведение через микрофон бота в голосовом канале\n"
-            "• Управление воспроизведением и громкостью\n"
-            "• Голосование за скип трека\n"
-            "• Очередь и история воспроизведения\n"
-            "• Автоматическое подключение к вашему голосовому каналу"
-        ),
-        color=0x5865F2,
-    )
-    embed.set_thumbnail(url=f"{PUBLIC_URL}/static/activity_icon.jpg")
-    embed.set_image(url=f"{PUBLIC_URL}/static/activity_banner.jpg")
-    embed.set_footer(text=f"Вызвал: {interaction.user.display_name}")
+    try:
+        await interaction.response.defer()
+        embed = discord.Embed(
+            title="🎵 Музыкальный плеер Discord Mini App",
+            description=(
+                "Нажмите кнопку **🚀 Открыть Mini App в Discord**, чтобы открыть интерактивное мини-приложение плеера прямо внутри Discord!\n\n"
+                "✨ **Возможности:**\n"
+                "• Поиск в YouTube Music, SoundCloud и Яндекс Музыке\n"
+                "• Воспроизведение через микрофон бота в голосовом канале\n"
+                "• Управление воспроизведением и громкостью\n"
+                "• Голосование за скип трека\n"
+                "• Очередь и история воспроизведения\n"
+                "• Автоматическое подключение к вашему голосовому каналу"
+            ),
+            color=0x5865F2,
+        )
+        embed.set_thumbnail(url=f"{PUBLIC_URL}/static/activity_icon.jpg")
+        embed.set_image(url=f"{PUBLIC_URL}/static/activity_banner.jpg")
+        embed.set_footer(text=f"Вызвал: {interaction.user.display_name}")
 
-    vc = interaction.user.voice.channel if (interaction.user and interaction.user.voice) else None
-    view = await get_activity_view(guild=interaction.guild, voice_channel=vc)
+        vc = interaction.user.voice.channel if (interaction.user and interaction.user.voice) else None
+        view = await get_activity_view(guild=interaction.guild, voice_channel=vc)
 
-    await interaction.followup.send(embed=embed, view=view)
+        await interaction.followup.send(embed=embed, view=view)
+    except Exception as e:
+        logger.error(f"Error in slash_player: {e}", exc_info=True)
+        if not interaction.response.is_done():
+            await interaction.response.send_message(f"❌ Ошибка: {e}", ephemeral=True)
+        else:
+            await interaction.followup.send(f"❌ Ошибка: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="miniapp", description="Запустить интерактивное мини-приложение прямо в Discord")
@@ -340,31 +410,44 @@ async def slash_play(interaction: discord.Interaction, query: str):
     voice_channel = interaction.user.voice.channel
     guild = interaction.guild
 
-    tracks = await music_service.search(query, source="all", limit=1)
-    if not tracks:
-        await interaction.followup.send(f"❌ Ничего не найдено по запросу: `{query}`", ephemeral=True)
-        return
+    # Rule: do not move bot across channels on the server
+    guild_vc = getattr(guild, "voice_client", None)
+    if guild_vc and guild_vc.is_connected() and guild_vc.channel:
+        if guild_vc.channel.id != voice_channel.id:
+            await interaction.followup.send(
+                f"⚠️ Бот уже находится в канале `🔊 {guild_vc.channel.name}`. Перемещение бота по серверу запрещено! Перейдите в комнату к боту, чтобы включить музыку.",
+                ephemeral=True
+            )
+            return
 
-    track = tracks[0]
-    track.requester_id = interaction.user.id
-    track.requester_name = interaction.user.display_name
+    try:
+        tracks = await music_service.search(query, source="all", limit=1)
+        if not tracks:
+            await interaction.followup.send(f"❌ Ничего не найдено по запросу: `{query}`", ephemeral=True)
+            return
 
-    player = player_manager.get_or_create_player(guild)
-    await player.connect_to_channel(voice_channel)
-    res = await player.enqueue(track, play_now=False)
+        track = tracks[0]
+        track.requester_id = interaction.user.id
+        track.requester_name = interaction.user.display_name
 
-    embed = discord.Embed(
-        title="🎶 Трек добавлен!" if res.get("action") == "queued" else "▶️ Начинаем воспроизведение через микрофон!",
-        description=f"**[{track.title}]({track.url})**\n👤 {track.artist} • ⏱ {track.duration_str}",
-        color=0x5865F2,
-    )
-    if track.thumbnail:
-        embed.set_thumbnail(url=track.thumbnail)
-    embed.set_footer(text=f"Голосовой канал: {voice_channel.name} • Discord Mini App")
+        player = player_manager.get_or_create_player(guild)
+        await player.connect_to_channel(voice_channel)
+        res = await player.enqueue(track, play_now=False)
 
-    view = await get_activity_view(guild=guild, voice_channel=voice_channel)
+        embed = discord.Embed(
+            title="🎶 Трек добавлен!" if res.get("action") == "queued" else "▶️ Начинаем воспроизведение через микрофон!",
+            description=f"**[{track.title}]({track.url})**\n👤 {track.artist} • ⏱ {track.duration_str}",
+            color=0x5865F2,
+        )
+        if track.thumbnail:
+            embed.set_thumbnail(url=track.thumbnail)
+        embed.set_footer(text=f"Голосовой канал: {voice_channel.name} • Discord Mini App")
 
-    await interaction.followup.send(embed=embed, view=view)
+        view = await get_activity_view(guild=guild, voice_channel=voice_channel)
+        await interaction.followup.send(embed=embed, view=view)
+    except Exception as e:
+        logger.error(f"Error in slash_play: {e}", exc_info=True)
+        await interaction.followup.send(f"❌ Ошибка воспроизведения: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="skip", description="Пропустить текущий трек или проголосовать за скип")
@@ -375,11 +458,20 @@ async def slash_skip(interaction: discord.Interaction):
         await interaction.followup.send("❌ Сейчас ничего не играет!", ephemeral=True)
         return
 
-    result = await player.skip(user_id=interaction.user.id)
-    if result.get("skipped"):
-        await interaction.followup.send(f"⏭️ {result.get('message', 'Трек успешно пропущен!')}")
-    else:
-        await interaction.followup.send(f"🗳️ {result.get('message')}")
+    err = check_user_can_control(interaction, player)
+    if err:
+        await interaction.followup.send(err, ephemeral=True)
+        return
+
+    try:
+        result = await player.skip(user_id=interaction.user.id)
+        if result.get("skipped"):
+            await interaction.followup.send(f"⏭️ {result.get('message', 'Трек успешно пропущен!')}")
+        else:
+            await interaction.followup.send(f"🗳️ {result.get('message')}")
+    except Exception as e:
+        logger.error(f"Error in slash_skip: {e}", exc_info=True)
+        await interaction.followup.send(f"❌ Ошибка скипа: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="pause", description="Поставить воспроизведение на паузу")
@@ -390,8 +482,17 @@ async def slash_pause(interaction: discord.Interaction):
         await interaction.followup.send("❌ Сейчас музыка не играет.", ephemeral=True)
         return
 
-    await player.pause()
-    await interaction.followup.send("⏸️ Воспроизведение приостановлено.")
+    err = check_user_can_control(interaction, player)
+    if err:
+        await interaction.followup.send(err, ephemeral=True)
+        return
+
+    try:
+        await player.pause()
+        await interaction.followup.send("⏸️ Воспроизведение приостановлено.")
+    except Exception as e:
+        logger.error(f"Error in slash_pause: {e}", exc_info=True)
+        await interaction.followup.send(f"❌ Ошибка паузы: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="resume", description="Возобновить воспроизведение")
@@ -402,38 +503,51 @@ async def slash_resume(interaction: discord.Interaction):
         await interaction.followup.send("❌ Музыка не стоит на паузе.", ephemeral=True)
         return
 
-    await player.resume()
-    await interaction.followup.send("▶️ Воспроизведение возобновлено.")
+    err = check_user_can_control(interaction, player)
+    if err:
+        await interaction.followup.send(err, ephemeral=True)
+        return
+
+    try:
+        await player.resume()
+        await interaction.followup.send("▶️ Воспроизведение возобновлено.")
+    except Exception as e:
+        logger.error(f"Error in slash_resume: {e}", exc_info=True)
+        await interaction.followup.send(f"❌ Ошибка возобновления: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="queue", description="Показать очередь треков")
 async def slash_queue(interaction: discord.Interaction):
     await interaction.response.defer()
-    player = player_manager.get_player_by_guild_id(interaction.guild_id)
-    if not player or (not player.current_track and not player.queue):
-        await interaction.followup.send("📜 Очередь пуста!", ephemeral=True)
-        return
+    try:
+        player = player_manager.get_player_by_guild_id(interaction.guild_id)
+        if not player or (not player.current_track and not player.queue):
+            await interaction.followup.send("📜 Очередь пуста!", ephemeral=True)
+            return
 
-    lines = []
-    if player.current_track:
-        lines.append(f"**Сейчас играет:** [{player.current_track.title}]({player.current_track.url}) (`{player.current_track.duration_str}`)")
+        lines = []
+        if player.current_track:
+            lines.append(f"**Сейчас играет:** [{player.current_track.title}]({player.current_track.url}) (`{player.current_track.duration_str}`)")
 
-    if player.queue:
-        lines.append("\n**Следующие треки:**")
-        for i, t in enumerate(player.queue[:10], 1):
-            lines.append(f"`{i}.` [{t.title}]({t.url}) - `{t.duration_str}` (от {t.requester_name})")
+        if player.queue:
+            lines.append("\n**Следующие треки:**")
+            for i, t in enumerate(player.queue[:10], 1):
+                lines.append(f"`{i}.` [{t.title}]({t.url}) - `{t.duration_str}` (от {t.requester_name})")
 
-        if len(player.queue) > 10:
-            lines.append(f"\n*...и ещё {len(player.queue) - 10} треков*")
+            if len(player.queue) > 10:
+                lines.append(f"\n*...и ещё {len(player.queue) - 10} треков*")
 
-    embed = discord.Embed(
-        title=f"📜 Очередь воспроизведения ({len(player.queue)} в очереди)",
-        description="\n".join(lines),
-        color=0x5865F2,
-    )
-    vc = interaction.user.voice.channel if (interaction.user and interaction.user.voice) else None
-    view = await get_activity_view(guild=interaction.guild, voice_channel=vc)
-    await interaction.followup.send(embed=embed, view=view)
+        embed = discord.Embed(
+            title=f"📜 Очередь воспроизведения ({len(player.queue)} в очереди)",
+            description="\n".join(lines),
+            color=0x5865F2,
+        )
+        vc = interaction.user.voice.channel if (interaction.user and interaction.user.voice) else None
+        view = await get_activity_view(guild=interaction.guild, voice_channel=vc)
+        await interaction.followup.send(embed=embed, view=view)
+    except Exception as e:
+        logger.error(f"Error in slash_queue: {e}", exc_info=True)
+        await interaction.followup.send(f"❌ Ошибка отображения очереди: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="stop", description="Остановить плеер и отключить бота от голосового канала")
@@ -447,44 +561,57 @@ async def slash_stop(interaction: discord.Interaction):
         await interaction.followup.send("❌ Бот не подключен к голосовому каналу.", ephemeral=True)
         return
 
-    await player.stop()
-    await interaction.followup.send("⏹️ Плеер остановлен, бот отключился от канала.")
+    err = check_user_can_control(interaction, player)
+    if err:
+        await interaction.followup.send(err, ephemeral=True)
+        return
+
+    try:
+        await player.stop()
+        await interaction.followup.send("⏹️ Плеер остановлен, бот отключился от канала.")
+    except Exception as e:
+        logger.error(f"Error in slash_stop: {e}", exc_info=True)
+        await interaction.followup.send(f"❌ Ошибка остановки плеера: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="room", description="Показать, в какой комнате на сервере сейчас находится бот")
 async def slash_room(interaction: discord.Interaction):
     await interaction.response.defer()
-    guild = interaction.guild
-    guild_vc = getattr(guild, "voice_client", None) if guild else None
+    try:
+        guild = interaction.guild
+        guild_vc = getattr(guild, "voice_client", None) if guild else None
 
-    lines = []
-    if guild_vc and guild_vc.is_connected() and guild_vc.channel:
-        bot_channel = guild_vc.channel
-        human_listeners = [m.display_name for m in bot_channel.members if not m.bot]
-        player = player_manager.get_player_by_guild_id(guild.id) if guild else None
-        track_info = f"\n🎶 Сейчас играет: **{player.current_track.title}**" if (player and player.current_track and player.is_playing) else ""
-        lines.append(f"🤖 **Бот находится в комнате:** `🔊 {bot_channel.name}`{track_info}")
-        if human_listeners:
-            lines.append(f"👥 **Слушатели в комнате:** {', '.join(human_listeners)}")
+        lines = []
+        if guild_vc and guild_vc.is_connected() and guild_vc.channel:
+            bot_channel = guild_vc.channel
+            human_listeners = [m.display_name for m in bot_channel.members if not m.bot]
+            player = player_manager.get_player_by_guild_id(guild.id) if guild else None
+            track_info = f"\n🎶 Сейчас играет: **{player.current_track.title}**" if (player and player.current_track and player.is_playing) else ""
+            lines.append(f"🤖 **Бот находится в комнате:** `🔊 {bot_channel.name}`{track_info}")
+            if human_listeners:
+                lines.append(f"👥 **Слушатели в комнате:** {', '.join(human_listeners)}")
+            else:
+                lines.append("👥 **Слушатели:** В комнате никого нет (бот один)")
         else:
-            lines.append("👥 **Слушатели:** В комнате никого нет (бот один)")
-    else:
-        lines.append("🤖 **Бот не подключен** ни к одной комнате на этом сервере.")
+            lines.append("🤖 **Бот не подключен** ни к одной комнате на этом сервере.")
 
-    user_vc = interaction.user.voice.channel if (interaction.user and interaction.user.voice) else None
-    if user_vc:
-        lines.append(f"👤 **Вы находитесь в комнате:** `🔊 {user_vc.name}`")
-    else:
-        lines.append("👤 **Вы:** Не находитесь в голосовом канале")
+        user_vc = interaction.user.voice.channel if (interaction.user and interaction.user.voice) else None
+        if user_vc:
+            lines.append(f"👤 **Вы находитесь в комнате:** `🔊 {user_vc.name}`")
+        else:
+            lines.append("👤 **Вы:** Не находитесь в голосовом канале")
 
-    embed = discord.Embed(
-        title=f"🔊 Голосовой статус • {guild.name if guild else 'Discord'}",
-        description="\n\n".join(lines),
-        color=0x5865F2 if (guild_vc and guild_vc.is_connected()) else 0x99AAB5,
-    )
-    vc = guild_vc.channel if (guild_vc and guild_vc.channel) else None
-    view = await get_activity_view(guild=guild, voice_channel=vc)
-    await interaction.followup.send(embed=embed, view=view)
+        embed = discord.Embed(
+            title=f"🔊 Голосовой статус • {guild.name if guild else 'Discord'}",
+            description="\n\n".join(lines),
+            color=0x5865F2 if (guild_vc and guild_vc.is_connected()) else 0x99AAB5,
+        )
+        vc = guild_vc.channel if (guild_vc and guild_vc.channel) else None
+        view = await get_activity_view(guild=guild, voice_channel=vc)
+        await interaction.followup.send(embed=embed, view=view)
+    except Exception as e:
+        logger.error(f"Error in slash_room: {e}", exc_info=True)
+        await interaction.followup.send(f"❌ Ошибка статуса комнаты: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="channels", description="Список голосовых комнат на сервере и где сейчас бот")
@@ -495,30 +622,34 @@ async def slash_channels(interaction: discord.Interaction):
         await interaction.followup.send("❌ Команда доступна только на сервере.", ephemeral=True)
         return
 
-    guild_vc = getattr(guild, "voice_client", None)
-    bot_chan_id = guild_vc.channel.id if (guild_vc and guild_vc.is_connected() and guild_vc.channel) else None
+    try:
+        guild_vc = getattr(guild, "voice_client", None)
+        bot_chan_id = guild_vc.channel.id if (guild_vc and guild_vc.is_connected() and guild_vc.channel) else None
 
-    all_vcs = list(getattr(guild, "voice_channels", [])) + list(getattr(guild, "stage_channels", []))
-    if not all_vcs:
-        await interaction.followup.send("⚠️ На этом сервере нет голосовых каналов!", ephemeral=True)
-        return
+        all_vcs = list(getattr(guild, "voice_channels", [])) + list(getattr(guild, "stage_channels", []))
+        if not all_vcs:
+            await interaction.followup.send("⚠️ На этом сервере нет голосовых каналов!", ephemeral=True)
+            return
 
-    lines = []
-    for vc in all_vcs[:20]:
-        is_bot = (vc.id == bot_chan_id)
-        user_cnt = len([m for m in vc.members if not m.bot])
-        badge = " 🟢 **[БОТ ЗДЕСЬ]**" if is_bot else ""
-        lines.append(f"• `🔊 {vc.name}` — {user_cnt} участн.{badge}")
+        lines = []
+        for vc in all_vcs[:20]:
+            is_bot = (vc.id == bot_chan_id)
+            user_cnt = len([m for m in vc.members if not m.bot])
+            badge = " 🟢 **[БОТ ЗДЕСЬ]**" if is_bot else ""
+            lines.append(f"• `🔊 {vc.name}` — {user_cnt} участн.{badge}")
 
-    embed = discord.Embed(
-        title=f"📋 Голосовые комнаты сервера {guild.name}",
-        description="\n".join(lines),
-        color=0x5865F2,
-    )
-    embed.set_footer(text=f"Всего голосовых комнат: {len(all_vcs)}")
-    vc = guild_vc.channel if (guild_vc and guild_vc.channel) else None
-    view = await get_activity_view(guild=guild, voice_channel=vc)
-    await interaction.followup.send(embed=embed, view=view)
+        embed = discord.Embed(
+            title=f"📋 Голосовые комнаты сервера {guild.name}",
+            description="\n".join(lines),
+            color=0x5865F2,
+        )
+        embed.set_footer(text=f"Всего голосовых комнат: {len(all_vcs)}")
+        vc = guild_vc.channel if (guild_vc and guild_vc.channel) else None
+        view = await get_activity_view(guild=guild, voice_channel=vc)
+        await interaction.followup.send(embed=embed, view=view)
+    except Exception as e:
+        logger.error(f"Error in slash_channels: {e}", exc_info=True)
+        await interaction.followup.send(f"❌ Ошибка списка каналов: {e}", ephemeral=True)
 
 
 @bot.tree.command(name="join", description="Подключить бота к голосовому каналу")
@@ -531,6 +662,22 @@ async def slash_join(interaction: discord.Interaction, channel: Optional[discord
             target = interaction.user.voice.channel
         else:
             await interaction.followup.send("⚠️ Вы не в голосовом канале! Укажите канал или зайдите в голосовой канал.", ephemeral=True)
+            return
+
+    # Rule: do not move bot across channels on the server
+    guild_vc = getattr(interaction.guild, 'voice_client', None)
+    if guild_vc and guild_vc.is_connected() and guild_vc.channel:
+        if guild_vc.channel.id != target.id:
+            await interaction.followup.send(
+                f"⚠️ Бот уже находится в канале `🔊 {guild_vc.channel.name}`. Перемещение бота по серверу запрещено!",
+                ephemeral=True
+            )
+            return
+        else:
+            await interaction.followup.send(
+                f"ℹ️ Бот уже находится в канале `🔊 {guild_vc.channel.name}`.",
+                ephemeral=True
+            )
             return
 
     player = player_manager.get_or_create_player(interaction.guild)
@@ -550,46 +697,70 @@ async def slash_join(interaction: discord.Interaction, channel: Optional[discord
 
 @bot.command(name="player")
 async def cmd_player(ctx):
-    await slash_player.callback(ctx)
+    try:
+        embed = discord.Embed(
+            title="🎵 Музыкальный плеер Discord Mini App",
+            description=(
+                "Нажмите кнопку **🚀 Открыть Mini App в Discord**, чтобы открыть интерактивное мини-приложение плеера прямо внутри Discord!\n\n"
+                "✨ **Возможности:**\n"
+                "• Поиск в YouTube Music, SoundCloud и Яндекс Музыке\n"
+                "• Воспроизведение через микрофон бота в голосовом канале\n"
+                "• Управление воспроизведением и громкостью\n"
+                "• Голосование за скип трека\n"
+                "• Очередь и история воспроизведения"
+            ),
+            color=0x5865F2,
+        )
+        embed.set_thumbnail(url=f"{PUBLIC_URL}/static/activity_icon.jpg")
+        embed.set_image(url=f"{PUBLIC_URL}/static/activity_banner.jpg")
+        embed.set_footer(text=f"Вызвал: {ctx.author.display_name}")
+
+        vc = ctx.author.voice.channel if (ctx.author and ctx.author.voice) else None
+        view = await get_activity_view(guild=ctx.guild, voice_channel=vc)
+        await ctx.send(embed=embed, view=view)
+    except Exception as e:
+        logger.error(f"Error in cmd_player: {e}")
+        await ctx.send(f"❌ Ошибка команды: {e}")
 
 @bot.command(name="play")
 async def cmd_play(ctx, *, query: str):
-    class FakeInteraction:
-        def __init__(self, ctx):
-            self.user = ctx.author
-            self.guild = ctx.guild
-            self.guild_id = ctx.guild.id
-            self.response = None
-        async def defer(self): pass
-
-    # Run play logic via context
     if not ctx.author.voice or not ctx.author.voice.channel:
         await ctx.send("⚠️ Вы должны находиться в голосовом канале!")
         return
 
     voice_channel = ctx.author.voice.channel
-    tracks = await music_service.search(query, source="all", limit=1)
-    if not tracks:
-        await ctx.send(f"❌ Ничего не найдено по запросу: `{query}`")
-        return
+    guild_vc = getattr(ctx.guild, 'voice_client', None)
+    if guild_vc and guild_vc.is_connected() and guild_vc.channel:
+        if guild_vc.channel.id != voice_channel.id:
+            await ctx.send(f"⚠️ Бот уже находится в комнате `🔊 {guild_vc.channel.name}`. Перемещение бота по серверу запрещено! Перейдите в комнату к боту.")
+            return
 
-    track = tracks[0]
-    track.requester_id = ctx.author.id
-    track.requester_name = ctx.author.display_name
+    try:
+        tracks = await music_service.search(query, source="all", limit=1)
+        if not tracks:
+            await ctx.send(f"❌ Ничего не найдено по запросу: `{query}`")
+            return
 
-    player = player_manager.get_or_create_player(ctx.guild)
-    await player.connect_to_channel(voice_channel)
-    res = await player.enqueue(track, play_now=False)
+        track = tracks[0]
+        track.requester_id = ctx.author.id
+        track.requester_name = ctx.author.display_name
 
-    embed = discord.Embed(
-        title="🎶 Трек добавлен!" if res.get("action") == "queued" else "▶️ Начинаем воспроизведение!",
-        description=f"**[{track.title}]({track.url})**\n👤 {track.artist} • ⏱ {track.duration_str}",
-        color=0x5865F2,
-    )
-    if track.thumbnail:
-        embed.set_thumbnail(url=track.thumbnail)
-    view = await get_activity_view(guild=ctx.guild, voice_channel=voice_channel)
-    await ctx.send(embed=embed, view=view)
+        player = player_manager.get_or_create_player(ctx.guild)
+        await player.connect_to_channel(voice_channel)
+        res = await player.enqueue(track, play_now=False)
+
+        embed = discord.Embed(
+            title="🎶 Трек добавлен!" if res.get("action") == "queued" else "▶️ Начинаем воспроизведение!",
+            description=f"**[{track.title}]({track.url})**\n👤 {track.artist} • ⏱ {track.duration_str}",
+            color=0x5865F2,
+        )
+        if track.thumbnail:
+            embed.set_thumbnail(url=track.thumbnail)
+        view = await get_activity_view(guild=ctx.guild, voice_channel=voice_channel)
+        await ctx.send(embed=embed, view=view)
+    except Exception as e:
+        logger.error(f"Error in cmd_play: {e}")
+        await ctx.send(f"❌ Ошибка воспроизведения: {e}")
 
 @bot.command(name="skip")
 async def cmd_skip(ctx):
@@ -597,39 +768,149 @@ async def cmd_skip(ctx):
     if not player or not player.current_track:
         await ctx.send("❌ Сейчас ничего не играет!")
         return
-    res = await player.skip(user_id=ctx.author.id)
-    await ctx.send(f"⏭️ {res.get('message')}")
+
+    if player.voice_client and player.voice_client.channel:
+        bot_channel = player.voice_client.channel
+        human_members = [m for m in bot_channel.members if not m.bot]
+        if human_members and ctx.author.id not in [m.id for m in human_members]:
+            is_admin = getattr(ctx.author, "guild_permissions", None) and ctx.author.guild_permissions.administrator
+            is_req = player.current_track and player.current_track.requester_id == ctx.author.id
+            if not is_admin and not is_req:
+                await ctx.send(f"⚠️ Управлять плеером могут только участники голосовой комнаты `🔊 {bot_channel.name}`!")
+                return
+
+    try:
+        res = await player.skip(user_id=ctx.author.id)
+        await ctx.send(f"⏭️ {res.get('message')}")
+    except Exception as e:
+        await ctx.send(f"❌ Ошибка скипа: {e}")
 
 @bot.command(name="stop")
 async def cmd_stop(ctx):
     player = player_manager.get_player_by_guild_id(ctx.guild.id)
     if not player and ctx.guild and getattr(ctx.guild, "voice_client", None):
         player = player_manager.get_or_create_player(ctx.guild)
-    if player:
-        await player.stop()
-        await ctx.send("⏹️ Плеер остановлен, бот отключился от канала.")
-    elif ctx.guild and getattr(ctx.guild, "voice_client", None):
-        await ctx.guild.voice_client.disconnect(force=True)
-        await ctx.send("⏹️ Бот отключился от голосового канала.")
-    else:
-        await ctx.send("❌ Бот не подключен к голосовому каналу.")
+
+    if player and player.voice_client and player.voice_client.channel:
+        bot_channel = player.voice_client.channel
+        human_members = [m for m in bot_channel.members if not m.bot]
+        if human_members and ctx.author.id not in [m.id for m in human_members]:
+            if not (getattr(ctx.author, "guild_permissions", None) and ctx.author.guild_permissions.administrator):
+                await ctx.send(f"⚠️ Остановить бота могут только участники голосовой комнаты `🔊 {bot_channel.name}`!")
+                return
+
+    try:
+        if player:
+            await player.stop()
+            await ctx.send("⏹️ Плеер остановлен, бот отключился от канала.")
+        elif ctx.guild and getattr(ctx.guild, "voice_client", None):
+            await ctx.guild.voice_client.disconnect(force=True)
+            await ctx.send("⏹️ Бот отключился от голосового канала.")
+        else:
+            await ctx.send("❌ Бот не подключен к голосовому каналу.")
+    except Exception as e:
+        await ctx.send(f"❌ Ошибка остановки: {e}")
 
 @bot.command(name="room")
 async def cmd_room(ctx):
-    await slash_room.callback(ctx)
+    try:
+        guild = ctx.guild
+        guild_vc = getattr(guild, "voice_client", None) if guild else None
+
+        lines = []
+        if guild_vc and guild_vc.is_connected() and guild_vc.channel:
+            bot_channel = guild_vc.channel
+            human_listeners = [m.display_name for m in bot_channel.members if not m.bot]
+            player = player_manager.get_player_by_guild_id(guild.id) if guild else None
+            track_info = f"\n🎶 Сейчас играет: **{player.current_track.title}**" if (player and player.current_track and player.is_playing) else ""
+            lines.append(f"🤖 **Бот находится в комнате:** `🔊 {bot_channel.name}`{track_info}")
+            if human_listeners:
+                lines.append(f"👥 **Слушатели в комнате:** {', '.join(human_listeners)}")
+            else:
+                lines.append("👥 **Слушатели:** В комнате никого нет (бот один)")
+        else:
+            lines.append("🤖 **Бот не подключен** ни к одной комнате на этом сервере.")
+
+        user_vc = ctx.author.voice.channel if (ctx.author and ctx.author.voice) else None
+        if user_vc:
+            lines.append(f"👤 **Вы находитесь в комнате:** `🔊 {user_vc.name}`")
+        else:
+            lines.append("👤 **Вы:** Не находитесь в голосовом канале")
+
+        embed = discord.Embed(
+            title=f"🔊 Голосовой статус • {guild.name if guild else 'Discord'}",
+            description="\n\n".join(lines),
+            color=0x5865F2 if (guild_vc and guild_vc.is_connected()) else 0x99AAB5,
+        )
+        vc = guild_vc.channel if (guild_vc and guild_vc.channel) else None
+        view = await get_activity_view(guild=guild, voice_channel=vc)
+        await ctx.send(embed=embed, view=view)
+    except Exception as e:
+        await ctx.send(f"❌ Ошибка статуса комнаты: {e}")
 
 @bot.command(name="channels")
 async def cmd_channels(ctx):
-    await slash_channels.callback(ctx)
+    try:
+        guild = ctx.guild
+        if not guild:
+            await ctx.send("❌ Команда доступна только на сервере.")
+            return
+
+        guild_vc = getattr(guild, "voice_client", None)
+        bot_chan_id = guild_vc.channel.id if (guild_vc and guild_vc.is_connected() and guild_vc.channel) else None
+
+        all_vcs = list(getattr(guild, "voice_channels", [])) + list(getattr(guild, "stage_channels", []))
+        if not all_vcs:
+            await ctx.send("⚠️ На этом сервере нет голосовых каналов!")
+            return
+
+        lines = []
+        for vc in all_vcs[:20]:
+            is_bot = (vc.id == bot_chan_id)
+            user_cnt = len([m for m in vc.members if not m.bot])
+            badge = " 🟢 **[БОТ ЗДЕСЬ]**" if is_bot else ""
+            lines.append(f"• `🔊 {vc.name}` — {user_cnt} участн.{badge}")
+
+        embed = discord.Embed(
+            title=f"📋 Голосовые комнаты сервера {guild.name}",
+            description="\n".join(lines),
+            color=0x5865F2,
+        )
+        embed.set_footer(text=f"Всего голосовых комнат: {len(all_vcs)}")
+        vc = guild_vc.channel if (guild_vc and guild_vc.channel) else None
+        view = await get_activity_view(guild=guild, voice_channel=vc)
+        await ctx.send(embed=embed, view=view)
+    except Exception as e:
+        await ctx.send(f"❌ Ошибка списка каналов: {e}")
 
 @bot.command(name="join")
 async def cmd_join(ctx):
     if not ctx.author.voice or not ctx.author.voice.channel:
         await ctx.send("⚠️ Вы должны находиться в голосовом канале!")
         return
+
+    guild_vc = getattr(ctx.guild, 'voice_client', None)
+    if guild_vc and guild_vc.is_connected() and guild_vc.channel:
+        if guild_vc.channel.id != ctx.author.voice.channel.id:
+            await ctx.send(f"⚠️ Бот уже находится в комнате `🔊 {guild_vc.channel.name}`. Перемещение бота по серверу запрещено! Перейдите в комнату к боту.")
+            return
+        else:
+            await ctx.send(f"ℹ️ Бот уже подключен к вашей комнате `🔊 {guild_vc.channel.name}`.")
+            return
+
     player = player_manager.get_or_create_player(ctx.guild)
-    await player.connect_to_channel(ctx.author.voice.channel)
-    await ctx.send(f"✅ Бот подключился к комнате **`🔊 {ctx.author.voice.channel.name}`**.")
+    try:
+        await player.connect_to_channel(ctx.author.voice.channel)
+        await ctx.send(f"✅ Бот подключился к комнате **`🔊 {ctx.author.voice.channel.name}`**.")
+    except Exception as e:
+        await ctx.send(f"❌ Ошибка подключения: {e}")
+
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.CommandNotFound):
+        return
+    logger.error(f"Command error in {ctx.command}: {error}")
+    await ctx.send(f"❌ Ошибка выполнения команды: {error}")
 
 
 async def main():
