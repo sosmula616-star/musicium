@@ -253,6 +253,67 @@ class MusicService:
         except Exception as e:
             return False, str(e), 0
 
+    @staticmethod
+    def _rank_and_filter_tracks(tracks: List[Track], original_query: str) -> List[Track]:
+        if not tracks:
+            return []
+
+        q_lower = original_query.lower().strip()
+        q_words = set(re.findall(r'[\w]+', q_lower))
+
+        # Words that indicate interviews, podcasts, reactions, or 10-hour spam
+        PENALTY_WORDS = {
+            "интервью", "interview", "реакция", "reaction", "подкаст", "podcast",
+            "разбор", "обзор", "тизер", "teaser", "трейлер", "trailer",
+            "документальный", "слив", "1 hour", "10 hours", "1 час", "10 часов",
+            "10hour", "1hour", "loop", "караоке", "karaoke", "минус", "instrumental"
+        }
+        active_penalties = [w for w in PENALTY_WORDS if w not in q_lower]
+
+        scored_tracks = []
+        for t in tracks:
+            score = 100
+            title_lower = (t.title or "").lower()
+            artist_lower = (t.artist or "").lower()
+            combined = f"{title_lower} {artist_lower}"
+
+            # 1. Heavy penalty for non-music/interview/reaction videos
+            for pw in active_penalties:
+                if pw in combined:
+                    score -= 80
+
+            # 2. Duration check: standard musical tracks are 60s - 480s (1:00 - 8:00)
+            dur = t.duration or 0
+            if 70 <= dur <= 450:
+                score += 25
+            elif 450 < dur <= 600:
+                score += 10
+            elif 0 < dur < 45:
+                score -= 60  # Short ringtone / snippet / meme sound
+            elif dur > 700:
+                score -= 60  # Long interview / full discography / 1-hour loop unless query asked for it
+
+            # 3. Official Music & Release quality boost
+            if "- topic" in artist_lower or "topic" in artist_lower:
+                score += 45  # Official YouTube Music release channel
+            if any(k in combined for k in ["official audio", "official music video", "official video", "vevo", "official visualizer", "премьера трека"]):
+                score += 30
+            if "remix" in combined and "remix" not in q_lower:
+                score -= 15  # Prefer original track over fan remixes
+
+            # 4. Relevance: match user query words
+            matched_words = sum(1 for w in q_words if w in combined)
+            score += matched_words * 15
+
+            # 5. YouTube over SoundCloud by default for consistency and stability
+            if t.source == "youtube":
+                score += 15
+
+            scored_tracks.append((score, t))
+
+        scored_tracks.sort(key=lambda x: x[0], reverse=True)
+        return [t for _, t in scored_tracks]
+
     async def search(self, query: str, source: str = "all", limit: int = 10) -> List[Track]:
         query = query.strip()
         if not query:
@@ -264,16 +325,17 @@ class MusicService:
 
         source = source.lower()
         tasks = []
+        fetch_limit = max(limit, 8)
 
         if source == "yt_albums":
-            tasks.append(self._search_youtube_albums(query, limit=limit))
+            tasks.append(self._search_youtube_albums(query, limit=fetch_limit))
         elif source == "youtube":
-            tasks.append(self._search_youtube(query, limit=limit))
+            tasks.append(self._search_youtube(query, limit=fetch_limit))
         elif source == "soundcloud":
-            tasks.append(self._search_soundcloud(query, limit=limit))
+            tasks.append(self._search_soundcloud(query, limit=fetch_limit))
         else:
-            tasks.append(self._search_youtube(query, limit=min(limit, 30)))
-            tasks.append(self._search_soundcloud(query, limit=min(limit, 20)))
+            tasks.append(self._search_youtube(query, limit=fetch_limit))
+            tasks.append(self._search_soundcloud(query, limit=max(4, limit // 2)))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
         all_tracks: List[Track] = []
@@ -283,7 +345,8 @@ class MusicService:
             elif isinstance(res, Exception):
                 logger.warning(f"Error during search: {res}")
 
-        return all_tracks
+        ranked = self._rank_and_filter_tracks(all_tracks, query)
+        return ranked[:limit] if ranked else all_tracks[:limit]
 
     async def _resolve_direct_url(self, url: str) -> List[Track]:
         # yt-dlp handles YouTube, SoundCloud, and hundreds of other sites
@@ -452,11 +515,18 @@ class MusicService:
 
         return await asyncio.to_thread(_search)
 
-    async def get_stream_url(self, track: Track) -> Optional[str]:
+    def invalidate_stream_cache(self, track: Track):
+        """Invalidates cached audio stream URL for a given track."""
+        cache_key = track.id or track.url
+        if cache_key:
+            self._stream_cache.pop(cache_key, None)
+        track.stream_url = None
+
+    async def get_stream_url(self, track: Track, force_refresh: bool = False) -> Optional[str]:
         """Resolves the direct playable audio stream URL for a Track, with in-memory TTL caching."""
         cache_key = track.id or track.url
         now = time.time()
-        if cache_key and cache_key in self._stream_cache:
+        if not force_refresh and cache_key and cache_key in self._stream_cache:
             cached_url, expire_at = self._stream_cache[cache_key]
             if now < expire_at:
                 return cached_url
@@ -469,7 +539,7 @@ class MusicService:
             stream = await self._get_youtube_stream(track)
 
         if stream and cache_key:
-            # YouTube/SoundCloud URLs are typically valid for 6h+, cache for 2.5h (9000s)
+            # URLs are typically valid for 6h+, cache for 2.5h (9000s)
             self._stream_cache[cache_key] = (stream, now + 9000)
             if len(self._stream_cache) > 300:
                 self._stream_cache = {k: v for k, v in self._stream_cache.items() if v[1] > now}
@@ -540,9 +610,9 @@ class MusicService:
                 else:
                     target_url = f"ytsearch1:{track.title} {track.artist}"
 
-            # 1. Primary: Ultra-fast Android client without cookies (bypasses web n-sig challenge & cookie reload blocks)
+            # 1. Primary: Fast iOS/mweb client (bypasses web n-sig challenge & Android SABR 403 blocks)
             try:
-                android_opts = {
+                primary_opts = {
                     "format": "ba/b/bestaudio/best",
                     "quiet": True,
                     "no_warnings": True,
@@ -551,11 +621,11 @@ class MusicService:
                     "source_address": "0.0.0.0",
                     "extractor_args": {
                         "youtube": {
-                            "player_client": ["android"],
+                            "player_client": ["ios", "mweb", "android"],
                         },
                     },
                 }
-                with yt_dlp.YoutubeDL(android_opts) as ydl:
+                with yt_dlp.YoutubeDL(primary_opts) as ydl:
                     info = ydl.extract_info(target_url, download=False)
                     if info:
                         if "entries" in info and info["entries"]:
@@ -564,7 +634,7 @@ class MusicService:
                         if stream:
                             return stream
             except Exception as e:
-                logger.warning(f"Primary YouTube Android extraction failed ({e}), attempting authenticated/alternative clients...")
+                logger.warning(f"Primary YouTube extraction failed ({e}), attempting secondary clients...")
 
             # 2. Secondary: Authenticated / visionOS / web fallback with cookies (for age-restricted or member tracks)
             try:
