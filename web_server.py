@@ -491,15 +491,28 @@ class WebServer:
                 except Exception:
                     pass
 
-            # Connect to channel
-            await player.connect_to_channel(target_channel)
-
             # Build Track object
             track_data["requester_id"] = user_id
             track_data["requester_name"] = member_name
             track = Track.from_dict(track_data)
 
             track_url = track_data.get("url", "")
+            is_playlist = ("playlist" in track_url or "/sets/" in track_url)
+
+            # Parallelize voice channel connection and stream URL resolution for instant start
+            connect_task = asyncio.create_task(player.connect_to_channel(target_channel))
+            if not is_playlist and not track.stream_url:
+                stream_task = asyncio.create_task(self.music_service.get_stream_url(track))
+                await asyncio.gather(connect_task, stream_task, return_exceptions=True)
+                if stream_task.done() and not stream_task.cancelled():
+                    try:
+                        resolved = stream_task.result()
+                        if resolved and not isinstance(resolved, Exception):
+                            track.stream_url = resolved
+                    except Exception:
+                        pass
+            else:
+                await connect_task
             if ("playlist" in track_url or "/sets/" in track_url) and not track_data.get("stream_url"):
                 try:
                     album_tracks = await self.music_service._resolve_direct_url(track_url)
