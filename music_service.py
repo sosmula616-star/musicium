@@ -708,13 +708,18 @@ class MusicService:
 
             cookie_file = self.youtube_cookie_path if (self.youtube_cookie_path and os.path.exists(self.youtube_cookie_path)) else None
 
-            # Strategy 1: Default yt-dlp client configuration with permissive audio format selector
+            # Strategy 1: High-performance yt-dlp client configuration prioritizing direct Opus/WebM audio
             base_opts = {
-                "format": "ba*/b*/bestaudio/best/worst*",
+                "format": "ba[acodec^=opus]/ba[ext=webm]/ba[ext=m4a]/ba*/b*/bestaudio/best",
                 "quiet": True,
                 "no_warnings": True,
                 "extract_flat": False,
                 "noplaylist": True,
+                "skip_download": True,
+                "check_formats": False,
+                "youtube_include_dash_manifest": False,
+                "youtube_include_hls_manifest": False,
+                "lazy_playlist": True,
                 "source_address": "0.0.0.0",
             }
             if cookie_file:
