@@ -788,7 +788,7 @@ class MusicService:
 
     async def _get_youtube_stream(self, track: Track) -> Optional[str]:
         def _get():
-            target_url = track.url
+            target_url = clean_youtube_url(track.url)
             if not target_url or not target_url.startswith("http"):
                 if track.id and "_" in track.id:
                     vid_id = track.id.split("_", 1)[1]
@@ -798,10 +798,8 @@ class MusicService:
 
             cookie_file = self.youtube_cookie_path if (self.youtube_cookie_path and os.path.exists(self.youtube_cookie_path)) else None
 
-            # Strategy 1 (MAX SPEED): Direct Innertube Android / iOS Client API
-            # - Completely bypasses Web JavaScript signature decryption (n-sig)
-            # - No HTML web scraping or browser configs needed
-            # - Fast direct connection, typical resolution time: ~0.4 - 1.2s
+            # Strategy 1 (MAX SPEED): Direct Innertube Android Client
+            # Completely bypasses JavaScript n-sig decryption and downloads in ~1.0-1.5s
             fast_opts = dict(self.fast_yt_opts)
             if cookie_file:
                 fast_opts["cookiefile"] = cookie_file
@@ -821,10 +819,11 @@ class MusicService:
             except Exception as e_fast:
                 logger.debug(f"Ultra-fast Innertube extraction failed for {track.title}: {e_fast}")
 
-            # Strategy 2: iOS / Web Embedded client fallback with strict 3.5s timeout
+            # Strategy 2: iOS / Web Embedded client fallback with flexible format and 3.0s timeout
             try:
                 alt_opts = dict(fast_opts)
-                alt_opts["socket_timeout"] = 3.5
+                alt_opts["format"] = "ba/b/bestaudio/best"
+                alt_opts["socket_timeout"] = 3.0
                 alt_opts["extractor_args"] = {
                     "youtube": {
                         "player_client": ["ios", "web_embedded"],
