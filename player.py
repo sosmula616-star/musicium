@@ -95,11 +95,10 @@ def ensure_opus_loaded():
 ensure_opus_loaded()
 
 FFMPEG_BEFORE_OPTIONS = (
-    "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 2 "
-    "-probesize 32768 -analyzeduration 0 "
+    "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 3 "
+    "-probesize 32768 -analyzeduration 50000 "
     "-fflags nobuffer+fastseek+discardcorrupt -flags low_delay "
-    "-thread_queue_size 2048 "
-    '-user_agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"'
+    "-thread_queue_size 2048"
 )
 FFMPEG_OPTIONS = "-vn"
 
