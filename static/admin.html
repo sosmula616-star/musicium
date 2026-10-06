@@ -1372,32 +1372,25 @@
       // Check Authentication on Page Load
       async function checkAuth() {
         try {
-          // If we have music_user_id in localStorage, pass as header fallback
-          const localUserId = localStorage.getItem('music_user_id') || '';
-          const res = await fetch('/api/admin/auth/status', {
-            headers: localUserId ? { 'X-Admin-User-Id': localUserId } : {}
-          });
+          const res = await fetch('/api/admin/auth/status');
           const data = await res.json();
           if (data.authenticated) {
             state.authenticated = true;
-            state.adminUser = { id: data.user_id, name: 'Admin', avatar: '/static/activity_icon.jpg' };
+            state.adminUser = { id: data.user_id, name: data.user_name || 'Admin', avatar: data.user_avatar || '/static/activity_icon.jpg' };
             document.getElementById('authOverlay').style.display = 'none';
-            document.getElementById('navUserName').textContent = `Admin (${data.user_id.slice(-4)})`;
+            document.getElementById('navUserName').textContent = data.user_name || `Admin (${data.user_id.slice(-4)})`;
+            if (data.user_avatar) {
+              document.getElementById('navUserAvatar').src = data.user_avatar;
+            }
             initAdminDashboard();
             return true;
           } else {
-            // Not authenticated: check if localStorage has admin user ID 410432175373156352
-            if (localUserId === '410432175373156352') {
-              // Attempt auto-login
-              await tryDirectLogin('410432175373156352');
-              return;
-            }
             showAuthOverlay();
             return false;
           }
         } catch (e) {
           console.error('Auth check error:', e);
-          showAuthOverlay();
+          showAuthOverlay('Ошибка соединения с сервером');
           return false;
         }
       }
@@ -1410,29 +1403,6 @@
           errEl.style.display = 'block';
         } else {
           errEl.style.display = 'none';
-        }
-      }
-
-      async function tryDirectLogin(userId) {
-        try {
-          const res = await fetch('/api/admin/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId })
-          });
-          const data = await res.json();
-          if (data.ok) {
-            state.authenticated = true;
-            localStorage.setItem('music_user_id', userId);
-            document.getElementById('authOverlay').style.display = 'none';
-            document.getElementById('navUserName').textContent = `Admin (${userId.slice(-4)})`;
-            showToast('Успешная авторизация в консоли администратора!', 'success');
-            initAdminDashboard();
-          } else {
-            showAuthOverlay(data.error || 'Ошибка входа');
-          }
-        } catch (e) {
-          showAuthOverlay('Не удалось подключиться к серверу');
         }
       }
 
