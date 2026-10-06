@@ -2,7 +2,7 @@ import os
 import json
 import asyncio
 import logging
-from typing import Optional
+from typing import Optional, Tuple, Dict, Any, List
 import urllib.parse
 from aiohttp import web, WSMsgType
 import aiohttp
@@ -12,6 +12,7 @@ from music_service import MusicService, Track
 from player_manager import PlayerManager
 
 import db
+import admin_service
 
 logger = logging.getLogger("web_server")
 
@@ -85,6 +86,20 @@ class WebServer:
         self.app.router.add_get("/api/feed/discovery", self.handle_feed_discovery)
 
         # Admin / Diagnostics
+        self.app.router.add_get("/admin", self.handle_admin)
+        self.app.router.add_get("/api/admin/auth/status", self.handle_admin_auth_status)
+        self.app.router.add_post("/api/admin/auth/login", self.handle_admin_auth_login)
+        self.app.router.add_post("/api/admin/auth/logout", self.handle_admin_auth_logout)
+        self.app.router.add_get("/api/admin/stats", self.handle_admin_stats)
+        self.app.router.add_get("/api/admin/guilds", self.handle_admin_guilds)
+        self.app.router.add_post("/api/admin/bot/switch-channel", self.handle_admin_switch_channel)
+        self.app.router.add_post("/api/admin/bot/disconnect", self.handle_admin_disconnect)
+        self.app.router.add_post("/api/admin/bot/player-action", self.handle_admin_player_action)
+        self.app.router.add_post("/api/admin/bot/leave-guild", self.handle_admin_leave_guild)
+        self.app.router.add_get("/api/admin/logs", self.handle_admin_logs)
+        self.app.router.add_post("/api/admin/logs/clear", self.handle_admin_logs_clear)
+        self.app.router.add_get("/api/admin/logs/download", self.handle_admin_logs_download)
+        self.app.router.add_post("/api/admin/broadcast", self.handle_admin_broadcast)
         self.app.router.add_get("/api/admin/cookies", self.handle_admin_cookies)
         self.app.router.add_post("/api/admin/cookies", self.handle_admin_cookies)
 
@@ -744,18 +759,25 @@ class WebServer:
             proto = request.headers.get("X-Forwarded-Proto", "http")
             public_url = f"{proto}://{host_header}"
         redirect_uri = f"{public_url}/api/auth/callback"
+        
+        redirect_target = request.query.get("redirect") or request.query.get("state") or ""
+        state_param = "admin" if ("admin" in redirect_target) else "web"
+        
         oauth_url = (
             f"https://discord.com/oauth2/authorize?client_id={self.client_id}"
             f"&response_type=code&redirect_uri={urllib.parse.quote(redirect_uri, safe='')}"
             f"&scope=identify%20guilds"
+            f"&state={state_param}"
         )
         return web.HTTPFound(oauth_url)
 
     async def handle_auth_callback(self, request: web.Request) -> web.Response:
         """Handles Discord OAuth2 callback, fetches user info and redirects back to app."""
         code = request.query.get("code")
+        state_param = request.query.get("state", "web")
         if not code or not self.client_id or not self.client_secret:
-            return web.HTTPFound("/?auth_error=missing_code")
+            err_dest = "/admin?auth_error=missing_code" if state_param == "admin" else "/?auth_error=missing_code"
+            return web.HTTPFound(err_dest)
 
         public_url = os.getenv("PUBLIC_URL", "").rstrip("/")
         if not public_url:
@@ -779,18 +801,21 @@ class WebServer:
                     if resp.status != 200:
                         err_text = await resp.text()
                         logger.error(f"Discord OAuth2 token error: {err_text}")
-                        return web.HTTPFound("/?auth_error=token_failed")
+                        err_dest = "/admin?auth_error=token_failed" if state_param == "admin" else "/?auth_error=token_failed"
+                        return web.HTTPFound(err_dest)
                     token_data = await resp.json()
 
                 access_token = token_data.get("access_token")
                 if not access_token:
-                    return web.HTTPFound("/?auth_error=no_access_token")
+                    err_dest = "/admin?auth_error=no_access_token" if state_param == "admin" else "/?auth_error=no_access_token"
+                    return web.HTTPFound(err_dest)
 
                 # Fetch user info
                 user_headers = {"Authorization": f"Bearer {access_token}"}
                 async with session.get("https://discord.com/api/users/@me", headers=user_headers) as u_resp:
                     if u_resp.status != 200:
-                        return web.HTTPFound("/?auth_error=user_fetch_failed")
+                        err_dest = "/admin?auth_error=user_fetch_failed" if state_param == "admin" else "/?auth_error=user_fetch_failed"
+                        return web.HTTPFound(err_dest)
                     user_data = await u_resp.json()
 
                 u_id = str(user_data.get("id", ""))
@@ -798,16 +823,34 @@ class WebServer:
                 u_avatar = user_data.get("avatar")
                 avatar_url = f"https://cdn.discordapp.com/avatars/{u_id}/{u_avatar}.png" if u_avatar else "/static/activity_icon.jpg"
 
-                target = (
-                    f"/?user_id={urllib.parse.quote(u_id)}"
-                    f"&user_name={urllib.parse.quote(u_name)}"
-                    f"&user_avatar={urllib.parse.quote(avatar_url)}"
-                    f"&auth=success"
-                )
-                return web.HTTPFound(target)
+                is_adm = admin_service.is_admin_id(u_id)
+                admin_token = None
+                if is_adm:
+                    admin_token = admin_service.generate_admin_token(u_id)
+
+                if state_param == "admin":
+                    if is_adm:
+                        target = "/admin?auth=success"
+                    else:
+                        target = "/admin?auth_error=not_authorized"
+                else:
+                    target = (
+                        f"/?user_id={urllib.parse.quote(u_id)}"
+                        f"&user_name={urllib.parse.quote(u_name)}"
+                        f"&user_avatar={urllib.parse.quote(avatar_url)}"
+                        f"&auth=success"
+                        f"{'&is_admin=1' if is_adm else ''}"
+                    )
+
+                response = web.HTTPFound(target)
+                if is_adm and admin_token:
+                    response.set_cookie("musicium_admin_token", admin_token, max_age=7*86400, path="/")
+                return response
+
         except Exception as e:
             logger.error(f"Error in handle_auth_callback: {e}", exc_info=True)
-            return web.HTTPFound("/?auth_error=exception")
+            err_dest = "/admin?auth_error=exception" if state_param == "admin" else "/?auth_error=exception"
+            return web.HTTPFound(err_dest)
 
     async def handle_proxy_image(self, request: web.Request) -> web.Response:
         """Proxies external image requests (YouTube, SoundCloud, Discord) to bypass iframe CSP & referer restrictions."""
@@ -1072,6 +1115,211 @@ class WebServer:
             logger.info("WebSocket client disconnected.")
 
         return ws
+
+    def _verify_admin(self, request: web.Request) -> Tuple[bool, Optional[str]]:
+        # 1. Cookie
+        cookie_token = request.cookies.get("musicium_admin_token")
+        if cookie_token:
+            valid, user_id = admin_service.verify_admin_token(cookie_token)
+            if valid:
+                return True, user_id
+
+        # 2. Authorization Header
+        auth_hdr = request.headers.get("Authorization", "")
+        if auth_hdr.startswith("Bearer "):
+            token = auth_hdr.split(" ", 1)[1].strip()
+            valid, user_id = admin_service.verify_admin_token(token)
+            if valid:
+                return True, user_id
+
+        # 3. Custom Header X-Admin-User-Id
+        hdr_user_id = request.headers.get("X-Admin-User-Id", "")
+        if hdr_user_id and admin_service.is_admin_id(hdr_user_id):
+            return True, hdr_user_id
+
+        # 4. Query parameters
+        q_user_id = request.query.get("user_id", "")
+        if q_user_id and admin_service.is_admin_id(q_user_id):
+            return True, q_user_id
+
+        q_token = request.query.get("admin_token", "")
+        if q_token:
+            valid, user_id = admin_service.verify_admin_token(q_token)
+            if valid:
+                return True, user_id
+
+        return False, None
+
+    async def handle_admin(self, request: web.Request) -> web.Response:
+        static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+        admin_file = os.path.join(static_dir, "admin.html")
+        if os.path.exists(admin_file):
+            return web.FileResponse(admin_file, headers={"Cache-Control": "no-cache, must-revalidate"})
+        return web.Response(text="<h1>Musicium Admin</h1><p>Admin panel frontend loading...</p>", content_type="text/html")
+
+    async def handle_admin_auth_status(self, request: web.Request) -> web.Response:
+        is_adm, user_id = self._verify_admin(request)
+        if is_adm:
+            return web.json_response({
+                "authenticated": True,
+                "user_id": user_id,
+                "primary_admin": admin_service.PRIMARY_ADMIN_ID,
+            })
+        return web.json_response({
+            "authenticated": False,
+            "oauth_url": "/api/auth/discord?redirect=/admin",
+        })
+
+    async def handle_admin_auth_login(self, request: web.Request) -> web.Response:
+        try:
+            data = await request.json()
+            user_id = str(data.get("user_id", "")).strip()
+            if not user_id:
+                return web.json_response({"ok": False, "error": "Не указан user_id"}, status=400)
+            if not admin_service.is_admin_id(user_id):
+                return web.json_response({"ok": False, "error": "Доступ запрещен. ID не в списке администраторов."}, status=403)
+            token = admin_service.generate_admin_token(user_id)
+            resp = web.json_response({"ok": True, "token": token, "user_id": user_id})
+            resp.set_cookie("musicium_admin_token", token, max_age=7*86400, path="/")
+            return resp
+        except Exception as e:
+            return web.json_response({"ok": False, "error": str(e)}, status=500)
+
+    async def handle_admin_auth_logout(self, request: web.Request) -> web.Response:
+        resp = web.json_response({"ok": True})
+        resp.del_cookie("musicium_admin_token", path="/")
+        return resp
+
+    async def handle_admin_stats(self, request: web.Request) -> web.Response:
+        is_adm, _ = self._verify_admin(request)
+        if not is_adm:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+        stats = await admin_service.get_system_stats(self.bot, self.player_manager, self.music_service)
+        return web.json_response(stats)
+
+    async def handle_admin_guilds(self, request: web.Request) -> web.Response:
+        is_adm, _ = self._verify_admin(request)
+        if not is_adm:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+        guilds = admin_service.get_guilds_admin_data(self.bot, self.player_manager)
+        return web.json_response({"guilds": guilds})
+
+    async def handle_admin_switch_channel(self, request: web.Request) -> web.Response:
+        is_adm, _ = self._verify_admin(request)
+        if not is_adm:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+        try:
+            data = await request.json()
+            guild_id = safe_int(data.get("guild_id"))
+            channel_id = safe_int(data.get("channel_id"))
+            if not guild_id or not channel_id:
+                return web.json_response({"ok": False, "error": "Не указан guild_id или channel_id"}, status=400)
+            ok, msg = await admin_service.switch_bot_channel(self.bot, self.player_manager, guild_id, channel_id)
+            return web.json_response({"ok": ok, "message": msg}, status=200 if ok else 400)
+        except Exception as e:
+            logger.error(f"Error in handle_admin_switch_channel: {e}", exc_info=True)
+            return web.json_response({"ok": False, "error": str(e)}, status=500)
+
+    async def handle_admin_disconnect(self, request: web.Request) -> web.Response:
+        is_adm, _ = self._verify_admin(request)
+        if not is_adm:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+        try:
+            data = await request.json()
+            guild_id = safe_int(data.get("guild_id"))
+            if not guild_id:
+                return web.json_response({"ok": False, "error": "Не указан guild_id"}, status=400)
+            ok, msg = await admin_service.disconnect_bot_voice(self.bot, self.player_manager, guild_id)
+            return web.json_response({"ok": ok, "message": msg}, status=200 if ok else 400)
+        except Exception as e:
+            logger.error(f"Error in handle_admin_disconnect: {e}", exc_info=True)
+            return web.json_response({"ok": False, "error": str(e)}, status=500)
+
+    async def handle_admin_player_action(self, request: web.Request) -> web.Response:
+        is_adm, _ = self._verify_admin(request)
+        if not is_adm:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+        try:
+            data = await request.json()
+            guild_id = safe_int(data.get("guild_id"))
+            action = data.get("action", "")
+            val = data.get("value")
+            if not guild_id or not action:
+                return web.json_response({"ok": False, "error": "Не указан guild_id или action"}, status=400)
+            ok, msg = await admin_service.perform_player_action(self.player_manager, guild_id, action, val)
+            return web.json_response({"ok": ok, "message": msg}, status=200 if ok else 400)
+        except Exception as e:
+            logger.error(f"Error in handle_admin_player_action: {e}", exc_info=True)
+            return web.json_response({"ok": False, "error": str(e)}, status=500)
+
+    async def handle_admin_leave_guild(self, request: web.Request) -> web.Response:
+        is_adm, _ = self._verify_admin(request)
+        if not is_adm:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+        try:
+            data = await request.json()
+            guild_id = safe_int(data.get("guild_id"))
+            guild = self.bot.get_guild(guild_id) if guild_id else None
+            if not guild:
+                return web.json_response({"ok": False, "error": "Сервер не найден"}, status=404)
+            name = guild.name
+            await guild.leave()
+            return web.json_response({"ok": True, "message": f"Бот успешно покинул сервер {name}"})
+        except Exception as e:
+            return web.json_response({"ok": False, "error": str(e)}, status=500)
+
+    async def handle_admin_logs(self, request: web.Request) -> web.Response:
+        is_adm, _ = self._verify_admin(request)
+        if not is_adm:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+        lvl = request.query.get("level")
+        search = request.query.get("search")
+        limit = safe_int(request.query.get("limit"), 400)
+        logs = admin_service.admin_log_handler.get_logs(level=lvl, search=search, limit=limit)
+        return web.json_response({"logs": logs, "total": len(admin_service.admin_log_handler.buffer)})
+
+    async def handle_admin_logs_clear(self, request: web.Request) -> web.Response:
+        is_adm, _ = self._verify_admin(request)
+        if not is_adm:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+        admin_service.admin_log_handler.clear()
+        return web.json_response({"ok": True, "message": "Буфер логов очищен"})
+
+    async def handle_admin_logs_download(self, request: web.Request) -> web.Response:
+        is_adm, _ = self._verify_admin(request)
+        if not is_adm:
+            return web.Response(text="Unauthorized", status=401)
+        content = admin_service.admin_log_handler.export_text()
+        return web.Response(
+            text=content,
+            content_type="text/plain; charset=utf-8",
+            headers={"Content-Disposition": "attachment; filename=\"musicium_logs.txt\""}
+        )
+
+    async def handle_admin_broadcast(self, request: web.Request) -> web.Response:
+        is_adm, _ = self._verify_admin(request)
+        if not is_adm:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+        try:
+            data = await request.json()
+            guild_id = safe_int(data.get("guild_id"))
+            channel_id = safe_int(data.get("channel_id"))
+            msg = data.get("message", "").strip()
+            if not channel_id or not msg:
+                return web.json_response({"ok": False, "error": "Не указан channel_id или message"}, status=400)
+            ch = self.bot.get_channel(channel_id)
+            if not ch:
+                return web.json_response({"ok": False, "error": "Текстовый канал не найден"}, status=404)
+            embed = discord.Embed(
+                title="📢 Оповещение от администрации Musicium",
+                description=msg,
+                color=0x00F2FE
+            )
+            embed.set_footer(text="Musicium Admin Broadcast", icon_url=self.bot.user.display_avatar.url if (self.bot and self.bot.user) else None)
+            await ch.send(embed=embed)
+            return web.json_response({"ok": True, "message": "Сообщение отправлено"})
+        except Exception as e:
+            return web.json_response({"ok": False, "error": str(e)}, status=500)
 
     async def handle_admin_cookies(self, request: web.Request) -> web.Response:
         if request.method == "GET":
