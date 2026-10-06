@@ -183,16 +183,22 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
                     logger.warning(f"Unexpected voice disconnect from '{channel_to_rejoin.name}' during playback. Auto-reconnecting...")
                     asyncio.create_task(player.reconnect_and_resume(channel_to_rejoin))
         elif before.channel is not None and after.channel is not None and before.channel.id != after.channel.id:
-            # Bot was moved to another channel on the server: Revert it!
-            logger.warning(f"Bot move attempted in '{member.guild.name}' from '{before.channel.name}' to '{after.channel.name}'. Reverting move!")
-            try:
-                await member.move_to(before.channel)
-                return
-            except Exception as e:
-                logger.error(f"Could not revert bot move: {e}")
-                if player:
-                    player.voice_client = member.guild.voice_client
-                    await player._notify_change()
+            # Bot was moved to another channel on the server: check if allowed by admin
+            if player and getattr(player, "_allow_move", False):
+                player._allow_move = False
+                logger.info(f"Bot moved to '{after.channel.name}' by admin in guild '{member.guild.name}'.")
+                player.voice_client = member.guild.voice_client
+                await player._notify_change()
+            else:
+                logger.warning(f"Bot move attempted in '{member.guild.name}' from '{before.channel.name}' to '{after.channel.name}'. Reverting move!")
+                try:
+                    await member.move_to(before.channel)
+                    return
+                except Exception as e:
+                    logger.error(f"Could not revert bot move: {e}")
+                    if player:
+                        player.voice_client = member.guild.voice_client
+                        await player._notify_change()
         else:
             logger.info(f"Bot connected to room '{after.channel.name}' in guild '{member.guild.name}'")
             if not player:
