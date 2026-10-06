@@ -107,9 +107,36 @@ class MusicService:
             "no_warnings": True,
             "default_search": "ytsearch",
             "skip_download": True,
-            "extract_flat": False,
+            "extract_flat": True,
             "ignoreerrors": True,
+            "socket_timeout": 5,
+            "retries": 1,
             "source_address": "0.0.0.0",
+        }
+
+        # Ultra-fast Innertube extractor options for stream resolution (Android / iOS)
+        # Avoids JavaScript n-sig decryption and bot challenges; resolves direct audio in ~0.3-0.8s
+        self.fast_yt_opts = {
+            "format": "ba[acodec^=opus]/ba[ext=webm]/ba[ext=m4a]/ba/b/bestaudio/best",
+            "quiet": True,
+            "no_warnings": True,
+            "extract_flat": False,
+            "noplaylist": True,
+            "skip_download": True,
+            "check_formats": False,
+            "youtube_include_dash_manifest": False,
+            "youtube_include_hls_manifest": False,
+            "lazy_playlist": True,
+            "socket_timeout": 5,
+            "retries": 1,
+            "fragment_retries": 1,
+            "source_address": "0.0.0.0",
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android", "ios", "mweb"],
+                    "player_skip": ["configs", "webpage"],
+                }
+            }
         }
 
         # Cache for resolved audio stream URLs: {key: (stream_url, expire_timestamp)}
@@ -249,6 +276,7 @@ class MusicService:
         if valid_file and os.path.exists(valid_file):
             self.youtube_cookie_path = valid_file
             self.ydl_opts["cookiefile"] = valid_file
+            self.fast_yt_opts["cookiefile"] = valid_file
             cookie_count = sum(1 for line in sanitized.splitlines() if line and not line.startswith("#"))
             logger.info(f"YouTube cookies successfully configured from: {valid_file} ({cookie_count} cookies)")
         else:
@@ -264,6 +292,7 @@ class MusicService:
                 f.write(sanitized)
             self.youtube_cookie_path = app_cookie_path
             self.ydl_opts["cookiefile"] = app_cookie_path
+            self.fast_yt_opts["cookiefile"] = app_cookie_path
             count = sum(1 for l in sanitized.splitlines() if l and not l.startswith("#"))
             return True, app_cookie_path, count
         except Exception as e:
