@@ -179,7 +179,7 @@ class GuildPlayer:
             return 1
         return max(1, math.ceil(count * 0.6))  # 60% of listeners in room (excluding bot)
 
-    async def connect_to_channel(self, channel: discord.VoiceChannel):
+    async def connect_to_channel(self, channel: discord.VoiceChannel, force: bool = False):
         guild_vc = self.guild.voice_client
         if guild_vc and guild_vc.channel:
             if guild_vc.channel.id == channel.id:
@@ -188,6 +188,12 @@ class GuildPlayer:
                     return
             else:
                 if guild_vc.is_connected():
+                    if force:
+                        self._allow_move = True
+                        await guild_vc.move_to(channel)
+                        self.voice_client = guild_vc
+                        await self._notify_change()
+                        return
                     raise RuntimeError(f"Бот уже находится в канале «{guild_vc.channel.name}». Перемещение бота по серверу запрещено!")
 
         if self.voice_client and self.voice_client.channel:
@@ -196,6 +202,11 @@ class GuildPlayer:
                     return
             else:
                 if self.voice_client.is_connected():
+                    if force:
+                        self._allow_move = True
+                        await self.voice_client.move_to(channel)
+                        await self._notify_change()
+                        return
                     raise RuntimeError(f"Бот уже находится в канале «{self.voice_client.channel.name}». Перемещение бота по серверу запрещено!")
 
         if guild_vc:
