@@ -443,15 +443,19 @@ async def slash_play(interaction: discord.Interaction, query: str):
 
         player = player_manager.get_or_create_player(guild)
         connect_task = asyncio.create_task(player.connect_to_channel(voice_channel))
-        stream_task = asyncio.create_task(music_service.get_stream_url(track))
-        await asyncio.gather(connect_task, stream_task, return_exceptions=True)
-        if stream_task.done() and not stream_task.cancelled():
-            try:
-                resolved = stream_task.result()
-                if resolved and not isinstance(resolved, Exception):
-                    track.stream_url = resolved
-            except Exception:
-                pass
+        # If search() already pre-warmed the stream cache, reuse it. Otherwise resolve in parallel.
+        if not track.stream_url:
+            stream_task = asyncio.create_task(music_service.get_stream_url(track))
+            await asyncio.gather(connect_task, stream_task, return_exceptions=True)
+            if stream_task.done() and not stream_task.cancelled():
+                try:
+                    resolved = stream_task.result()
+                    if resolved and not isinstance(resolved, Exception):
+                        track.stream_url = resolved
+                except Exception:
+                    pass
+        else:
+            await connect_task
         res = await player.enqueue(track, play_now=False)
 
         embed = discord.Embed(
@@ -785,7 +789,19 @@ async def cmd_play(ctx, *, query: str):
         track.requester_name = ctx.author.display_name
 
         player = player_manager.get_or_create_player(ctx.guild)
-        await player.connect_to_channel(voice_channel)
+        connect_task = asyncio.create_task(player.connect_to_channel(voice_channel))
+        if not track.stream_url:
+            stream_task = asyncio.create_task(music_service.get_stream_url(track))
+            await asyncio.gather(connect_task, stream_task, return_exceptions=True)
+            if stream_task.done() and not stream_task.cancelled():
+                try:
+                    resolved = stream_task.result()
+                    if resolved and not isinstance(resolved, Exception):
+                        track.stream_url = resolved
+                except Exception:
+                    pass
+        else:
+            await connect_task
         res = await player.enqueue(track, play_now=False)
 
         embed = discord.Embed(
