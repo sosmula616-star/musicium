@@ -84,36 +84,52 @@ def is_admin_id(user_id: Any) -> bool:
         return False
     return str(user_id).strip() in get_admin_ids()
 
-def generate_admin_token(user_id: str, max_age_days: int = 7) -> str:
+def generate_admin_token(user_id: str, name: str = "", avatar: str = "", max_age_days: int = 7) -> str:
     user_id = str(user_id).strip()
     exp = int(time.time()) + (max_age_days * 86400)
-    msg = f"{user_id}:{exp}".encode("utf-8")
-    sig = hmac.new(_SECRET_SALT.encode("utf-8"), msg, hashlib.sha256).hexdigest()
-    return f"{user_id}.{exp}.{sig}"
+    payload_data = {
+        "uid": user_id,
+        "name": name or f"Admin ({user_id[-4:]})",
+        "avatar": avatar or "/static/activity_icon.jpg",
+        "exp": exp,
+        "auth": "discord_oauth2",
+        "created_at": int(time.time()),
+    }
+    raw = json.dumps(payload_data, separators=(',', ':')).encode("utf-8")
+    payload_b64 = base64.urlsafe_b64encode(raw).decode("utf-8").rstrip("=")
+    sig = hmac.new(_SECRET_SALT.encode("utf-8"), payload_b64.encode("utf-8"), hashlib.sha256).hexdigest()
+    return f"{payload_b64}.{sig}"
 
-def verify_admin_token(token: Optional[str]) -> Tuple[bool, Optional[str]]:
+def verify_admin_token(token: Optional[str]) -> Tuple[bool, Optional[Dict[str, Any]]]:
     if not token or "." not in token:
         return False, None
     parts = token.split(".")
-    if len(parts) != 3:
+    if len(parts) != 2:
         return False, None
-    user_id, exp_str, sig = parts
-    try:
-        exp = int(exp_str)
-        if time.time() > exp:
-            return False, None
-    except ValueError:
-        return False, None
+    payload_b64, sig = parts
 
-    msg = f"{user_id}:{exp}".encode("utf-8")
-    expected_sig = hmac.new(_SECRET_SALT.encode("utf-8"), msg, hashlib.sha256).hexdigest()
+    expected_sig = hmac.new(_SECRET_SALT.encode("utf-8"), payload_b64.encode("utf-8"), hashlib.sha256).hexdigest()
     if not hmac.compare_digest(sig, expected_sig):
         return False, None
 
-    if not is_admin_id(user_id):
+    try:
+        rem = len(payload_b64) % 4
+        padded = payload_b64 + ("=" * ((4 - rem) % 4))
+        raw = base64.urlsafe_b64decode(padded)
+        data = json.loads(raw.decode("utf-8"))
+    except Exception:
         return False, None
 
-    return True, user_id
+    # Check expiration
+    if time.time() > data.get("exp", 0):
+        return False, None
+
+    # Verify ID is in admin IDs list
+    uid = str(data.get("uid", ""))
+    if not is_admin_id(uid):
+        return False, None
+
+    return True, data
 
 
 # --- System Statistics Helper ---
