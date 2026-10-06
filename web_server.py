@@ -825,11 +825,11 @@ class WebServer:
                 is_adm = admin_service.is_admin_id(u_id)
                 admin_token = None
                 if is_adm:
-                    admin_token = admin_service.generate_admin_token(u_id)
+                    admin_token = admin_service.generate_admin_token(u_id, name=u_name, avatar=avatar_url)
 
                 if state_param == "admin":
                     if is_adm:
-                        target = "/admin?auth=success"
+                        target = "/admin"
                     else:
                         target = "/admin?auth_error=not_authorized"
                 else:
@@ -844,6 +844,8 @@ class WebServer:
                 response = web.HTTPFound(target)
                 if is_adm and admin_token:
                     response.set_cookie("musicium_admin_token", admin_token, max_age=7*86400, path="/")
+                else:
+                    response.del_cookie("musicium_admin_token", path="/")
                 return response
 
         except Exception as e:
@@ -1115,77 +1117,53 @@ class WebServer:
 
         return ws
 
-    def _verify_admin(self, request: web.Request) -> Tuple[bool, Optional[str]]:
-        # 1. Cookie
+    def _verify_admin(self, request: web.Request) -> Tuple[bool, Optional[Dict[str, Any]]]:
+        # 1. Cryptographically verified cookie minted exclusively via Discord OAuth2
         cookie_token = request.cookies.get("musicium_admin_token")
         if cookie_token:
-            valid, user_id = admin_service.verify_admin_token(cookie_token)
+            valid, user_data = admin_service.verify_admin_token(cookie_token)
             if valid:
-                return True, user_id
+                return True, user_data
 
-        # 2. Authorization Header
+        # 2. Authorization Header (Bearer <token>)
         auth_hdr = request.headers.get("Authorization", "")
         if auth_hdr.startswith("Bearer "):
             token = auth_hdr.split(" ", 1)[1].strip()
-            valid, user_id = admin_service.verify_admin_token(token)
+            valid, user_data = admin_service.verify_admin_token(token)
             if valid:
-                return True, user_id
-
-        # 3. Custom Header X-Admin-User-Id
-        hdr_user_id = request.headers.get("X-Admin-User-Id", "")
-        if hdr_user_id and admin_service.is_admin_id(hdr_user_id):
-            return True, hdr_user_id
-
-        # 4. Query parameters
-        q_user_id = request.query.get("user_id", "")
-        if q_user_id and admin_service.is_admin_id(q_user_id):
-            return True, q_user_id
-
-        q_token = request.query.get("admin_token", "")
-        if q_token:
-            valid, user_id = admin_service.verify_admin_token(q_token)
-            if valid:
-                return True, user_id
+                return True, user_data
 
         return False, None
 
     async def handle_admin(self, request: web.Request) -> web.Response:
+        is_adm, user_data = self._verify_admin(request)
+        if not is_adm:
+            # Strictly require Discord OAuth2 login: redirect directly to Discord authorize flow
+            return web.HTTPFound("/api/auth/discord?redirect=/admin")
+
         static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
         admin_file = os.path.join(static_dir, "admin.html")
         if os.path.exists(admin_file):
             return web.FileResponse(admin_file, headers={"Cache-Control": "no-cache, must-revalidate"})
-        return web.Response(text="<h1>Musicium Admin</h1><p>Admin panel frontend loading...</p>", content_type="text/html")
+        return web.Response(text="<h1>Musicium Admin</h1><p>Admin panel loading...</p>", content_type="text/html")
 
     async def handle_admin_auth_status(self, request: web.Request) -> web.Response:
-        is_adm, user_id = self._verify_admin(request)
-        if is_adm:
+        is_adm, user_data = self._verify_admin(request)
+        if is_adm and user_data:
             return web.json_response({
                 "authenticated": True,
-                "user_id": user_id,
+                "user_id": user_data.get("uid"),
+                "user_name": user_data.get("name"),
+                "user_avatar": user_data.get("avatar"),
                 "primary_admin": admin_service.PRIMARY_ADMIN_ID,
             })
         return web.json_response({
             "authenticated": False,
-            "oauth_url": "/api/auth/discord?redirect=/admin",
+            "login_url": "/api/auth/discord?redirect=/admin",
         })
 
-    async def handle_admin_auth_login(self, request: web.Request) -> web.Response:
-        try:
-            data = await request.json()
-            user_id = str(data.get("user_id", "")).strip()
-            if not user_id:
-                return web.json_response({"ok": False, "error": "Не указан user_id"}, status=400)
-            if not admin_service.is_admin_id(user_id):
-                return web.json_response({"ok": False, "error": "Доступ запрещен. ID не в списке администраторов."}, status=403)
-            token = admin_service.generate_admin_token(user_id)
-            resp = web.json_response({"ok": True, "token": token, "user_id": user_id})
-            resp.set_cookie("musicium_admin_token", token, max_age=7*86400, path="/")
-            return resp
-        except Exception as e:
-            return web.json_response({"ok": False, "error": str(e)}, status=500)
-
     async def handle_admin_auth_logout(self, request: web.Request) -> web.Response:
-        resp = web.json_response({"ok": True})
+        resp = web.json_response({"ok": True, "redirect": "/"})
         resp.del_cookie("musicium_admin_token", path="/")
         return resp
 
