@@ -85,10 +85,9 @@ class WebServer:
         # Live Streams & Recent Plays Feed
         self.app.router.add_get("/api/feed/discovery", self.handle_feed_discovery)
 
-        # Admin / Diagnostics
+        # Admin / Diagnostics (Strictly Discord OAuth2 authenticated)
         self.app.router.add_get("/admin", self.handle_admin)
         self.app.router.add_get("/api/admin/auth/status", self.handle_admin_auth_status)
-        self.app.router.add_post("/api/admin/auth/login", self.handle_admin_auth_login)
         self.app.router.add_post("/api/admin/auth/logout", self.handle_admin_auth_logout)
         self.app.router.add_get("/api/admin/stats", self.handle_admin_stats)
         self.app.router.add_get("/api/admin/guilds", self.handle_admin_guilds)
