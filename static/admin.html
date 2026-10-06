@@ -1,0 +1,1961 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Musicium • Admin Console</title>
+  <link rel="icon" type="image/jpeg" href="/static/activity_icon.jpg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <style>
+    :root {
+      --bg-base: #080b12;
+      --bg-surface: #0f1422;
+      --bg-card: rgba(18, 24, 40, 0.72);
+      --bg-card-hover: rgba(26, 34, 56, 0.85);
+      --bg-glass: rgba(15, 20, 34, 0.65);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-accent: rgba(0, 242, 254, 0.35);
+
+      --accent-cyan: #00f2fe;
+      --accent-blue: #4facfe;
+      --accent-purple: #8a2be2;
+      --accent-pink: #ec4899;
+      --accent-green: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
+
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+
+      --grad-primary: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+      --grad-purple: linear-gradient(135deg, #8a2be2 0%, #4facfe 100%);
+      --grad-glow: radial-gradient(circle at 50% 0%, rgba(0, 242, 254, 0.15) 0%, transparent 70%);
+
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-xl: 28px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(ellipse at 20% 0%, rgba(79, 172, 254, 0.12) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 10%, rgba(138, 43, 226, 0.1) 0%, transparent 60%),
+        radial-gradient(circle at 50% 100%, rgba(0, 242, 254, 0.05) 0%, transparent 50%);
+      background-attachment: fixed;
+    }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(8, 11, 18, 0.7);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.18);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 242, 254, 0.4);
+    }
+
+    /* Top Navigation Header */
+    .admin-navbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      background: var(--bg-glass);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-logo {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      object-fit: cover;
+      box-shadow: 0 0 20px rgba(0, 242, 254, 0.35);
+      border: 1px solid rgba(0, 242, 254, 0.4);
+    }
+
+    .brand-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-badge {
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, rgba(0, 242, 254, 0.2), rgba(79, 172, 254, 0.2));
+      border: 1px solid var(--border-accent);
+      color: var(--accent-cyan);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .header-quick-stats {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .status-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 30px;
+      font-size: 0.82rem;
+      font-weight: 500;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      box-shadow: 0 0 10px var(--accent-green);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.85); }
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      border-radius: var(--radius-sm);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      text-decoration: none;
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      transform: translateY(-1px);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn-primary {
+      background: var(--grad-primary);
+      color: #000;
+      border: none;
+      box-shadow: 0 4px 15px rgba(0, 242, 254, 0.3);
+    }
+    .btn-primary:hover {
+      box-shadow: 0 6px 22px rgba(0, 242, 254, 0.5);
+      background: linear-gradient(135deg, #10f4ff 0%, #68baff 100%);
+    }
+
+    .btn-danger {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: rgba(239, 68, 68, 0.35);
+      color: #fca5a5;
+    }
+    .btn-danger:hover {
+      background: rgba(239, 68, 68, 0.28);
+      border-color: var(--accent-red);
+    }
+
+    .user-pill {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 4px 12px 4px 6px;
+      border-radius: 30px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .user-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 1px solid rgba(0, 242, 254, 0.4);
+    }
+
+    /* Main Container & Tabs */
+    .admin-container {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 24px 28px 60px;
+    }
+
+    .tabs-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px;
+      border-radius: 16px;
+      background: rgba(15, 20, 34, 0.85);
+      border: 1px solid var(--border-subtle);
+      margin-bottom: 24px;
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 20px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      border-radius: 12px;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      white-space: nowrap;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .tab-btn.active {
+      color: #000;
+      background: var(--grad-primary);
+      box-shadow: 0 4px 16px rgba(0, 242, 254, 0.35);
+    }
+
+    .tab-badge {
+      font-size: 0.72rem;
+      padding: 2px 7px;
+      border-radius: 20px;
+      background: rgba(0, 0, 0, 0.25);
+      font-weight: 700;
+    }
+
+    .tab-content {
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Cards Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 18px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: all 0.25s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-card:hover {
+      background: var(--bg-card-hover);
+      border-color: rgba(255, 255, 255, 0.16);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--grad-primary);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .stat-card:hover::before {
+      opacity: 1;
+    }
+
+    .stat-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .stat-title {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .stat-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      background: rgba(0, 242, 254, 0.1);
+      color: var(--accent-cyan);
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--text-main);
+      letter-spacing: -0.03em;
+      line-height: 1;
+    }
+
+    .stat-sub {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Diagnostics Sub-Grid */
+    .diag-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 18px;
+      margin-bottom: 24px;
+    }
+
+    .diag-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 20px;
+    }
+
+    .diag-title {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--accent-cyan);
+    }
+
+    .diag-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      font-size: 0.88rem;
+    }
+
+    .diag-row:last-child {
+      border-bottom: none;
+    }
+
+    .diag-label {
+      color: var(--text-muted);
+    }
+
+    .diag-val {
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-main);
+    }
+
+    /* Guilds Manager Tab */
+    .toolbar-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .search-input-wrap {
+      flex: 1;
+      min-width: 280px;
+      position: relative;
+    }
+
+    .search-input-wrap i {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-dim);
+      font-size: 0.95rem;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 12px 16px 12px 44px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      color: var(--text-main);
+      font-size: 0.92rem;
+      font-family: inherit;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .search-input:focus {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 16px rgba(0, 242, 254, 0.2);
+    }
+
+    .filter-pills {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .filter-pill {
+      padding: 8px 14px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      font-size: 0.84rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .filter-pill.active {
+      background: rgba(0, 242, 254, 0.15);
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+      font-weight: 600;
+    }
+
+    .guilds-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+      gap: 20px;
+    }
+
+    .guild-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      transition: all 0.25s ease;
+      position: relative;
+    }
+
+    .guild-card.connected {
+      border-color: rgba(16, 185, 129, 0.4);
+      background: linear-gradient(145deg, rgba(16, 185, 129, 0.04), var(--bg-card));
+    }
+
+    .guild-card.playing {
+      border-color: rgba(0, 242, 254, 0.5);
+      box-shadow: 0 0 25px rgba(0, 242, 254, 0.1);
+    }
+
+    .guild-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .guild-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      object-fit: cover;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      color: var(--accent-cyan);
+    }
+
+    .guild-meta {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .guild-name {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .guild-sub {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 2px;
+    }
+
+    .voice-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.76rem;
+      font-weight: 600;
+    }
+
+    .voice-status-badge.online {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .voice-status-badge.offline {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-dim);
+      border: 1px solid var(--border-subtle);
+    }
+
+    /* Player Mini View */
+    .guild-player-box {
+      background: rgba(0, 0, 0, 0.35);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .track-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .track-thumb {
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      object-fit: cover;
+      background: #111;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .track-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .track-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .track-artist {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .player-ctrl-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .ctrl-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      color: var(--text-main);
+      padding: 6px 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .ctrl-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      transform: translateY(-1px);
+    }
+
+    /* Channel Switcher Control */
+    .channel-switch-section {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .switch-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .switch-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .channel-select {
+      flex: 1;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      padding: 9px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 0.88rem;
+      font-family: inherit;
+      outline: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .channel-select:focus {
+      border-color: var(--accent-cyan);
+    }
+
+    .channel-select option {
+      background: #0f1422;
+      color: #fff;
+    }
+
+    /* Listeners in channel chips */
+    .listeners-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+
+    .listener-avatar {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    /* Live Logs Tab */
+    .logs-panel {
+      background: #0a0d14;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: 75vh;
+    }
+
+    .logs-toolbar {
+      padding: 12px 18px;
+      background: rgba(18, 24, 40, 0.95);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .log-filter-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .log-btn-filter {
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .log-btn-filter.active {
+      background: rgba(0, 242, 254, 0.15);
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+    }
+
+    .logs-terminal {
+      flex: 1;
+      padding: 16px 20px;
+      overflow-y: auto;
+      font-family: 'JetBrains Mono', Consolas, monospace;
+      font-size: 0.84rem;
+      line-height: 1.6;
+      background: #06080e;
+      color: #cbd5e1;
+    }
+
+    .log-entry {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 2px 0;
+      border-radius: 4px;
+      transition: background 0.1s ease;
+    }
+
+    .log-entry:hover {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .log-time {
+      color: #64748b;
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    .log-level {
+      font-weight: 700;
+      font-size: 0.72rem;
+      padding: 1px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    .log-level-INFO {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+    }
+
+    .log-level-WARNING {
+      background: rgba(245, 158, 11, 0.15);
+      color: #fbbf24;
+    }
+
+    .log-level-ERROR {
+      background: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+    }
+
+    .log-level-DEBUG {
+      background: rgba(148, 163, 184, 0.15);
+      color: #94a3b8;
+    }
+
+    .log-logger {
+      color: #60a5fa;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .log-msg {
+      flex: 1;
+      word-break: break-all;
+      color: #e2e8f0;
+    }
+
+    /* Cookies Tab */
+    .cookies-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .cookie-status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px;
+      border-radius: var(--radius-sm);
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .cookies-textarea {
+      width: 100%;
+      height: 280px;
+      background: #080b12;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      color: #f1f5f9;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      resize: vertical;
+      outline: none;
+    }
+    .cookies-textarea:focus {
+      border-color: var(--accent-cyan);
+    }
+
+    /* Auth Modal Overlay */
+    .auth-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: rgba(8, 11, 18, 0.88);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .auth-card {
+      width: 100%;
+      max-width: 480px;
+      background: rgba(18, 24, 40, 0.95);
+      border: 1px solid rgba(0, 242, 254, 0.3);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(0, 242, 254, 0.15);
+      border-radius: var(--radius-xl);
+      padding: 40px 32px;
+      text-align: center;
+      position: relative;
+    }
+
+    .auth-icon-wrap {
+      width: 72px;
+      height: 72px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, rgba(0, 242, 254, 0.2), rgba(138, 43, 226, 0.2));
+      border: 1px solid var(--border-accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      color: var(--accent-cyan);
+      margin: 0 auto 20px;
+      box-shadow: 0 0 30px rgba(0, 242, 254, 0.3);
+    }
+
+    .auth-title {
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .auth-desc {
+      color: var(--text-muted);
+      font-size: 0.92rem;
+      line-height: 1.5;
+      margin-bottom: 28px;
+    }
+
+    .auth-error-msg {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #fca5a5;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+      margin-bottom: 18px;
+      display: none;
+    }
+
+    .auth-input-group {
+      margin-top: 20px;
+      text-align: left;
+    }
+
+    .auth-input {
+      width: 100%;
+      padding: 12px 16px;
+      background: #0a0d16;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      color: #fff;
+      font-size: 0.92rem;
+      font-family: inherit;
+      outline: none;
+      margin-top: 6px;
+    }
+    .auth-input:focus {
+      border-color: var(--accent-cyan);
+    }
+
+    /* Notification toast */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+    }
+
+    .toast-item {
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      color: #fff;
+      background: rgba(15, 20, 34, 0.95);
+      border: 1px solid var(--border-subtle);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: slideIn 0.3s ease;
+      pointer-events: auto;
+    }
+
+    .toast-item.success {
+      border-color: rgba(16, 185, 129, 0.5);
+      color: #6ee7b7;
+    }
+
+    .toast-item.error {
+      border-color: rgba(239, 68, 68, 0.5);
+      color: #fca5a5;
+    }
+
+    @keyframes slideIn {
+      from { transform: translateX(50px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    @media (max-width: 768px) {
+      .admin-navbar {
+        padding: 12px 16px;
+      }
+      .admin-container {
+        padding: 16px 16px 40px;
+      }
+      .header-quick-stats {
+        display: none;
+      }
+      .guilds-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Auth Modal Overlay (shown when not logged in as Admin) -->
+  <div id="authOverlay" class="auth-overlay" style="display: none;">
+    <div class="auth-card">
+      <div class="auth-icon-wrap">
+        <i class="fa-solid fa-shield-halved"></i>
+      </div>
+      <h2 class="auth-title">Musicium Admin Portal</h2>
+      <p class="auth-desc">Доступ разрешён только для авторизованных администраторов бота (ID: <strong style="color: var(--accent-cyan);">410432175373156352</strong>).</p>
+
+      <div id="authErrorMsg" class="auth-error-msg"></div>
+
+      <button id="authDiscordBtn" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 14px; font-size: 1rem;">
+        <i class="fa-brands fa-discord" style="font-size: 1.2rem;"></i> Войти через Discord
+      </button>
+
+      <div style="margin: 20px 0 14px; display: flex; align-items: center; gap: 12px;">
+        <div style="flex: 1; height: 1px; background: rgba(255, 255, 255, 0.08);"></div>
+        <span style="font-size: 0.76rem; color: var(--text-dim); text-transform: uppercase;">или быстрый вход по ID</span>
+        <div style="flex: 1; height: 1px; background: rgba(255, 255, 255, 0.08);"></div>
+      </div>
+
+      <div class="auth-input-group">
+        <label style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Discord ID Администратора</label>
+        <input type="text" id="authUserIdInput" class="auth-input" value="410432175373156352" placeholder="410432175373156352">
+      </div>
+
+      <button id="authDirectBtn" class="btn" style="width: 100%; justify-content: center; margin-top: 14px; padding: 12px; font-weight: 600;">
+        <i class="fa-solid fa-key"></i> Авторизоваться
+      </button>
+    </div>
+  </div>
+
+  <!-- Admin Navbar -->
+  <header class="admin-navbar">
+    <div class="brand-group">
+      <img src="/static/activity_icon.jpg" alt="Musicium" class="brand-logo" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+      <div>
+        <div class="brand-title">
+          <span>Musicium</span>
+          <span class="brand-badge">ADMIN v2.5</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="header-quick-stats">
+      <div class="status-chip">
+        <div class="pulse-dot"></div>
+        <span id="navBotStatus">Шлюз: Онлайн</span>
+      </div>
+      <div class="status-chip">
+        <i class="fa-solid fa-bolt" style="color: var(--accent-cyan);"></i>
+        <span id="navPing">-- ms</span>
+      </div>
+      <div class="status-chip">
+        <i class="fa-solid fa-clock" style="color: var(--accent-blue);"></i>
+        <span id="navUptime">--</span>
+      </div>
+    </div>
+
+    <div class="nav-actions">
+      <div class="user-pill">
+        <img id="navUserAvatar" src="/static/activity_icon.jpg" alt="Avatar" class="user-avatar">
+        <span id="navUserName" style="font-size: 0.88rem; font-weight: 600;">Admin</span>
+      </div>
+      <a href="/" target="_blank" class="btn" title="Открыть музыкальный плеер">
+        <i class="fa-solid fa-compact-disc"></i> <span>Плеер</span>
+      </a>
+      <button id="logoutBtn" class="btn btn-danger" title="Выйти из админки">
+        <i class="fa-solid fa-right-from-bracket"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="admin-container">
+
+    <!-- Tab Buttons -->
+    <div class="tabs-bar">
+      <button class="tab-btn active" data-tab="tab-dashboard">
+        <i class="fa-solid fa-chart-pie"></i>
+        <span>Дашборд & Метрики</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-guilds">
+        <i class="fa-solid fa-tower-broadcast"></i>
+        <span>Серверы & Голосовые Боты</span>
+        <span id="tabVoiceCountBadge" class="tab-badge">0</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-logs">
+        <i class="fa-solid fa-terminal"></i>
+        <span>Логи в реальном времени</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-cookies">
+        <i class="fa-solid fa-cookie-bite"></i>
+        <span>YouTube Cookies & Сеть</span>
+      </button>
+    </div>
+
+    <!-- TAB 1: DASHBOARD -->
+    <section id="tab-dashboard" class="tab-content active">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-header">
+            <span class="stat-title">Серверов подключено</span>
+            <div class="stat-icon"><i class="fa-solid fa-server"></i></div>
+          </div>
+          <div id="statGuilds" class="stat-value">0</div>
+          <div class="stat-sub"><i class="fa-solid fa-users"></i> <span id="statUsers">0</span> пользователей всего</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-header">
+            <span class="stat-title">Активные голосовые комнаты</span>
+            <div class="stat-icon" style="background: rgba(16, 185, 129, 0.15); color: #34d399;"><i class="fa-solid fa-headphones"></i></div>
+          </div>
+          <div id="statVoiceRooms" class="stat-value" style="color: #34d399;">0</div>
+          <div class="stat-sub"><i class="fa-solid fa-play"></i> <span id="statPlaying">0</span> треков играют сейчас</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-header">
+            <span class="stat-title">Пинг Gateway</span>
+            <div class="stat-icon"><i class="fa-solid fa-network-wired"></i></div>
+          </div>
+          <div id="statPing" class="stat-value">0 ms</div>
+          <div class="stat-sub"><i class="fa-solid fa-satellite-dish"></i> Discord WebSocket API</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-header">
+            <span class="stat-title">Оперативная память (RAM)</span>
+            <div class="stat-icon" style="background: rgba(138, 43, 226, 0.15); color: #c084fc;"><i class="fa-solid fa-microchip"></i></div>
+          </div>
+          <div id="statRam" class="stat-value">0 MB</div>
+          <div class="stat-sub"><i class="fa-solid fa-memory"></i> Процесс Python / Uptime: <span id="statUptimeShort">0ч</span></div>
+        </div>
+      </div>
+
+      <div class="diag-grid">
+        <div class="diag-card">
+          <div class="diag-title"><i class="fa-solid fa-circle-check"></i> Состояние подсистем</div>
+          <div class="diag-row">
+            <span class="diag-label">Статус Discord бота:</span>
+            <span id="diagBotOnline" class="diag-val" style="color: var(--accent-green);">Онлайн</span>
+          </div>
+          <div class="diag-row">
+            <span class="diag-label">WebSocket клиенты Web:</span>
+            <span id="diagWsClients" class="diag-val">0</span>
+          </div>
+          <div class="diag-row">
+            <span class="diag-label">База данных PostgreSQL:</span>
+            <span id="diagDbStatus" class="diag-val">Подключено</span>
+          </div>
+          <div class="diag-row">
+            <span class="diag-label">YouTube Cookies:</span>
+            <span id="diagCookieStatus" class="diag-val">Настроено (0 шт)</span>
+          </div>
+          <div class="diag-row">
+            <span class="diag-label">Буфер логов:</span>
+            <span id="diagLogBuffer" class="diag-val">0 записей</span>
+          </div>
+        </div>
+
+        <div class="diag-card">
+          <div class="diag-title"><i class="fa-solid fa-database"></i> База данных & Контент</div>
+          <div class="diag-row">
+            <span class="diag-label">Сохранено лайков (треков):</span>
+            <span id="diagDbLikes" class="diag-val">0</span>
+          </div>
+          <div class="diag-row">
+            <span class="diag-label">Пользовательских плейлистов:</span>
+            <span id="diagDbPlaylists" class="diag-val">0</span>
+          </div>
+          <div class="diag-row">
+            <span class="diag-label">Записей в истории прослушиваний:</span>
+            <span id="diagDbHistory" class="diag-val">0</span>
+          </div>
+          <div class="diag-row">
+            <span class="diag-label">Версия discord.py:</span>
+            <span id="diagDiscordVer" class="diag-val">--</span>
+          </div>
+          <div class="diag-row">
+            <span class="diag-label">Платформа хостинга:</span>
+            <span id="diagPlatform" class="diag-val">--</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: GUILDS & BOT CHANNELS MANAGER -->
+    <section id="tab-guilds" class="tab-content">
+      <div class="toolbar-bar">
+        <div class="search-input-wrap">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" id="guildSearchInput" class="search-input" placeholder="Поиск по названию сервера или ID...">
+        </div>
+
+        <div class="filter-pills">
+          <button class="filter-pill active" data-filter="all">Все серверы (<span id="pillCountAll">0</span>)</button>
+          <button class="filter-pill" data-filter="connected">В голосовом канале (<span id="pillCountConnected">0</span>)</button>
+          <button class="filter-pill" data-filter="playing">Играет музыка (<span id="pillCountPlaying">0</span>)</button>
+        </div>
+
+        <button id="refreshGuildsBtn" class="btn" title="Обновить список серверов">
+          <i class="fa-solid fa-rotate-right"></i> <span>Обновить</span>
+        </button>
+      </div>
+
+      <div id="guildsGrid" class="guilds-grid">
+        <!-- Dynamic Guild Cards rendered here -->
+      </div>
+    </section>
+
+    <!-- TAB 3: LIVE LOGS -->
+    <section id="tab-logs" class="tab-content">
+      <div class="logs-panel">
+        <div class="logs-toolbar">
+          <div class="log-filter-group">
+            <button class="log-btn-filter active" data-level="ALL">ALL</button>
+            <button class="log-btn-filter" data-level="INFO">INFO</button>
+            <button class="log-btn-filter" data-level="WARNING">WARN</button>
+            <button class="log-btn-filter" data-level="ERROR">ERROR</button>
+          </div>
+
+          <div style="flex: 1; max-width: 320px; position: relative;">
+            <input type="text" id="logSearchInput" class="search-input" style="padding: 6px 12px; font-size: 0.82rem;" placeholder="Фильтр по тексту...">
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <label style="font-size: 0.82rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px; cursor: pointer;">
+              <input type="checkbox" id="logAutoScroll" checked> Автопрокрутка
+            </label>
+            <button id="logPauseBtn" class="btn" style="padding: 5px 10px; font-size: 0.8rem;">
+              <i class="fa-solid fa-pause"></i> <span id="logPauseTxt">Пауза</span>
+            </button>
+            <button id="logClearBtn" class="btn" style="padding: 5px 10px; font-size: 0.8rem;">
+              <i class="fa-solid fa-eraser"></i> Очистить экран
+            </button>
+            <a href="/api/admin/logs/download" class="btn btn-primary" style="padding: 5px 12px; font-size: 0.8rem;">
+              <i class="fa-solid fa-download"></i> Скачать .txt
+            </a>
+          </div>
+        </div>
+
+        <div id="logsTerminal" class="logs-terminal">
+          <!-- Logs rows rendered here -->
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: COOKIES -->
+    <section id="tab-cookies" class="tab-content">
+      <div class="cookies-box">
+        <div>
+          <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 6px;">
+            <i class="fa-solid fa-cookie-bite" style="color: var(--accent-cyan);"></i> Управление YouTube Cookies
+          </h2>
+          <p style="font-size: 0.88rem; color: var(--text-muted);">
+            YouTube cookies необходимы для воспроизведения треков без ограничений скорости и блокировок 429/Sign in to confirm you're not a bot.
+          </p>
+        </div>
+
+        <div class="cookie-status-bar">
+          <div>
+            <div style="font-size: 0.82rem; color: var(--text-muted);">Статус файла куки:</div>
+            <div id="cookieStatusText" style="font-weight: 700; font-size: 1.05rem; color: var(--accent-green); margin-top: 2px;">
+              Подключено
+            </div>
+          </div>
+          <div>
+            <div style="font-size: 0.82rem; color: var(--text-muted);">Количество cookie-записей:</div>
+            <div id="cookieCountText" style="font-weight: 700; font-size: 1.05rem; font-family: monospace; margin-top: 2px;">
+              0 шт
+            </div>
+          </div>
+          <div>
+            <div style="font-size: 0.82rem; color: var(--text-muted);">Размер файла:</div>
+            <div id="cookieSizeText" style="font-weight: 700; font-size: 1.05rem; font-family: monospace; margin-top: 2px;">
+              0 KB
+            </div>
+          </div>
+          <div>
+            <div style="font-size: 0.82rem; color: var(--text-muted);">Путь на сервере:</div>
+            <div id="cookiePathText" style="font-size: 0.82rem; font-family: monospace; color: var(--text-dim); margin-top: 2px;">
+              --
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label style="font-size: 0.88rem; font-weight: 600; display: block; margin-bottom: 8px;">
+            Вставьте содержимое cookies.txt (Netscape формат или Base64):
+          </label>
+          <textarea id="cookiesTextarea" class="cookies-textarea" placeholder="# Netscape HTTP Cookie File
+# http://curl.haxx.se/rfc/cookie_spec.html
+.youtube.com	TRUE	/	TRUE	1775000000	SID	..."></textarea>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: flex-end; gap: 12px;">
+          <button id="saveCookiesBtn" class="btn btn-primary" style="padding: 12px 24px;">
+            <i class="fa-solid fa-floppy-disk"></i> Сохранить и применить Cookies
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Admin Script Logic -->
+  <script>
+    (function() {
+      'use strict';
+
+      // State
+      const state = {
+        authenticated: false,
+        adminUser: null,
+        activeTab: 'tab-dashboard',
+        guilds: [],
+        guildsFilter: 'all',
+        guildsSearch: '',
+        logLevel: 'ALL',
+        logSearch: '',
+        logPaused: false,
+        statsInterval: null,
+        logsInterval: null,
+        guildsInterval: null,
+      };
+
+      // Toast Notification Helper
+      function showToast(message, type = 'info') {
+        const container = document.getElementById('toastContainer');
+        const item = document.createElement('div');
+        item.className = `toast-item ${type}`;
+        const icon = type === 'success' ? 'fa-circle-check' : (type === 'error' ? 'fa-triangle-exclamation' : 'fa-info-circle');
+        item.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${message}</span>`;
+        container.appendChild(item);
+        setTimeout(() => {
+          item.style.opacity = '0';
+          item.style.transform = 'translateY(10px)';
+          item.style.transition = 'all 0.3s ease';
+          setTimeout(() => item.remove(), 300);
+        }, 3500);
+      }
+
+      // Check Authentication on Page Load
+      async function checkAuth() {
+        try {
+          // If we have music_user_id in localStorage, pass as header fallback
+          const localUserId = localStorage.getItem('music_user_id') || '';
+          const res = await fetch('/api/admin/auth/status', {
+            headers: localUserId ? { 'X-Admin-User-Id': localUserId } : {}
+          });
+          const data = await res.json();
+          if (data.authenticated) {
+            state.authenticated = true;
+            state.adminUser = { id: data.user_id, name: 'Admin', avatar: '/static/activity_icon.jpg' };
+            document.getElementById('authOverlay').style.display = 'none';
+            document.getElementById('navUserName').textContent = `Admin (${data.user_id.slice(-4)})`;
+            initAdminDashboard();
+            return true;
+          } else {
+            // Not authenticated: check if localStorage has admin user ID 410432175373156352
+            if (localUserId === '410432175373156352') {
+              // Attempt auto-login
+              await tryDirectLogin('410432175373156352');
+              return;
+            }
+            showAuthOverlay();
+            return false;
+          }
+        } catch (e) {
+          console.error('Auth check error:', e);
+          showAuthOverlay();
+          return false;
+        }
+      }
+
+      function showAuthOverlay(errorText) {
+        document.getElementById('authOverlay').style.display = 'flex';
+        const errEl = document.getElementById('authErrorMsg');
+        if (errorText) {
+          errEl.textContent = errorText;
+          errEl.style.display = 'block';
+        } else {
+          errEl.style.display = 'none';
+        }
+      }
+
+      async function tryDirectLogin(userId) {
+        try {
+          const res = await fetch('/api/admin/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId })
+          });
+          const data = await res.json();
+          if (data.ok) {
+            state.authenticated = true;
+            localStorage.setItem('music_user_id', userId);
+            document.getElementById('authOverlay').style.display = 'none';
+            document.getElementById('navUserName').textContent = `Admin (${userId.slice(-4)})`;
+            showToast('Успешная авторизация в консоли администратора!', 'success');
+            initAdminDashboard();
+          } else {
+            showAuthOverlay(data.error || 'Ошибка входа');
+          }
+        } catch (e) {
+          showAuthOverlay('Не удалось подключиться к серверу');
+        }
+      }
+
+      // Tab Switching
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const targetTab = btn.getAttribute('data-tab');
+          document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+          document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+          btn.classList.add('active');
+          const content = document.getElementById(targetTab);
+          if (content) content.classList.add('active');
+          state.activeTab = targetTab;
+
+          // Trigger instant refresh for active tab
+          if (targetTab === 'tab-guilds') fetchGuilds();
+          if (targetTab === 'tab-logs') fetchLogs();
+          if (targetTab === 'tab-cookies') fetchCookiesInfo();
+        });
+      });
+
+      // Fetch Stats
+      async function fetchStats() {
+        if (!state.authenticated) return;
+        try {
+          const res = await fetch('/api/admin/stats');
+          if (res.status === 401) {
+            showAuthOverlay('Сессия истекла, авторизуйтесь заново.');
+            return;
+          }
+          const s = await res.json();
+
+          // Header
+          document.getElementById('navPing').textContent = `${s.latency_ms} ms`;
+          document.getElementById('navUptime').textContent = s.uptime_str;
+          document.getElementById('navBotStatus').textContent = s.bot_online ? 'Шлюз: Онлайн' : 'Шлюз: Офлайн';
+
+          // Cards
+          document.getElementById('statGuilds').textContent = s.guilds_count;
+          document.getElementById('statUsers').textContent = s.total_users.toLocaleString('ru-RU');
+          document.getElementById('statVoiceRooms').textContent = s.active_voice_count;
+          document.getElementById('tabVoiceCountBadge').textContent = s.active_voice_count;
+          document.getElementById('statPlaying').textContent = s.playing_count;
+          document.getElementById('statPing').textContent = `${s.latency_ms} ms`;
+          document.getElementById('statRam').textContent = `${s.memory_mb} MB`;
+          document.getElementById('statUptimeShort').textContent = s.uptime_str.split(' ')[0] || '0ч';
+
+          // Diag
+          document.getElementById('diagBotOnline').textContent = s.bot_online ? 'Онлайн' : 'Офлайн';
+          document.getElementById('diagWsClients').textContent = `${s.ws_clients} подключений`;
+          document.getElementById('diagDbStatus').textContent = s.database && s.database.connected ? 'Подключено (PostgreSQL)' : 'Отключено';
+          document.getElementById('diagDbLikes').textContent = (s.database && s.database.liked_count) || 0;
+          document.getElementById('diagDbPlaylists').textContent = (s.database && s.database.playlists_count) || 0;
+          document.getElementById('diagDbHistory').textContent = (s.database && s.database.history_count) || 0;
+          document.getElementById('diagDiscordVer').textContent = s.platform ? s.platform.discord_version : '--';
+          document.getElementById('diagPlatform').textContent = s.platform ? `${s.platform.os} • Py ${s.platform.python_version}` : '--';
+          document.getElementById('diagCookieStatus').textContent = s.cookies.configured ? `Активны (${s.cookies.count} шт, ${s.cookies.size_kb} KB)` : 'Не настроены';
+          document.getElementById('diagLogBuffer').textContent = `${s.log_buffer_size} строк`;
+
+          // Cookies tab preview
+          if (s.cookies) {
+            document.getElementById('cookieStatusText').textContent = s.cookies.configured ? 'Подключено и готово' : 'Отсутствует';
+            document.getElementById('cookieStatusText').style.color = s.cookies.configured ? 'var(--accent-green)' : 'var(--accent-red)';
+            document.getElementById('cookieCountText').textContent = `${s.cookies.count} шт`;
+            document.getElementById('cookieSizeText').textContent = `${s.cookies.size_kb} KB`;
+            document.getElementById('cookiePathText').textContent = s.cookies.path || '--';
+          }
+        } catch (e) {
+          console.debug('Stats fetch failed:', e);
+        }
+      }
+
+      // Fetch Guilds
+      async function fetchGuilds() {
+        if (!state.authenticated) return;
+        try {
+          const res = await fetch('/api/admin/guilds');
+          if (res.status === 401) return;
+          const data = await res.json();
+          state.guilds = data.guilds || [];
+          renderGuilds();
+        } catch (e) {
+          console.debug('Guilds fetch error:', e);
+        }
+      }
+
+      // Render Guilds List
+      function renderGuilds() {
+        const grid = document.getElementById('guildsGrid');
+        if (!grid) return;
+
+        let filtered = state.guilds.slice();
+
+        // Count stats
+        const countAll = filtered.length;
+        const countConnected = filtered.filter(g => g.is_connected).length;
+        const countPlaying = filtered.filter(g => g.player && g.player.is_playing).length;
+
+        document.getElementById('pillCountAll').textContent = countAll;
+        document.getElementById('pillCountConnected').textContent = countConnected;
+        document.getElementById('pillCountPlaying').textContent = countPlaying;
+
+        // Apply tab filter
+        if (state.guildsFilter === 'connected') {
+          filtered = filtered.filter(g => g.is_connected);
+        } else if (state.guildsFilter === 'playing') {
+          filtered = filtered.filter(g => g.player && g.player.is_playing);
+        }
+
+        // Apply search query
+        if (state.guildsSearch.trim()) {
+          const q = state.guildsSearch.toLowerCase().trim();
+          filtered = filtered.filter(g => g.name.toLowerCase().includes(q) || g.id.includes(q));
+        }
+
+        if (filtered.length === 0) {
+          grid.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; color: var(--text-muted);">
+              <i class="fa-solid fa-server" style="font-size: 2.5rem; opacity: 0.3; margin-bottom: 12px; display: block;"></i>
+              <p>Серверы не найдены по текущим критериям фильтра.</p>
+            </div>
+          `;
+          return;
+        }
+
+        grid.innerHTML = filtered.map(g => {
+          const isConn = g.is_connected;
+          const isPlaying = g.player && g.player.is_playing;
+          const curCh = g.current_channel;
+          const p = g.player;
+
+          // Member chips in voice room
+          let listenersHtml = '';
+          if (curCh && curCh.members && curCh.members.length > 0) {
+            listenersHtml = `
+              <div class="listeners-row">
+                <span style="font-size: 0.76rem; color: var(--text-dim);">Слушатели:</span>
+                ${curCh.members.map(m => `
+                  <img src="${m.avatar || '/static/activity_icon.jpg'}" title="${m.name}" alt="${m.name}" class="listener-avatar">
+                `).join('')}
+              </div>
+            `;
+          }
+
+          // Player mini track box
+          let playerHtml = '';
+          if (isConn && p && p.current_track) {
+            const track = p.current_track;
+            const isPaused = p.is_paused;
+            playerHtml = `
+              <div class="guild-player-box">
+                <div class="track-row">
+                  <img src="${track.thumbnail || '/static/activity_icon.jpg'}" alt="cover" class="track-thumb">
+                  <div class="track-info">
+                    <div class="track-title" title="${track.title}">${track.title}</div>
+                    <div class="track-artist">${track.artist || 'Неизвестный исполнитель'} • ${p.volume}% громкости</div>
+                  </div>
+                </div>
+                <div class="player-ctrl-row">
+                  <div style="display: flex; gap: 6px;">
+                    <button class="ctrl-btn" onclick="window.adminPlayerAction('${g.id}', '${isPaused ? 'resume' : 'pause'}')">
+                      <i class="fa-solid ${isPaused ? 'fa-play' : 'fa-pause'}"></i> ${isPaused ? 'Возобновить' : 'Пауза'}
+                    </button>
+                    <button class="ctrl-btn" onclick="window.adminPlayerAction('${g.id}', 'skip')">
+                      <i class="fa-solid fa-forward-step"></i> Пропустить
+                    </button>
+                    <button class="ctrl-btn" onclick="window.adminPlayerAction('${g.id}', 'stop')">
+                      <i class="fa-solid fa-stop"></i> Стоп
+                    </button>
+                  </div>
+                  <span style="font-size: 0.76rem; color: var(--text-dim); font-family: monospace;">
+                    ${formatTime(p.elapsed)} / ${formatTime(p.duration)}
+                  </span>
+                </div>
+              </div>
+            `;
+          }
+
+          // Options for voice channels select
+          const optionsHtml = (g.voice_channels || []).map(vc => {
+            const isSelected = isConn && curCh && curCh.id === vc.id;
+            const userBadge = vc.user_count > 0 ? ` (${vc.user_count} чел.)` : '';
+            return `<option value="${vc.id}" ${isSelected ? 'selected' : ''}>${vc.type === 'stage' ? '🎭' : '🔊'} ${vc.name}${userBadge}</option>`;
+          }).join('');
+
+          return `
+            <div class="guild-card ${isConn ? 'connected' : ''} ${isPlaying ? 'playing' : ''}">
+              <div class="guild-header">
+                ${g.icon 
+                  ? `<img src="${g.icon}" alt="${g.name}" class="guild-icon">` 
+                  : `<div class="guild-icon"><i class="fa-solid fa-discord"></i></div>`}
+                <div class="guild-meta">
+                  <div class="guild-name" title="${g.name}">${g.name}</div>
+                  <div class="guild-sub">
+                    <span><i class="fa-solid fa-users"></i> ${g.member_count} уч.</span>
+                    <span>•</span>
+                    <span style="font-family: monospace; font-size: 0.72rem;">ID: ${g.id}</span>
+                  </div>
+                </div>
+                <div>
+                  ${isConn 
+                    ? `<span class="voice-status-badge online"><i class="fa-solid fa-signal"></i> ${curCh ? curCh.name : 'В эфире'}</span>` 
+                    : `<span class="voice-status-badge offline">Не в сети</span>`}
+                </div>
+              </div>
+
+              ${listenersHtml}
+              ${playerHtml}
+
+              <div class="channel-switch-section">
+                <div class="switch-label">
+                  <span><i class="fa-solid fa-right-left"></i> Управление голосовым каналом бота:</span>
+                  ${isConn ? `<button class="btn btn-danger" style="padding: 4px 8px; font-size: 0.74rem;" onclick="window.adminDisconnectBot('${g.id}')"><i class="fa-solid fa-power-off"></i> Отключить</button>` : ''}
+                </div>
+                <div class="switch-controls">
+                  <select id="select-channel-${g.id}" class="channel-select">
+                    ${optionsHtml || '<option value="">Нет голосовых каналов</option>'}
+                  </select>
+                  <button class="btn btn-primary" style="padding: 8px 14px; font-size: 0.82rem;" onclick="window.adminSwitchChannel('${g.id}')">
+                    <i class="fa-solid fa-bolt"></i> ${isConn ? 'Переключить' : 'Подключить'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      function formatTime(sec) {
+        if (!sec || isNaN(sec)) return '0:00';
+        const m = Math.floor(sec / 60);
+        const s = Math.floor(sec % 60);
+        return `${m}:${s < 10 ? '0' : ''}${s}`;
+      }
+
+      // Filter buttons handlers
+      document.querySelectorAll('.filter-pill').forEach(pill => {
+        pill.addEventListener('click', () => {
+          document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+          pill.classList.add('active');
+          state.guildsFilter = pill.getAttribute('data-filter');
+          renderGuilds();
+        });
+      });
+
+      // Search input handler
+      const guildSearch = document.getElementById('guildSearchInput');
+      if (guildSearch) {
+        guildSearch.addEventListener('input', (e) => {
+          state.guildsSearch = e.target.value;
+          renderGuilds();
+        });
+      }
+
+      // Global Actions for Guild Card
+      window.adminSwitchChannel = async function(guildId) {
+        const sel = document.getElementById(`select-channel-${guildId}`);
+        if (!sel || !sel.value) {
+          showToast('Выберите голосовой канал из списка', 'error');
+          return;
+        }
+        const channelId = sel.value;
+        try {
+          const res = await fetch('/api/admin/bot/switch-channel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ guild_id: guildId, channel_id: channelId })
+          });
+          const d = await res.json();
+          if (d.ok) {
+            showToast(d.message || 'Канал бота успешно изменен', 'success');
+            await fetchGuilds();
+            await fetchStats();
+          } else {
+            showToast(d.error || 'Ошибка переключения канала', 'error');
+          }
+        } catch (e) {
+          showToast('Ошибка связи с сервером', 'error');
+        }
+      };
+
+      window.adminDisconnectBot = async function(guildId) {
+        try {
+          const res = await fetch('/api/admin/bot/disconnect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ guild_id: guildId })
+          });
+          const d = await res.json();
+          if (d.ok) {
+            showToast(d.message || 'Бот отключен от голосового канала', 'success');
+            await fetchGuilds();
+            await fetchStats();
+          } else {
+            showToast(d.error || 'Ошибка отключения', 'error');
+          }
+        } catch (e) {
+          showToast('Ошибка связи с сервером', 'error');
+        }
+      };
+
+      window.adminPlayerAction = async function(guildId, action) {
+        try {
+          const res = await fetch('/api/admin/bot/player-action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ guild_id: guildId, action: action })
+          });
+          const d = await res.json();
+          if (d.ok) {
+            showToast(d.message || 'Команда выполнена', 'success');
+            await fetchGuilds();
+          } else {
+            showToast(d.error || 'Ошибка команды плеера', 'error');
+          }
+        } catch (e) {
+          showToast('Ошибка связи с сервером', 'error');
+        }
+      };
+
+      // Fetch & Render Live Logs
+      async function fetchLogs() {
+        if (!state.authenticated || state.logPaused) return;
+        try {
+          const levelQuery = state.logLevel === 'ALL' ? '' : `&level=${state.logLevel}`;
+          const searchQuery = state.logSearch ? `&search=${encodeURIComponent(state.logSearch)}` : '';
+          const res = await fetch(`/api/admin/logs?limit=400${levelQuery}${searchQuery}`);
+          if (res.status === 401) return;
+          const data = await res.json();
+          renderLogs(data.logs || []);
+        } catch (e) {
+          console.debug('Logs fetch error:', e);
+        }
+      }
+
+      function renderLogs(logs) {
+        const terminal = document.getElementById('logsTerminal');
+        if (!terminal) return;
+
+        if (logs.length === 0) {
+          terminal.innerHTML = '<div style="color: var(--text-dim); text-align: center; padding: 40px;">Нет логов по заданным критериям...</div>';
+          return;
+        }
+
+        terminal.innerHTML = logs.map(e => `
+          <div class="log-entry">
+            <span class="log-time">${e.timestamp.split(' ')[1] || e.timestamp}</span>
+            <span class="log-level log-level-${e.level}">${e.level}</span>
+            <span class="log-logger">[${e.name}]</span>
+            <span class="log-msg">${escapeHtml(e.message)}</span>
+          </div>
+        `).join('');
+
+        const autoScroll = document.getElementById('logAutoScroll');
+        if (autoScroll && autoScroll.checked) {
+          terminal.scrollTop = terminal.scrollHeight;
+        }
+      }
+
+      function escapeHtml(text) {
+        if (!text) return '';
+        return text
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+      }
+
+      // Log controls
+      document.querySelectorAll('.log-btn-filter').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.log-btn-filter').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          state.logLevel = btn.getAttribute('data-level');
+          fetchLogs();
+        });
+      });
+
+      const logSearch = document.getElementById('logSearchInput');
+      if (logSearch) {
+        logSearch.addEventListener('input', (e) => {
+          state.logSearch = e.target.value.trim();
+          fetchLogs();
+        });
+      }
+
+      const logPauseBtn = document.getElementById('logPauseBtn');
+      if (logPauseBtn) {
+        logPauseBtn.addEventListener('click', () => {
+          state.logPaused = !state.logPaused;
+          document.getElementById('logPauseTxt').textContent = state.logPaused ? 'Продолжить' : 'Пауза';
+          logPauseBtn.querySelector('i').className = state.logPaused ? 'fa-solid fa-play' : 'fa-solid fa-pause';
+          if (!state.logPaused) fetchLogs();
+        });
+      }
+
+      const logClearBtn = document.getElementById('logClearBtn');
+      if (logClearBtn) {
+        logClearBtn.addEventListener('click', () => {
+          document.getElementById('logsTerminal').innerHTML = '<div style="color: var(--text-dim); text-align: center; padding: 40px;">Экран очищен</div>';
+        });
+      }
+
+      // Cookies Info & Save
+      async function fetchCookiesInfo() {
+        if (!state.authenticated) return;
+        try {
+          const res = await fetch('/api/admin/cookies');
+          const d = await res.json();
+          document.getElementById('cookieStatusText').textContent = d.configured ? 'Подключено и готово' : 'Отсутствует';
+          document.getElementById('cookieStatusText').style.color = d.configured ? 'var(--accent-green)' : 'var(--accent-red)';
+          document.getElementById('cookieCountText').textContent = `${d.cookie_count} шт`;
+          document.getElementById('cookiePathText').textContent = d.cookie_path || '--';
+        } catch (e) {
+          console.debug('Cookie check failed:', e);
+        }
+      }
+
+      const saveCookiesBtn = document.getElementById('saveCookiesBtn');
+      if (saveCookiesBtn) {
+        saveCookiesBtn.addEventListener('click', async () => {
+          const textarea = document.getElementById('cookiesTextarea');
+          const val = (textarea ? textarea.value : '').trim();
+          if (!val) {
+            showToast('Пожалуйста, вставьте содержимое файла cookies', 'error');
+            return;
+          }
+          saveCookiesBtn.disabled = true;
+          saveCookiesBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Сохранение...';
+          try {
+            const res = await fetch('/api/admin/cookies', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ cookies: val })
+            });
+            const d = await res.json();
+            if (d.ok) {
+              showToast(`Успешно сохранено ${d.cookie_count} cookies!`, 'success');
+              if (textarea) textarea.value = '';
+              fetchCookiesInfo();
+              fetchStats();
+            } else {
+              showToast(d.error || 'Ошибка при сохранении cookies', 'error');
+            }
+          } catch (e) {
+            showToast('Ошибка соединения с сервером', 'error');
+          } finally {
+            saveCookiesBtn.disabled = false;
+            saveCookiesBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Сохранить и применить Cookies';
+          }
+        });
+      }
+
+      // Refresh Guilds Button
+      const refreshGuildsBtn = document.getElementById('refreshGuildsBtn');
+      if (refreshGuildsBtn) {
+        refreshGuildsBtn.addEventListener('click', () => {
+          fetchGuilds();
+          showToast('Список серверов обновлен', 'info');
+        });
+      }
+
+      // Auth Buttons
+      document.getElementById('authDiscordBtn').addEventListener('click', () => {
+        window.location.href = '/api/auth/discord?redirect=/admin';
+      });
+
+      document.getElementById('authDirectBtn').addEventListener('click', () => {
+        const input = document.getElementById('authUserIdInput');
+        const uid = input ? input.value.trim() : '';
+        if (!uid) {
+          showAuthOverlay('Введите ID администратора');
+          return;
+        }
+        tryDirectLogin(uid);
+      });
+
+      // Logout Button
+      document.getElementById('logoutBtn').addEventListener('click', async () => {
+        try {
+          await fetch('/api/admin/auth/logout', { method: 'POST' });
+        } catch (_) {}
+        state.authenticated = false;
+        clearInterval(state.statsInterval);
+        clearInterval(state.logsInterval);
+        clearInterval(state.guildsInterval);
+        showAuthOverlay();
+        showToast('Вы вышли из админ-панели', 'info');
+      });
+
+      // Initialize Everything Once Authenticated
+      function initAdminDashboard() {
+        fetchStats();
+        fetchGuilds();
+        fetchLogs();
+
+        // Intervals for live updates
+        clearInterval(state.statsInterval);
+        clearInterval(state.logsInterval);
+        clearInterval(state.guildsInterval);
+
+        state.statsInterval = setInterval(fetchStats, 3500);
+        state.logsInterval = setInterval(fetchLogs, 2500);
+        state.guildsInterval = setInterval(fetchGuilds, 5000);
+      }
+
+      // Kick off auth check
+      checkAuth();
+
+    })();
+  </script>
+</body>
+</html>
