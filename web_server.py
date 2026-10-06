@@ -505,13 +505,19 @@ class WebServer:
                 except Exception:
                     pass
 
+            track_url = track_data.get("url", "")
+            from music_service import clean_youtube_url
+            cleaned_url = clean_youtube_url(track_url)
+            if cleaned_url and cleaned_url != track_url:
+                track_url = cleaned_url
+                track_data["url"] = cleaned_url
+
             # Build Track object
             track_data["requester_id"] = user_id
             track_data["requester_name"] = member_name
             track = Track.from_dict(track_data)
 
-            track_url = track_data.get("url", "")
-            is_playlist = ("playlist" in track_url or "/sets/" in track_url)
+            is_playlist = ("/playlist" in track_url or "/sets/" in track_url)
 
             # Parallelize voice channel connection and stream URL resolution for instant start
             connect_task = asyncio.create_task(player.connect_to_channel(target_channel))
