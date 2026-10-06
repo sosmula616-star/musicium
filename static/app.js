@@ -39,6 +39,9 @@
     localStorage.setItem('music_user_id', queryUserId);
     if (queryUserName) localStorage.setItem('music_user_name', decodeURIComponent(queryUserName));
     if (queryUserAvatar) localStorage.setItem('music_user_avatar', decodeURIComponent(queryUserAvatar));
+    if (urlParams.get('is_admin') === '1' || queryUserId === '410432175373156352') {
+      localStorage.setItem('music_is_admin', 'true');
+    }
     localStorage.setItem('music_authenticated', 'true');
     try {
       const cleanUrl = window.location.pathname + (initialGuildId ? `?guild_id=${initialGuildId}${initialChannelId ? `&channel_id=${initialChannelId}` : ''}` : '');
@@ -747,6 +750,11 @@
       el.userAvatar.src = getSafeImageUrl(state.userAvatar);
       el.userAvatar.onerror = function() { this.src = '/static/activity_icon.jpg'; };
     }
+    const isAdmin = (state.userId === '410432175373156352') || localStorage.getItem('music_is_admin') === 'true';
+    const navAdmin = document.getElementById('navAdminBtn');
+    if (navAdmin) navAdmin.style.display = isAdmin ? 'flex' : 'none';
+    const headerAdmin = document.getElementById('headerAdminPill');
+    if (headerAdmin) headerAdmin.style.display = isAdmin ? 'inline-flex' : 'none';
   }
 
   // Voice Channel Check & Channel Members Rendering
