@@ -489,30 +489,22 @@ class MusicService:
         def _search():
             opts = dict(self.ydl_opts)
             opts["extract_flat"] = True
+            opts["socket_timeout"] = 4
+            opts["retries"] = 1
 
             clean_q = query.strip()
-            queries = [f"ytsearch{limit}:{clean_q}"]
-            # If query looks like a short artist name (1-3 words), also query official audio to guarantee finding their top tracks
-            q_words = clean_q.split()
-            if len(q_words) <= 3 and not any(w in clean_q.lower() for w in ["audio", "music", "song", "песня", "трек", "клип", "remix", "album"]):
-                queries.append(f"ytsearch{min(limit, 6)}:{clean_q} official audio")
-
+            sq = f"ytsearch{limit}:{clean_q}"
             tracks = []
-            seen_ids = set()
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                for sq in queries:
-                    try:
-                        info = ydl.extract_info(sq, download=False)
-                        if info and "entries" in info:
-                            for entry in info["entries"]:
-                                if entry:
-                                    eid = str(entry.get("id") or "")
-                                    if eid and eid not in seen_ids:
-                                        seen_ids.add(eid)
-                                        t = self._parse_flat_entry(entry, default_source="youtube")
-                                        tracks.append(t)
-                    except Exception as ex:
-                        logger.warning(f"Error querying {sq}: {ex}")
+            try:
+                with yt_dlp.YoutubeDL(opts) as ydl:
+                    info = ydl.extract_info(sq, download=False)
+                    if info and "entries" in info:
+                        for entry in info["entries"]:
+                            if entry:
+                                t = self._parse_flat_entry(entry, default_source="youtube")
+                                tracks.append(t)
+            except Exception as ex:
+                logger.warning(f"Error querying {sq}: {ex}")
 
             return tracks
 
