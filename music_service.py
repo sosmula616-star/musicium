@@ -425,16 +425,42 @@ class MusicService:
                 logger.warning(f"Error during search: {res}")
 
         ranked = self._rank_and_filter_tracks(all_tracks, query)
-        return ranked[:limit] if ranked else all_tracks[:limit]
+        final_tracks = ranked[:limit] if ranked else all_tracks[:limit]
+
+        # Background stream cache pre-warming: resolve top result so playback starts instantly (0s wait)
+        if final_tracks:
+            asyncio.create_task(self._safe_preload_stream(final_tracks[0]))
+            if len(final_tracks) > 1:
+                asyncio.create_task(self._safe_preload_stream(final_tracks[1]))
+
+        return final_tracks
+
+    async def _safe_preload_stream(self, track: Track):
+        """Silently pre-resolves stream in background to warm in-memory cache."""
+        try:
+            if track and not track.stream_url:
+                await self.get_stream_url(track)
+        except Exception:
+            pass
 
     async def _resolve_direct_url(self, url: str) -> List[Track]:
-        # yt-dlp handles YouTube, SoundCloud, and hundreds of other sites
+        cleaned = clean_youtube_url(url)
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, self._extract_url_info, url)
+        return await loop.run_in_executor(None, self._extract_url_info, cleaned)
 
-    def _extract_url_info(self, url: str) -> List[Track]:
+    def _extract_url_info(self, raw_url: str) -> List[Track]:
+        url = clean_youtube_url(raw_url)
+        is_playlist = ("/playlist" in url or "/sets/" in url)
+        is_single_yt = (not is_playlist) and ("youtube.com" in url or "youtu.be" in url)
+
+        # Single YouTube / YouTube Music track: resolve metadata AND direct audio stream in ONE fast shot (~1.2s)
+        opts = dict(self.fast_yt_opts if is_single_yt else self.ydl_opts)
+        cookie_file = self.youtube_cookie_path if (self.youtube_cookie_path and os.path.exists(self.youtube_cookie_path)) else None
+        if cookie_file:
+            opts["cookiefile"] = cookie_file
+
         try:
-            with yt_dlp.YoutubeDL(self.ydl_opts) as ydl:
+            with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(url, download=False)
                 if not info:
                     return []
@@ -442,9 +468,18 @@ class MusicService:
                     tracks = []
                     for entry in info["entries"][:50]:
                         if entry:
-                            tracks.append(self._parse_ytdlp_entry(entry))
+                            tracks.append(self._parse_flat_entry(entry, default_source="youtube"))
                     return tracks
-                return [self._parse_ytdlp_entry(info)]
+
+                track = self._parse_ytdlp_entry(info)
+                # If stream URL was extracted in this single request, store and cache it immediately
+                stream = self._extract_audio_stream_url(info)
+                if stream:
+                    track.stream_url = stream
+                    cache_key = track.id or track.url
+                    if cache_key:
+                        self._stream_cache[cache_key] = (stream, time.time() + 9000)
+                return [track]
         except Exception as e:
             logger.error(f"Error extracting url info ({url}): {e}")
             return []
