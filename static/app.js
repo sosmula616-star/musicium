@@ -1586,7 +1586,7 @@
       card.className = 'square-card';
       card.innerHTML = `
         <div class="square-card-thumb-wrap">
-          <img src="${getSafeImageUrl(item.thumbnail)}" alt="${escapeHtml(item.title)}" class="square-card-thumb" loading="lazy" onerror="this.src='/static/activity_icon.jpg';">
+          <img src="${getSafeImageUrl(item.thumbnail)}" alt="${escapeHtml(item.title)}" class="square-card-thumb" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null; this.src='/static/activity_icon.jpg';">
           <div class="square-card-play-btn" title="${t('track.playNowTitle')}">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="#000"><path d="M8 5v14l11-7z"/></svg>
           </div>
