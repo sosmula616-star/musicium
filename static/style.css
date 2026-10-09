@@ -1432,8 +1432,9 @@ html:not([data-lang="en"]) .lang-en { display: none !important; }
    ============================================================ */
 .curated-compact-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px 20px;
+  grid-template-columns: repeat(3, minmax(280px, 1fr));
+  gap: 8px 20px;
+  max-width: 1400px;
 }
 
 .compact-track-row {
