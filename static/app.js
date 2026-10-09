@@ -58,6 +58,7 @@
     userName: localStorage.getItem('music_user_name') || 'Пользователь Discord',
     userAvatar: localStorage.getItem('music_user_avatar') || '/static/activity_icon.jpg',
     isAuthenticated: isRealUser,
+    activeHomeFilter: 'all', // 'all' | 'youtube' | 'soundcloud' | 'albums'
     currentSource: 'all',
     currentView: 'home', // 'home' | 'search' | 'liked' | 'playlist' | 'history' | 'queue'
     selectedPlaylistId: null,
@@ -380,6 +381,11 @@
     { title: 'Wake Me Up', artist: 'Avicii', duration: 247, duration_str: '4:07', thumbnail: 'https://i.ytimg.com/vi/IcrbM1l_BoI/hqdefault.jpg', source: 'youtube' },
     { title: 'Counting Stars', artist: 'OneRepublic', duration: 257, duration_str: '4:17', thumbnail: 'https://i.ytimg.com/vi/hT_nvWreIhg/hqdefault.jpg', source: 'youtube' }
   ];
+
+  let YOUTUBE_CHARTS = [];
+  let SOUNDCLOUD_CHARTS = [];
+  let BEST_ALBUMS = [];
+  let CURATED_ALBUMS = [];
 
   function t(key, params = {}) {
     const lang = state.lang || 'ru';
