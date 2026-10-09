@@ -3126,25 +3126,54 @@
       }
     });
 
-    // User badge: click opens auth modal if not authenticated, or shows status
+    // User badge: click opens dropdown if authenticated, or opens auth modal if not
     if (el.userBadge) {
-      el.userBadge.addEventListener('click', () => {
+      el.userBadge.addEventListener('click', (e) => {
+        e.stopPropagation();
         if (!state.isAuthenticated) {
           if (el.authDiscordModal) el.authDiscordModal.style.display = 'flex';
         } else {
-          showToast(state.userName ? t('user.loggedInAs', { name: state.userName }) : t('user.profileActive'), 'info', 'fa-user');
+          if (el.userMenuDropdown) {
+            const isHidden = (el.userMenuDropdown.style.display === 'none' || !el.userMenuDropdown.style.display);
+            el.userMenuDropdown.style.display = isHidden ? 'block' : 'none';
+          }
         }
       });
     }
 
-    // Discord Login Action buttons in modal
+    if (el.menuLogoutBtn) {
+      el.menuLogoutBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        logoutUser();
+      });
+    }
+
+    if (el.menuSwitchAccountBtn) {
+      el.menuSwitchAccountBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (el.userMenuDropdown) el.userMenuDropdown.style.display = 'none';
+        if (el.authDiscordModal) el.authDiscordModal.style.display = 'flex';
+      });
+    }
+
+    // Close user menu dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (el.userMenuDropdown && el.userProfileWrap && !el.userProfileWrap.contains(e.target)) {
+        el.userMenuDropdown.style.display = 'none';
+      }
+    });
+
+    // Discord Login Action buttons in modal (iframe-safe and SDK aware)
     if (el.btnDiscordLoginAction) {
       el.btnDiscordLoginAction.addEventListener('click', async () => {
-        if (window.DiscordSDK) {
+        const isIframe = (window !== window.parent);
+        const SdkClass = window.DiscordSDK?.DiscordSDK || window.DiscordSDK;
+        if (typeof SdkClass === 'function' && isIframe) {
           const success = await initDiscordSdk(true);
-          if (!success) {
-            window.location.href = '/api/auth/discord';
-          }
+          if (success) return;
+        }
+        if (isIframe) {
+          window.open('/api/auth/discord', '_blank');
         } else {
           window.location.href = '/api/auth/discord';
         }
