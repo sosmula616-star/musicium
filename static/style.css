@@ -368,7 +368,8 @@ html:not([data-lang="en"]) .lang-en { display: none !important; }
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  padding-bottom: 96px;
+  min-height: 100dvh;
+  padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
   background: var(--bg-base);
 }
 
@@ -376,14 +377,16 @@ html:not([data-lang="en"]) .lang-en { display: none !important; }
    HEADER (TOP BAR)
    ============================================================ */
 .ytm-header {
-  height: 60px;
+  height: calc(60px + env(safe-area-inset-top, 0px));
   position: sticky;
   top: 0;
   z-index: 95;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 28px;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: max(20px, env(safe-area-inset-left, 0px));
+  padding-right: max(20px, env(safe-area-inset-right, 0px));
   background: rgba(8, 8, 8, 0.96);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
