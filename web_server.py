@@ -995,7 +995,7 @@ class WebServer:
                 "platform_label": "SoundCloud",
                 "tracks_count": 15,
                 "year": "2023",
-                "cover": "https://i.ytimg.com/vi/8s-qU9uQ6w4/hqdefault.jpg",
+                "cover": "https://i1.sndcdn.com/artworks-9V7b7jN0sEhy-0-t500x500.jpg",
                 "url": "https://soundcloud.com/skrillex/sets/quest-for-fire",
                 "description": "Громкий камбэк Skrillex в бейс-музыку и британский гэридж с треком Rumble."
             },
@@ -1007,7 +1007,7 @@ class WebServer:
                 "platform_label": "SoundCloud",
                 "tracks_count": 13,
                 "year": "2022",
-                "cover": "https://i.ytimg.com/vi/Kz0c0C6mXG4/hqdefault.jpg",
+                "cover": "https://i1.sndcdn.com/artworks-sIe87uG23rI4-0-t500x500.jpg",
                 "url": "https://soundcloud.com/fredagain/sets/actual-life-3",
                 "description": "Прорывной интимный электронный дневник с Delilah (pull me out of this) и Danielle."
             },
@@ -1019,7 +1019,7 @@ class WebServer:
                 "platform_label": "SoundCloud",
                 "tracks_count": 13,
                 "year": "2022",
-                "cover": "https://i.ytimg.com/vi/5e73Z5U23qg/hqdefault.jpg",
+                "cover": "https://i1.sndcdn.com/artworks-5z1sO5aFqH4g-0-t500x500.jpg",
                 "url": "https://soundcloud.com/odesza/sets/the-last-goodbye",
                 "description": "Кинематографичный мелодичный бейс и эмбиент с вокальными гимнами."
             },
@@ -1031,7 +1031,7 @@ class WebServer:
                 "platform_label": "SoundCloud",
                 "tracks_count": 11,
                 "year": "2022",
-                "cover": "https://i.ytimg.com/vi/gCYcYZW45Uk/hqdefault.jpg",
+                "cover": "https://i1.sndcdn.com/artworks-000050868843-g4l0w7-t500x500.jpg",
                 "url": "https://soundcloud.com/martingarrix/sets/sentio",
                 "description": "Фестивальный клаб-альбом номер один с прогрессив-хаусом и взрывными дропами."
             },
@@ -1043,7 +1043,7 @@ class WebServer:
                 "platform_label": "SoundCloud",
                 "tracks_count": 14,
                 "year": "2015",
-                "cover": "https://i.ytimg.com/vi/UtF6Jej8yb4/hqdefault.jpg",
+                "cover": "https://i1.sndcdn.com/artworks-000100781702-86s0d8-t500x500.jpg",
                 "url": "https://soundcloud.com/aviciiofficial/sets/stories",
                 "description": "Душевные мелодии Тима Берглинга: Waiting For Love, The Nights и For A Better Day."
             },
@@ -1055,7 +1055,7 @@ class WebServer:
                 "platform_label": "SoundCloud",
                 "tracks_count": 10,
                 "year": "2014",
-                "cover": "https://i.ytimg.com/vi/tKi9Z-f6qX4/hqdefault.jpg",
+                "cover": "https://i1.sndcdn.com/artworks-000030588647-h06h98-t500x500.jpg",
                 "url": "https://soundcloud.com/deadmau5/sets/5-years-of-mau5",
                 "description": "Ретроспектива лучших прогрессив-хаус полотен, включая полную версию Strobe."
             }
