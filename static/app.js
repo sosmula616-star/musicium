@@ -2946,8 +2946,9 @@
     if (el.btnPlayAllLiked) {
       el.btnPlayAllLiked.addEventListener('click', async () => {
         if (!state.likedTracks.length) return;
+        showToast(`Воспроизведение понравившихся треков (${state.likedTracks.length} шт.)`, 'success');
         for (let i = 0; i < state.likedTracks.length; i++) {
-          await playTrack(state.likedTracks[i], i === 0);
+          await playTrack(state.likedTracks[i], i === 0, true);
         }
       });
     }
@@ -2957,8 +2958,9 @@
       el.btnPlayAllPlaylist.addEventListener('click', async () => {
         const pl = state.customPlaylists.find(p => p.id === state.selectedPlaylistId);
         if (!pl || !pl.tracks || !pl.tracks.length) return;
+        showToast(`Воспроизведение плейлиста «${pl.name || pl.title}» (${pl.tracks.length} треков)`, 'success');
         for (let i = 0; i < pl.tracks.length; i++) {
-          await playTrack(pl.tracks[i], i === 0);
+          await playTrack(pl.tracks[i], i === 0, true);
         }
       });
     }
