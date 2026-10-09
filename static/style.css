@@ -1164,7 +1164,10 @@ html:not([data-lang="en"]) .lang-en { display: none !important; }
 /* ============================================================
    HOME VIEW — SHELVES
    ============================================================ */
-.ytm-shelf { margin-bottom: 48px; }
+.ytm-shelf {
+  margin-bottom: 44px;
+  max-width: 1400px;
+}
 
 .ytm-shelf-header {
   display: flex;
