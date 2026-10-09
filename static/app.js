@@ -382,9 +382,50 @@
     { title: 'Counting Stars', artist: 'OneRepublic', duration: 257, duration_str: '4:17', thumbnail: 'https://i.ytimg.com/vi/hT_nvWreIhg/hqdefault.jpg', source: 'youtube' }
   ];
 
-  let YOUTUBE_CHARTS = [];
-  let SOUNDCLOUD_CHARTS = [];
-  let BEST_ALBUMS = [];
+  let YOUTUBE_CHARTS = [
+    { rank: 1, id: "V9PVRfjEBTI", title: "BIRDS OF A FEATHER", artist: "Billie Eilish", duration_str: "3:30", thumbnail: "https://i.ytimg.com/vi/V9PVRfjEBTI/hqdefault.jpg", source: "youtube", url: "https://music.youtube.com/watch?v=V9PVRfjEBTI", views: "420M" },
+    { rank: 2, id: "tD4s9G_jD20", title: "Timeless", artist: "The Weeknd ft. Playboi Carti", duration_str: "4:16", thumbnail: "https://i.ytimg.com/vi/tD4s9G_jD20/hqdefault.jpg", source: "youtube", url: "https://music.youtube.com/watch?v=tD4s9G_jD20", views: "180M" },
+    { rank: 3, id: "eVli-tstM5E", title: "Espresso", artist: "Sabrina Carpenter", duration_str: "2:55", thumbnail: "https://i.ytimg.com/vi/eVli-tstM5E/hqdefault.jpg", source: "youtube", url: "https://music.youtube.com/watch?v=eVli-tstM5E", views: "390M" },
+    { rank: 4, id: "T6eK-2OQtew", title: "Die With A Smile", artist: "Lady Gaga & Bruno Mars", duration_str: "4:11", thumbnail: "https://i.ytimg.com/vi/T6eK-2OQtew/hqdefault.jpg", source: "youtube", url: "https://music.youtube.com/watch?v=T6eK-2OQtew", views: "260M" },
+    { rank: 5, id: "H5v3kku4y6Q", title: "Not Like Us", artist: "Kendrick Lamar", duration_str: "4:34", thumbnail: "https://i.ytimg.com/vi/H5v3kku4y6Q/hqdefault.jpg", source: "youtube", url: "https://music.youtube.com/watch?v=H5v3kku4y6Q", views: "310M" },
+    { rank: 6, id: "t-84z_c6tC8", title: "A Bar Song (Tipsy)", artist: "Shaboozey", duration_str: "2:51", thumbnail: "https://i.ytimg.com/vi/t-84z_c6tC8/hqdefault.jpg", source: "youtube", url: "https://music.youtube.com/watch?v=t-84z_c6tC8", views: "210M" },
+    { rank: 7, id: "2X_2Idop9pc", title: "Houdini", artist: "Eminem", duration_str: "3:47", thumbnail: "https://i.ytimg.com/vi/2X_2Idop9pc/hqdefault.jpg", source: "youtube", url: "https://music.youtube.com/watch?v=2X_2Idop9pc", views: "195M" },
+    { rank: 8, id: "Oa_RSwwpPaA", title: "Good Luck, Babe!", artist: "Chappell Roan", duration_str: "3:38", thumbnail: "https://i.ytimg.com/vi/Oa_RSwwpPaA/hqdefault.jpg", source: "youtube", url: "https://music.youtube.com/watch?v=Oa_RSwwpPaA", views: "175M" },
+    { rank: 9, id: "4NRXx6U8ABQ", title: "Blinding Lights", artist: "The Weeknd", duration_str: "3:20", thumbnail: "https://i.ytimg.com/vi/4NRXx6U8ABQ/hqdefault.jpg", source: "youtube", url: "https://music.youtube.com/watch?v=4NRXx6U8ABQ", views: "2.8B" },
+    { rank: 10, id: "kTJczUoc268", title: "Stay", artist: "The Kid LAROI & Justin Bieber", duration_str: "2:21", thumbnail: "https://i.ytimg.com/vi/kTJczUoc268/hqdefault.jpg", source: "youtube", url: "https://music.youtube.com/watch?v=kTJczUoc268", views: "850M" },
+    { rank: 11, id: "TUVcZfQe-Kw", title: "Levitating", artist: "Dua Lipa", duration_str: "3:23", thumbnail: "https://i.ytimg.com/vi/TUVcZfQe-Kw/hqdefault.jpg", source: "youtube", url: "https://music.youtube.com/watch?v=TUVcZfQe-Kw", views: "920M" },
+    { rank: 12, id: "7wtfhZwyrcc", title: "Believer", artist: "Imagine Dragons", duration_str: "3:24", thumbnail: "https://i.ytimg.com/vi/7wtfhZwyrcc/hqdefault.jpg", source: "youtube", url: "https://music.youtube.com/watch?v=7wtfhZwyrcc", views: "2.6B" }
+  ];
+
+  let SOUNDCLOUD_CHARTS = [
+    { rank: 1, title: "Rumble", artist: "Skrillex, Fred again.. & Flowdan", duration_str: "2:26", thumbnail: "https://i.ytimg.com/vi/8s-qU9uQ6w4/hqdefault.jpg", source: "soundcloud", url: "https://soundcloud.com/skrillex/rumble", plays: "42M" },
+    { rank: 2, title: "leavemealone", artist: "Fred again.. & Baby Keem", duration_str: "3:43", thumbnail: "https://i.ytimg.com/vi/Kz0c0C6mXG4/hqdefault.jpg", source: "soundcloud", url: "https://soundcloud.com/fredagain/leavemealone", plays: "31M" },
+    { rank: 3, title: "(It Goes Like) Nanana", artist: "Peggy Gou", duration_str: "3:51", thumbnail: "https://i.ytimg.com/vi/2z3f06wQ10g/hqdefault.jpg", source: "soundcloud", url: "https://soundcloud.com/peggygou/it-goes-like-nanana", plays: "58M" },
+    { rank: 4, title: "Where You Are", artist: "John Summit & Hayla", duration_str: "3:58", thumbnail: "https://i.ytimg.com/vi/5e73Z5U23qg/hqdefault.jpg", source: "soundcloud", url: "https://soundcloud.com/johnsummit/where-you-are", plays: "37M" },
+    { rank: 5, title: "Rhyme Dust", artist: "MK & Dom Dolla", duration_str: "3:01", thumbnail: "https://i.ytimg.com/vi/p8gq-C9x0uE/hqdefault.jpg", source: "soundcloud", url: "https://soundcloud.com/domdolla/rhyme-dust", plays: "29M" },
+    { rank: 6, title: "Baddadan", artist: "Chase & Status, Bou ft. Trigga & Flowdan", duration_str: "2:45", thumbnail: "https://i.ytimg.com/vi/V8qD8-5iL0Q/hqdefault.jpg", source: "soundcloud", url: "https://soundcloud.com/chaseandstatus/baddadan", plays: "34M" },
+    { rank: 7, title: "Bangarang", artist: "Skrillex ft. Sirah", duration_str: "3:35", thumbnail: "https://i.ytimg.com/vi/YJVmu6yttiw/hqdefault.jpg", source: "soundcloud", url: "https://soundcloud.com/skrillex/bangarang-feat-sirah", plays: "120M" },
+    { rank: 8, title: "Alone", artist: "Marshmello", duration_str: "3:19", thumbnail: "https://i.ytimg.com/vi/ALZHF5UqnU4/hqdefault.jpg", source: "soundcloud", url: "https://soundcloud.com/marshmellomusic/marshmello-alone", plays: "95M" },
+    { rank: 9, title: "Faded", artist: "Alan Walker", duration_str: "3:32", thumbnail: "https://i.ytimg.com/vi/60ItHLz5WEA/hqdefault.jpg", source: "soundcloud", url: "https://soundcloud.com/alanwalker/faded", plays: "88M" },
+    { rank: 10, title: "Animals", artist: "Martin Garrix", duration_str: "2:56", thumbnail: "https://i.ytimg.com/vi/gCYcYZW45Uk/hqdefault.jpg", source: "soundcloud", url: "https://soundcloud.com/martingarrix/martin-garrix-animals", plays: "115M" },
+    { rank: 11, title: "The Nights", artist: "Avicii", duration_str: "2:56", thumbnail: "https://i.ytimg.com/vi/UtF6Jej8yb4/hqdefault.jpg", source: "soundcloud", url: "https://soundcloud.com/aviciiofficial/the-nights", plays: "110M" },
+    { rank: 12, title: "Strobe", artist: "deadmau5", duration_str: "10:37", thumbnail: "https://i.ytimg.com/vi/tKi9Z-f6qX4/hqdefault.jpg", source: "soundcloud", url: "https://soundcloud.com/deadmau5/strobe", plays: "46M" }
+  ];
+
+  let BEST_ALBUMS = [
+    { id: "alb_after_hours", title: "After Hours", artist: "The Weeknd", platform: "youtube", platform_label: "YouTube Music", tracks_count: 14, year: "2020", cover: "https://i.ytimg.com/vi/4NRXx6U8ABQ/hqdefault.jpg", url: "https://music.youtube.com/search?q=The+Weeknd+After+Hours+Album", description: "Легендарный синти-поп альбом с хитами Blinding Lights, In Your Eyes и Save Your Tears." },
+    { id: "alb_ram", title: "Random Access Memories", artist: "Daft Punk", platform: "youtube", platform_label: "YouTube Music", tracks_count: 13, year: "2013", cover: "https://i.ytimg.com/vi/5NV6Rdv1a3I/hqdefault.jpg", url: "https://music.youtube.com/search?q=Daft+Punk+Random+Access+Memories+Album", description: "Культовый шедевр электронной и диско музыки с Get Lucky, Instant Crush и Giorgio." },
+    { id: "alb_hit_me_hard", title: "HIT ME HARD AND SOFT", artist: "Billie Eilish", platform: "youtube", platform_label: "YouTube Music", tracks_count: 10, year: "2024", cover: "https://i.ytimg.com/vi/V9PVRfjEBTI/hqdefault.jpg", url: "https://music.youtube.com/search?q=Billie+Eilish+HIT+ME+HARD+AND+SOFT+Album", description: "Новейший эмоциональный альбом года с треками BIRDS OF A FEATHER и LUNCH." },
+    { id: "alb_slim_shady", title: "The Death of Slim Shady", artist: "Eminem", platform: "youtube", platform_label: "YouTube Music", tracks_count: 19, year: "2024", cover: "https://i.ytimg.com/vi/2X_2Idop9pc/hqdefault.jpg", url: "https://music.youtube.com/search?q=Eminem+The+Death+of+Slim+Shady+Album", description: "Возвращение альтер-эго Слима Шейди с хитом Houdini и фирменным флоу." },
+    { id: "alb_utopia", title: "UTOPIA", artist: "Travis Scott", platform: "youtube", platform_label: "YouTube Music", tracks_count: 19, year: "2023", cover: "https://i.ytimg.com/vi/H5v3kku4y6Q/hqdefault.jpg", url: "https://music.youtube.com/search?q=Travis+Scott+UTOPIA+Album", description: "Масштабный концептуальный рэп-альбом со звездными фитами и футуристичным звуком." },
+    { id: "alb_starboy", title: "Starboy", artist: "The Weeknd", platform: "youtube", platform_label: "YouTube Music", tracks_count: 18, year: "2016", cover: "https://i.ytimg.com/vi/34Na4j8AVgA/hqdefault.jpg", url: "https://music.youtube.com/search?q=The+Weeknd+Starboy+Album", description: "Платиновый альбом с хитами Starboy, I Feel It Coming и Party Monster." },
+    { id: "alb_quest_for_fire", title: "Quest For Fire", artist: "Skrillex", platform: "soundcloud", platform_label: "SoundCloud", tracks_count: 15, year: "2023", cover: "https://i.ytimg.com/vi/8s-qU9uQ6w4/hqdefault.jpg", url: "https://soundcloud.com/skrillex/sets/quest-for-fire", description: "Громкий камбэк Skrillex в бейс-музыку и британский гэридж с треком Rumble." },
+    { id: "alb_actual_life_3", title: "Actual Life 3", artist: "Fred again..", platform: "soundcloud", platform_label: "SoundCloud", tracks_count: 13, year: "2022", cover: "https://i.ytimg.com/vi/Kz0c0C6mXG4/hqdefault.jpg", url: "https://soundcloud.com/fredagain/sets/actual-life-3", description: "Прорывной интимный электронный дневник с Delilah и Danielle." },
+    { id: "alb_last_goodbye", title: "The Last Goodbye", artist: "ODESZA", platform: "soundcloud", platform_label: "SoundCloud", tracks_count: 13, year: "2022", cover: "https://i.ytimg.com/vi/5e73Z5U23qg/hqdefault.jpg", url: "https://soundcloud.com/odesza/sets/the-last-goodbye", description: "Кинематографичный мелодичный бейс и эмбиент с вокальными гимнами." },
+    { id: "alb_sentio", title: "Sentio", artist: "Martin Garrix", platform: "soundcloud", platform_label: "SoundCloud", tracks_count: 11, year: "2022", cover: "https://i.ytimg.com/vi/gCYcYZW45Uk/hqdefault.jpg", url: "https://soundcloud.com/martingarrix/sets/sentio", description: "Фестивальный клаб-альбом номер один с прогрессив-хаусом и взрывными дропами." },
+    { id: "alb_stories", title: "Stories", artist: "Avicii", platform: "soundcloud", platform_label: "SoundCloud", tracks_count: 14, year: "2015", cover: "https://i.ytimg.com/vi/UtF6Jej8yb4/hqdefault.jpg", url: "https://soundcloud.com/aviciiofficial/sets/stories", description: "Душевные мелодии Тима Берглинга: Waiting For Love, The Nights и For A Better Day." },
+    { id: "alb_skin", title: "Skin", artist: "Flume", platform: "soundcloud", platform_label: "SoundCloud", tracks_count: 16, year: "2016", cover: "https://i.ytimg.com/vi/ALZHF5UqnU4/hqdefault.jpg", url: "https://soundcloud.com/flume/sets/skin", description: "Грэмми-победитель в жанре электронной музыки с Never Be Like You и Say It." }
+  ];
   let CURATED_ALBUMS = [];
 
   function t(key, params = {}) {
@@ -506,15 +547,24 @@
     refreshVoiceBtn: document.getElementById('refreshVoiceBtn'),
 
     // Profile & Auth
+    userProfileWrap: document.getElementById('userProfileWrap'),
     userBadge: document.getElementById('userBadge'),
     userAvatar: document.getElementById('userAvatar'),
     userName: document.getElementById('userName'),
     userTag: document.getElementById('userTag'),
+    userMenuDropdown: document.getElementById('userMenuDropdown'),
+    menuUserAvatar: document.getElementById('menuUserAvatar'),
+    menuUserName: document.getElementById('menuUserName'),
+    menuUserId: document.getElementById('menuUserId'),
+    menuAdminLink: document.getElementById('menuAdminLink'),
+    menuSwitchAccountBtn: document.getElementById('menuSwitchAccountBtn'),
+    menuLogoutBtn: document.getElementById('menuLogoutBtn'),
     authDiscordModal: document.getElementById('authDiscordModal'),
     btnDiscordLoginAction: document.getElementById('btnDiscordLoginAction'),
     btnContinueAsGuest: document.getElementById('btnContinueAsGuest'),
 
-    // Home Shelves
+    // Home Shelves & Platform Charts
+    homePlatformView: document.getElementById('homePlatformView'),
     liveServersShelf: document.getElementById('liveServersShelf'),
     liveServersRow: document.getElementById('liveServersRow'),
     liveArrowLeft: document.getElementById('liveArrowLeft'),
