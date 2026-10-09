@@ -3008,17 +3008,25 @@
       switchView('home');
     });
 
-    // Source chips
-    el.sourceChips.forEach(chip => {
-      chip.addEventListener('click', () => {
-        el.sourceChips.forEach(c => c.classList.remove('active'));
-        chip.classList.add('active');
-        state.currentSource = chip.dataset.source;
-        if (el.searchInput.value.trim()) {
-          performSearch();
-        }
+    // Source chips (Screenshot 1: All / YouTube Music / SoundCloud / Albums)
+    if (el.sourceChips) {
+      el.sourceChips.forEach(chip => {
+        chip.addEventListener('click', () => {
+          el.sourceChips.forEach(c => c.classList.remove('active'));
+          chip.classList.add('active');
+          const src = chip.dataset.source || 'all';
+          state.currentSource = src;
+          state.activeHomeFilter = src;
+
+          if (state.currentView === 'search' && el.searchInput && el.searchInput.value.trim()) {
+            performSearch();
+          } else {
+            switchView('home');
+            renderHomeView();
+          }
+        });
       });
-    });
+    }
 
     // Live Servers Scroll Arrows
     if (el.liveArrowLeft && el.liveServersRow) {
