@@ -1932,17 +1932,21 @@
       });
 
       // Logout Button
-      document.getElementById('logoutBtn').addEventListener('click', async () => {
-        try {
-          await fetch('/api/admin/auth/logout', { method: 'POST' });
-        } catch (_) {}
-        state.authenticated = false;
-        clearInterval(state.statsInterval);
-        clearInterval(state.logsInterval);
-        clearInterval(state.guildsInterval);
-        showAuthOverlay();
-        showToast('Вы вышли из админ-панели', 'info');
-      });
+      const logoutBtn = document.getElementById('logoutBtn');
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', async () => {
+          logoutBtn.disabled = true;
+          logoutBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+          try {
+            await fetch('/api/admin/auth/logout', { method: 'POST' });
+          } catch (_) {}
+          state.authenticated = false;
+          clearInterval(state.statsInterval);
+          clearInterval(state.logsInterval);
+          clearInterval(state.guildsInterval);
+          window.location.href = '/admin?logout=1';
+        });
+      }
 
       // Initialize Everything Once Authenticated
       function initAdminDashboard() {
