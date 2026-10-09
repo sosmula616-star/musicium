@@ -4,6 +4,12 @@
    ============================================================ */
 
 :root {
+  /* iOS & Android Safe Area Insets (Dynamic Island, Notch, Gesture Bar) */
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+
   /* Core Backgrounds — very dark, near-black */
   --bg-base:         #080808;
   --bg-primary:      #0a0a0a;
@@ -83,6 +89,9 @@ html {
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  touch-action: manipulation;
 }
 
 body {
@@ -90,9 +99,13 @@ body {
   background: var(--bg-base);
   color: var(--text-primary);
   min-height: 100vh;
+  min-height: 100dvh;
   overflow-x: hidden;
   user-select: none;
+  -webkit-user-select: none;
   line-height: 1.4;
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 button, input, select, textarea {
