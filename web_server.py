@@ -462,28 +462,8 @@ class WebServer:
                 "error": "Вы должны находиться в голосовом канале на сервере, чтобы включить музыку!",
             }, status=400)
 
-        # Rule: Bot cannot be moved across channels on the server
-        guild_vc = getattr(target_guild, "voice_client", None)
-        if guild_vc and guild_vc.is_connected() and guild_vc.channel:
-            if guild_vc.channel.id != target_channel.id:
-                return web.json_response({
-                    "success": False,
-                    "error": f"Бот уже находится в комнате «{guild_vc.channel.name}». Перемещение бота по серверу запрещено! Перейдите в комнату к боту, чтобы слушать музыку.",
-                }, status=403)
-
         player = self.player_manager.get_or_create_player(target_guild)
-
-        # Rule: If bot is in room with human listeners, only participants (or requester / admin) can add music
-        if player.voice_client and player.voice_client.channel:
-            bot_channel = player.voice_client.channel
-            human_members = [m for m in bot_channel.members if not m.bot]
-            if human_members and user_id and user_id not in [m.id for m in human_members]:
-                member = target_guild.get_member(user_id) if target_guild else None
-                if not (member and member.guild_permissions.administrator):
-                    return web.json_response({
-                        "success": False,
-                        "error": f"Бот сейчас играет в комнате «{bot_channel.name}». Добавлять музыку могут только слушатели в этой комнате!",
-                    }, status=403)
+        player._allow_move = True
 
         try:
             # If client supplied explicit volume preference, apply it
