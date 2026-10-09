@@ -1758,6 +1758,9 @@
         if (data.curated && data.curated.length) CURATED_RECOMMENDED = data.curated;
         if (data.quick_picks && data.quick_picks.length) CURATED_QUICK_PICKS = data.quick_picks;
         if (data.albums && data.albums.length) CURATED_ALBUMS = data.albums;
+        if (data.youtube_charts && data.youtube_charts.length) YOUTUBE_CHARTS = data.youtube_charts;
+        if (data.soundcloud_charts && data.soundcloud_charts.length) SOUNDCLOUD_CHARTS = data.soundcloud_charts;
+        if (data.best_albums && data.best_albums.length) BEST_ALBUMS = data.best_albums;
         recommendationsLoaded = true;
         if (state.currentView === 'home') renderHomeView();
       }
