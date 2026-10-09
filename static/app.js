@@ -1198,9 +1198,10 @@
       playAllBtnText: 'Включить топ-чарт',
       onPlayAll: async () => {
         if (!YOUTUBE_CHARTS || !YOUTUBE_CHARTS.length) return;
-        showToast('Воспроизведение топ-чарта YouTube Music', 'success');
-        for (let i = 0; i < Math.min(YOUTUBE_CHARTS.length, 10); i++) {
-          await playTrack(YOUTUBE_CHARTS[i], i === 0);
+        const total = Math.min(YOUTUBE_CHARTS.length, 10);
+        showToast(`Включаем топ-чарт YouTube Music (${total} треков)`, 'success');
+        for (let i = 0; i < total; i++) {
+          await playTrack(YOUTUBE_CHARTS[i], i === 0, true);
         }
       }
     });
@@ -1293,9 +1294,10 @@
       playAllBtnText: 'Включить топ-чарт',
       onPlayAll: async () => {
         if (!SOUNDCLOUD_CHARTS || !SOUNDCLOUD_CHARTS.length) return;
-        showToast('Воспроизведение топ-чарта SoundCloud', 'success');
-        for (let i = 0; i < Math.min(SOUNDCLOUD_CHARTS.length, 10); i++) {
-          await playTrack(SOUNDCLOUD_CHARTS[i], i === 0);
+        const total = Math.min(SOUNDCLOUD_CHARTS.length, 10);
+        showToast(`Включаем топ-чарт SoundCloud (${total} треков)`, 'success');
+        for (let i = 0; i < total; i++) {
+          await playTrack(SOUNDCLOUD_CHARTS[i], i === 0, true);
         }
       }
     });
@@ -1706,10 +1708,10 @@
       playBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
         if (pl.tracks && pl.tracks.length > 0) {
+          showToast(`Воспроизведение плейлиста «${pl.title}» (${pl.tracks.length} треков)`, 'success');
           for (let i = 0; i < pl.tracks.length; i++) {
-            await playTrack(pl.tracks[i], i === 0);
+            await playTrack(pl.tracks[i], i === 0, true);
           }
-          showToast(`Воспроизведение плейлиста «${pl.title}»`, 'success');
         } else {
           showToast('В этом плейлисте пока нет треков', 'info');
         }
