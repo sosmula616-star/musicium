@@ -95,10 +95,8 @@ def ensure_opus_loaded():
 ensure_opus_loaded()
 
 FFMPEG_BEFORE_OPTIONS = (
-    "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 3 "
-    "-probesize 32768 -analyzeduration 50000 "
-    "-fflags nobuffer+fastseek+discardcorrupt -flags low_delay "
-    "-thread_queue_size 2048"
+    "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 "
+    "-nostdin"
 )
 FFMPEG_OPTIONS = "-vn"
 
@@ -427,8 +425,8 @@ class GuildPlayer:
                         return
 
                 self._consecutive_failures += 1
-                if self._consecutive_failures >= 3:
-                    logger.error(f"Stopping playback loop in {self.guild.name}: 3 consecutive stream failures.")
+                if self._consecutive_failures >= 2:
+                    logger.error(f"Stopping playback loop in {self.guild.name}: 2 consecutive stream failures. Clearing queue to prevent spam.")
                     self.current_track = None
                     self.queue.clear()
                     self._consecutive_failures = 0
@@ -437,6 +435,7 @@ class GuildPlayer:
                         self.voice_client.stop()
                     await self._notify_change()
                     return
+                await asyncio.sleep(1.0)
             else:
                 self._consecutive_failures = 0
                 self._retried_current = False
