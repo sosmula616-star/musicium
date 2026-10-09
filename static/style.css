@@ -4576,6 +4576,7 @@ html:not([data-lang="en"]) .lang-en { display: none !important; }
     padding: 8px 10px;
     gap: 8px;
   }
+  .chart-rank-box,
   .chart-rank-col,
   .chart-rank-badge {
     width: 24px;
@@ -4584,6 +4585,8 @@ html:not([data-lang="en"]) .lang-en { display: none !important; }
   .chart-thumb-wrap {
     width: 40px;
     height: 40px;
+    min-width: 40px;
+    min-height: 40px;
   }
   .chart-title {
     font-size: 13px;
