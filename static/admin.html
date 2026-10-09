@@ -1399,6 +1399,13 @@
 
       // Check Authentication on Page Load
       async function checkAuth() {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('logout') === '1' || urlParams.get('logged_out') === '1') {
+          history.replaceState(null, '', window.location.pathname);
+          showAuthOverlay('Вы успешно вышли из админ-панели.');
+          return false;
+        }
+
         try {
           const res = await fetch('/api/admin/auth/status');
           const data = await res.json();
@@ -1476,6 +1483,11 @@
           document.getElementById('statPlaying').textContent = s.playing_count;
           document.getElementById('statPing').textContent = `${s.latency_ms} ms`;
           document.getElementById('statRam').textContent = `${s.memory_mb} MB`;
+          const ramBar = document.getElementById('statRamBar');
+          if (ramBar) {
+            const ramPct = Math.min(100, Math.max(5, Math.round((s.memory_mb / 1024) * 100)));
+            ramBar.style.width = `${ramPct}%`;
+          }
           document.getElementById('statUptimeShort').textContent = s.uptime_str.split(' ')[0] || '0ч';
 
           // Diag
