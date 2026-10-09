@@ -736,10 +736,13 @@
 
   // Discord Embedded App SDK Init & OAuth Authorization
   async function initDiscordSdk(forceConsent = false) {
-    if (window.DiscordSDK) {
+    const SdkClass = window.DiscordSDK?.DiscordSDK || window.DiscordSDK;
+    if (typeof SdkClass === 'function') {
       try {
-        const discordSdk = new window.DiscordSDK.DiscordSDK();
-        await discordSdk.ready();
+        const discordSdk = new SdkClass('1555020109507199066');
+        const readyPromise = discordSdk.ready();
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Discord SDK ready timeout')), 3500));
+        await Promise.race([readyPromise, timeoutPromise]);
 
         if (discordSdk.guildId) state.guildId = discordSdk.guildId;
         if (discordSdk.channelId) state.channelId = discordSdk.channelId;
@@ -769,6 +772,9 @@
               : '/static/activity_icon.jpg';
             state.isAuthenticated = true;
             localStorage.setItem('music_authenticated', 'true');
+            if (state.userId === '410432175373156352') {
+              localStorage.setItem('music_is_admin', 'true');
+            }
             saveUser();
             if (el.authDiscordModal) el.authDiscordModal.style.display = 'none';
             showToast(`Вы авторизованы как ${state.userName}`, 'success', 'fa-user-check');
@@ -799,6 +805,22 @@
     }
   }
 
+  function logoutUser() {
+    state.isAuthenticated = false;
+    state.userId = '';
+    state.userName = 'Пользователь Discord';
+    state.userAvatar = '/static/activity_icon.jpg';
+    localStorage.removeItem('music_user_id');
+    localStorage.removeItem('music_user_name');
+    localStorage.removeItem('music_user_avatar');
+    localStorage.removeItem('music_is_admin');
+    localStorage.removeItem('music_authenticated');
+    updateUserUI();
+    if (el.userMenuDropdown) el.userMenuDropdown.style.display = 'none';
+    showToast('Вы вышли из профиля', 'info', 'fa-right-from-bracket');
+    if (el.authDiscordModal) el.authDiscordModal.style.display = 'flex';
+  }
+
   function updateUserUI() {
     if (el.userName) el.userName.textContent = state.userName || t('user.defaultName');
     if (el.userTag) el.userTag.textContent = state.userId ? `ID: ${state.userId.slice(-6)}` : t('user.clickToSelect');
@@ -806,11 +828,19 @@
       el.userAvatar.src = getSafeImageUrl(state.userAvatar);
       el.userAvatar.onerror = function() { this.src = '/static/activity_icon.jpg'; };
     }
+    if (el.menuUserName) el.menuUserName.textContent = state.userName || 'Пользователь Discord';
+    if (el.menuUserId) el.menuUserId.textContent = state.userId ? `ID: ${state.userId}` : 'Не авторизован';
+    if (el.menuUserAvatar) {
+      el.menuUserAvatar.src = getSafeImageUrl(state.userAvatar);
+      el.menuUserAvatar.onerror = function() { this.src = '/static/activity_icon.jpg'; };
+    }
+
     const isAdmin = (state.userId === '410432175373156352') || localStorage.getItem('music_is_admin') === 'true';
     const navAdmin = document.getElementById('navAdminBtn');
     if (navAdmin) navAdmin.style.display = isAdmin ? 'flex' : 'none';
     const headerAdmin = document.getElementById('headerAdminPill');
     if (headerAdmin) headerAdmin.style.display = isAdmin ? 'inline-flex' : 'none';
+    if (el.menuAdminLink) el.menuAdminLink.style.display = isAdmin ? 'flex' : 'none';
   }
 
   // Voice Channel Check & Channel Members Rendering
