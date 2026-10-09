@@ -1289,14 +1289,9 @@ class WebServer:
 
     async def handle_admin(self, request: web.Request) -> web.Response:
         if request.query.get("logout") == "1":
-            resp = web.HTTPFound("/?admin_logout=1")
+            resp = web.HTTPFound("/admin?logged_out=1")
             resp.del_cookie("musicium_admin_token", path="/")
             return resp
-
-        is_adm, user_data = self._verify_admin(request)
-        if not is_adm:
-            # Strictly require Discord OAuth2 login: redirect directly to Discord authorize flow
-            return web.HTTPFound("/api/auth/discord?redirect=/admin")
 
         static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
         admin_file = os.path.join(static_dir, "admin.html")
