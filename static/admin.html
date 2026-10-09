@@ -596,6 +596,31 @@
       border: 1px solid var(--border-subtle);
     }
 
+    /* Animated Waveform Equalizer on Playing Cards */
+    .admin-eq-bars {
+      display: inline-flex;
+      align-items: flex-end;
+      gap: 2.5px;
+      height: 14px;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+    .admin-eq-bars span {
+      width: 3px;
+      background: var(--accent-cyan);
+      border-radius: 2px;
+      animation: adminEqPulse 0.8s ease-in-out infinite alternate;
+    }
+    .admin-eq-bars span:nth-child(1) { height: 6px; animation-delay: 0.1s; }
+    .admin-eq-bars span:nth-child(2) { height: 14px; animation-delay: 0.3s; }
+    .admin-eq-bars span:nth-child(3) { height: 9px; animation-delay: 0.15s; }
+    .admin-eq-bars span:nth-child(4) { height: 12px; animation-delay: 0.25s; }
+
+    @keyframes adminEqPulse {
+      0% { height: 4px; }
+      100% { height: 14px; }
+    }
+
     /* Player Mini View */
     .guild-player-box {
       background: rgba(0, 0, 0, 0.35);
