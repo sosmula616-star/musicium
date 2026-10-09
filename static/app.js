@@ -701,10 +701,30 @@
     return 0;
   }
 
-  // Toast Notifications
+  // Toast Notifications with Deduplication & Throttling
+  const recentToasts = new Map();
   function showToast(message, type = 'info', iconClass = null) {
+    if (!message) return;
+    const key = `${type}:${message}`;
+    const now = Date.now();
+    if (recentToasts.has(key) && (now - recentToasts.get(key) < 2500)) {
+      return; // Suppress duplicate toast spam
+    }
+    recentToasts.set(key, now);
+    for (const [k, time] of recentToasts.entries()) {
+      if (now - time > 10000) recentToasts.delete(k);
+    }
+
     const container = el.toastContainer;
     if (!container) return;
+
+    // Limit max visible toasts to 3
+    while (container.children.length >= 3) {
+      if (container.firstElementChild) {
+        container.removeChild(container.firstElementChild);
+      }
+    }
+
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
 
@@ -731,7 +751,7 @@
       setTimeout(() => {
         if (toast.parentNode) toast.parentNode.removeChild(toast);
       }, 300);
-    }, 3500);
+    }, 3200);
   }
 
   // Discord Embedded App SDK Init & OAuth Authorization
