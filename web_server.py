@@ -46,6 +46,8 @@ class WebServer:
         self.port = int(os.getenv("PORT") or os.getenv("SERVER_PORT") or os.getenv("WEB_PORT", 3000))
         self.client_id = os.getenv("DISCORD_CLIENT_ID", "")
         self.client_secret = os.getenv("DISCORD_CLIENT_SECRET", "")
+        self._image_cache: dict[str, tuple[bytes, str]] = {}
+        self._image_proxy_session: Optional[aiohttp.ClientSession] = None
 
         self._setup_routes()
 
@@ -824,37 +826,64 @@ class WebServer:
     async def handle_proxy_image(self, request: web.Request) -> web.Response:
         """Proxies external image requests (YouTube, SoundCloud, Discord) to bypass iframe CSP & referer restrictions."""
         url = request.query.get("url")
-        if not url:
+        if not url or not (url.startswith("https://") or url.startswith("http://")):
             return web.Response(status=400)
 
-        # Basic security check
-        if not (url.startswith("https://") or url.startswith("http://")):
-            return web.Response(status=400)
+        # 1. Return from in-memory cache instantly (< 0.1ms)
+        if url in self._image_cache:
+            content, content_type = self._image_cache[url]
+            return web.Response(
+                body=content,
+                content_type=content_type,
+                headers={
+                    "Cache-Control": "public, max-age=604800, immutable",
+                    "Access-Control-Allow-Origin": "*",
+                }
+            )
 
-        try:
+        # 2. Setup persistent proxy session
+        if not self._image_proxy_session or self._image_proxy_session.closed:
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Referer": "https://www.google.com/",
             }
-            async with aiohttp.ClientSession(headers=headers) as session:
-                async with session.get(url, timeout=aiohttp.ClientTimeout(total=6.0)) as resp:
+            timeout = aiohttp.ClientTimeout(total=3.5, connect=1.8)
+            self._image_proxy_session = aiohttp.ClientSession(headers=headers, timeout=timeout)
+
+        # Candidate URLs: original, then CDN mirror for YouTube thumbnails if needed
+        urls_to_try = [url]
+        if "ytimg.com" in url or "youtube.com" in url:
+            clean_url = urllib.parse.quote(url, safe='')
+            urls_to_try.append(f"https://wsrv.nl/?url={clean_url}&output=jpg")
+
+        for try_url in urls_to_try:
+            try:
+                async with self._image_proxy_session.get(try_url) as resp:
                     if resp.status == 200:
                         content = await resp.read()
-                        content_type = resp.headers.get("Content-Type", "image/jpeg")
-                        return web.Response(
-                            body=content,
-                            content_type=content_type,
-                            headers={
-                                "Cache-Control": "public, max-age=604800",
-                                "Access-Control-Allow-Origin": "*",
-                            }
-                        )
-        except Exception as e:
-            logger.debug(f"Failed to proxy image {url}: {e}")
+                        if content and len(content) > 100:
+                            content_type = resp.headers.get("Content-Type", "image/jpeg")
+                            # Bound in-memory cache size
+                            if len(self._image_cache) > 400:
+                                oldest_keys = list(self._image_cache.keys())[:100]
+                                for k in oldest_keys:
+                                    self._image_cache.pop(k, None)
+                            self._image_cache[url] = (content, content_type)
+                            return web.Response(
+                                body=content,
+                                content_type=content_type,
+                                headers={
+                                    "Cache-Control": "public, max-age=604800, immutable",
+                                    "Access-Control-Allow-Origin": "*",
+                                }
+                            )
+            except Exception as e:
+                logger.debug(f"Failed to fetch proxy image {try_url}: {e}")
 
-        # Fallback to local default activity icon
+        # Fallback to local default activity icon with HTTP 200 so the browser never breaks
         static_icon = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "activity_icon.jpg")
         if os.path.exists(static_icon):
-            return web.FileResponse(static_icon)
+            return web.FileResponse(static_icon, headers={"Cache-Control": "public, max-age=86400", "Access-Control-Allow-Origin": "*"})
         return web.Response(status=404)
 
     async def handle_recommendations(self, request: web.Request) -> web.Response:
