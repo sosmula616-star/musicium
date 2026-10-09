@@ -1644,7 +1644,7 @@
                 </div>
                 <div>
                   ${isConn 
-                    ? `<span class="voice-status-badge online"><i class="fa-solid fa-signal"></i> ${curCh ? curCh.name : 'В эфире'}</span>` 
+                    ? `<span class="voice-status-badge online">${isPlaying ? '<div class="admin-eq-bars"><div class="bar"></div><div class="bar"></div><div class="bar"></div></div>' : '<i class="fa-solid fa-signal"></i>'} ${curCh ? curCh.name : 'В эфире'}</span>` 
                     : `<span class="voice-status-badge offline">Не в сети</span>`}
                 </div>
               </div>
@@ -1655,13 +1655,13 @@
               <div class="channel-switch-section">
                 <div class="switch-label">
                   <span><i class="fa-solid fa-right-left"></i> Управление голосовым каналом бота:</span>
-                  ${isConn ? `<button class="btn btn-danger" style="padding: 4px 8px; font-size: 0.74rem;" onclick="window.adminDisconnectBot('${g.id}')"><i class="fa-solid fa-power-off"></i> Отключить</button>` : ''}
+                  ${isConn ? `<button id="btn-disc-${g.id}" class="btn btn-danger" style="padding: 4px 8px; font-size: 0.74rem;" onclick="window.adminDisconnectBot('${g.id}')"><i class="fa-solid fa-power-off"></i> Отключить</button>` : ''}
                 </div>
                 <div class="switch-controls">
                   <select id="select-channel-${g.id}" class="channel-select">
                     ${optionsHtml || '<option value="">Нет голосовых каналов</option>'}
                   </select>
-                  <button class="btn btn-primary" style="padding: 8px 14px; font-size: 0.82rem;" onclick="window.adminSwitchChannel('${g.id}')">
+                  <button id="btn-switch-${g.id}" class="btn btn-primary" style="padding: 8px 14px; font-size: 0.82rem;" onclick="window.adminSwitchChannel('${g.id}')">
                     <i class="fa-solid fa-bolt"></i> ${isConn ? 'Переключить' : 'Подключить'}
                   </button>
                 </div>
@@ -1700,11 +1700,17 @@
       // Global Actions for Guild Card
       window.adminSwitchChannel = async function(guildId) {
         const sel = document.getElementById(`select-channel-${guildId}`);
+        const btn = document.getElementById(`btn-switch-${guildId}`);
         if (!sel || !sel.value) {
           showToast('Выберите голосовой канал из списка', 'error');
           return;
         }
         const channelId = sel.value;
+        const oldHtml = btn ? btn.innerHTML : '';
+        if (btn) {
+          btn.disabled = true;
+          btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Перемещение...';
+        }
         try {
           const res = await fetch('/api/admin/bot/switch-channel', {
             method: 'POST',
@@ -1721,10 +1727,21 @@
           }
         } catch (e) {
           showToast('Ошибка связи с сервером', 'error');
+        } finally {
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = oldHtml;
+          }
         }
       };
 
       window.adminDisconnectBot = async function(guildId) {
+        const btn = document.getElementById(`btn-disc-${guildId}`);
+        const oldHtml = btn ? btn.innerHTML : '';
+        if (btn) {
+          btn.disabled = true;
+          btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        }
         try {
           const res = await fetch('/api/admin/bot/disconnect', {
             method: 'POST',
@@ -1741,6 +1758,11 @@
           }
         } catch (e) {
           showToast('Ошибка связи с сервером', 'error');
+        } finally {
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = oldHtml;
+          }
         }
       };
 
