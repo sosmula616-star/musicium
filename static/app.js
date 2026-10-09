@@ -680,7 +680,7 @@
   function getSafeImageUrl(url) {
     if (!url) return '/static/activity_icon.jpg';
     if (url.startsWith('/') || url.startsWith('data:')) return url;
-    return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+    return url;
   }
 
   // Format seconds to mm:ss
