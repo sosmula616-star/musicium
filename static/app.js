@@ -1136,98 +1136,472 @@
     });
   }
 
-  // Render Home View (Screenshot 2: Curated 3-column + Square cards + Community Playlists)
+  // Helper to render platform hero banner
+  function renderPlatformHeroBanner({ title, subtitle, badgeText, badgeClass, iconSvg, playAllBtnText, onPlayAll }) {
+    const banner = document.createElement('div');
+    banner.className = 'platform-hero-banner';
+    banner.innerHTML = `
+      <div class="platform-hero-bg-glow"></div>
+      <div class="platform-hero-content">
+        <div class="platform-hero-badge ${badgeClass}">${badgeText}</div>
+        <h1 class="platform-hero-title">${title}</h1>
+        <p class="platform-hero-sub">${subtitle}</p>
+        <div class="platform-hero-actions">
+          <button type="button" class="btn-hero-play-all" id="heroPlayAllBtn">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            <span>${playAllBtnText || 'Слушать все'}</span>
+          </button>
+        </div>
+      </div>
+      <div class="platform-hero-art">
+        ${iconSvg}
+      </div>
+    `;
+    if (onPlayAll) {
+      const btn = banner.querySelector('#heroPlayAllBtn');
+      if (btn) btn.addEventListener('click', onPlayAll);
+    }
+    return banner;
+  }
+
+  // 1. YouTube Music Top Charts View
+  function renderYouTubeChartsView() {
+    if (!el.homePlatformView) return;
+    el.homePlatformView.innerHTML = '';
+
+    const hero = renderPlatformHeroBanner({
+      title: 'Топ-чарты YouTube Music',
+      subtitle: 'Главные музыкальные тренды, вирусные хиты и самые прослушиваемые композиции платформы YouTube Music.',
+      badgeText: 'Официальный топ',
+      badgeClass: 'badge-yt',
+      iconSvg: `<svg viewBox="0 0 24 24" width="80" height="80" fill="#ff0000"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>`,
+      playAllBtnText: 'Включить топ-чарт',
+      onPlayAll: async () => {
+        if (!YOUTUBE_CHARTS || !YOUTUBE_CHARTS.length) return;
+        showToast('Воспроизведение топ-чарта YouTube Music', 'success');
+        for (let i = 0; i < Math.min(YOUTUBE_CHARTS.length, 10); i++) {
+          await playTrack(YOUTUBE_CHARTS[i], i === 0);
+        }
+      }
+    });
+    el.homePlatformView.appendChild(hero);
+
+    const sectionTitle = document.createElement('div');
+    sectionTitle.className = 'chart-section-title';
+    sectionTitle.innerHTML = `
+      <h3>Рейтинг треков YouTube Music</h3>
+      <span class="chart-meta-pill">Обновлено сегодня • ${YOUTUBE_CHARTS.length} треков</span>
+    `;
+    el.homePlatformView.appendChild(sectionTitle);
+
+    const grid = document.createElement('div');
+    grid.className = 'chart-tracks-grid';
+
+    YOUTUBE_CHARTS.forEach((track, idx) => {
+      const rank = track.rank || (idx + 1);
+      const isTop3 = rank <= 3 ? `top-${rank}` : '';
+      const isLiked = isTrackLiked(track);
+      const card = document.createElement('div');
+      card.className = `chart-track-card ${isTop3}`;
+      card.innerHTML = `
+        <div class="chart-rank-box ${isTop3}">${rank}</div>
+        <div class="chart-thumb-wrap">
+          <img src="${getSafeImageUrl(track.thumbnail)}" alt="${escapeHtml(track.title)}" class="chart-thumb" onerror="this.src='/static/activity_icon.jpg';">
+          <div class="chart-play-btn" title="Слушать трек">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="#ffffff"><path d="M8 5v14l11-7z"/></svg>
+          </div>
+        </div>
+        <div class="chart-info-col">
+          <div class="chart-title" title="${escapeHtml(track.title)}">${escapeHtml(track.title)}</div>
+          <div class="chart-artist" title="${escapeHtml(track.artist)}">${escapeHtml(track.artist)}</div>
+        </div>
+        <div class="chart-meta-col">
+          ${track.views ? `<span class="chart-views-badge"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg> ${track.views}</span>` : ''}
+          <span class="chart-duration">${track.duration_str || '3:30'}</span>
+        </div>
+        <div class="chart-actions-col">
+          <button class="btn-compact-action ${isLiked ? 'liked' : ''} btn-like-track" title="Нравится">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+          </button>
+          <button class="btn-compact-action btn-add-q" title="Добавить в очередь">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+          </button>
+          <button class="btn-compact-action btn-add-pl" title="Добавить в плейлист">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z"/></svg>
+          </button>
+        </div>
+      `;
+
+      const playBtn = card.querySelector('.chart-play-btn') || card.querySelector('.chart-thumb-wrap');
+      if (playBtn) {
+        playBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          playTrack(track, true);
+        });
+      }
+      card.querySelector('.btn-add-q').addEventListener('click', (e) => {
+        e.stopPropagation();
+        playTrack(track, false);
+      });
+      card.querySelector('.btn-like-track').addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleLikeTrack(track);
+        renderYouTubeChartsView();
+      });
+      card.querySelector('.btn-add-pl').addEventListener('click', (e) => {
+        e.stopPropagation();
+        openAddToPlaylistModal(track);
+      });
+
+      grid.appendChild(card);
+    });
+
+    el.homePlatformView.appendChild(grid);
+  }
+
+  // 2. SoundCloud Top Charts View
+  function renderSoundCloudChartsView() {
+    if (!el.homePlatformView) return;
+    el.homePlatformView.innerHTML = '';
+
+    const hero = renderPlatformHeroBanner({
+      title: 'Топ-чарты SoundCloud',
+      subtitle: 'Самые горячие треки, клубные релизы и вирусные хиты электронной музыки на SoundCloud.',
+      badgeText: 'В тренде',
+      badgeClass: 'badge-sc',
+      iconSvg: `<svg viewBox="0 0 24 24" width="80" height="80" fill="#ff5500"><path d="M11.56 8.87V17h8.76c1.86 0 3.37-1.5 3.37-3.36 0-1.85-1.51-3.35-3.37-3.35-.42 0-.82.08-1.19.22C18.8 8.08 16.73 6.3 14.2 6.3c-1.07 0-2.07.33-2.9 0.9-.38-1.54-1.74-2.7-3.38-2.7-.42 0-.82.07-1.19.21V8.87h4.83zm-1.8 8.13H8.38V7.57c.38-.17.8-.27 1.25-.27.06 0 .12 0 .18.01v9.69h-.05zm-2.82 0H5.56V8.62c.42-.31.91-.53 1.45-.63v8.71l-.07.3zm-2.82 0H2.74v-6.9c.45-.48 1.02-.85 1.66-1.06v7.66l-.48.3zm-2.82 0H0v-4.83c.39-.62.91-1.12 1.54-1.46v5.89l-.24.4z"/></svg>`,
+      playAllBtnText: 'Включить топ-чарт',
+      onPlayAll: async () => {
+        if (!SOUNDCLOUD_CHARTS || !SOUNDCLOUD_CHARTS.length) return;
+        showToast('Воспроизведение топ-чарта SoundCloud', 'success');
+        for (let i = 0; i < Math.min(SOUNDCLOUD_CHARTS.length, 10); i++) {
+          await playTrack(SOUNDCLOUD_CHARTS[i], i === 0);
+        }
+      }
+    });
+    el.homePlatformView.appendChild(hero);
+
+    const sectionTitle = document.createElement('div');
+    sectionTitle.className = 'chart-section-title';
+    sectionTitle.innerHTML = `
+      <h3>Рейтинг треков SoundCloud</h3>
+      <span class="chart-meta-pill">Обновлено сегодня • ${SOUNDCLOUD_CHARTS.length} треков</span>
+    `;
+    el.homePlatformView.appendChild(sectionTitle);
+
+    const grid = document.createElement('div');
+    grid.className = 'chart-tracks-grid';
+
+    SOUNDCLOUD_CHARTS.forEach((track, idx) => {
+      const rank = track.rank || (idx + 1);
+      const isTop3 = rank <= 3 ? `top-${rank}` : '';
+      const isLiked = isTrackLiked(track);
+      const card = document.createElement('div');
+      card.className = `chart-track-card ${isTop3}`;
+      card.innerHTML = `
+        <div class="chart-rank-box ${isTop3}">${rank}</div>
+        <div class="chart-thumb-wrap">
+          <img src="${getSafeImageUrl(track.thumbnail)}" alt="${escapeHtml(track.title)}" class="chart-thumb" onerror="this.src='/static/activity_icon.jpg';">
+          <div class="chart-play-btn" title="Слушать трек">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="#ffffff"><path d="M8 5v14l11-7z"/></svg>
+          </div>
+        </div>
+        <div class="chart-info-col">
+          <div class="chart-title" title="${escapeHtml(track.title)}">${escapeHtml(track.title)}</div>
+          <div class="chart-artist" title="${escapeHtml(track.artist)}">${escapeHtml(track.artist)}</div>
+        </div>
+        <div class="chart-meta-col">
+          ${track.plays ? `<span class="chart-views-badge sc"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg> ${track.plays}</span>` : ''}
+          <span class="chart-duration">${track.duration_str || '3:30'}</span>
+        </div>
+        <div class="chart-actions-col">
+          <button class="btn-compact-action ${isLiked ? 'liked' : ''} btn-like-track" title="Нравится">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+          </button>
+          <button class="btn-compact-action btn-add-q" title="Добавить в очередь">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+          </button>
+          <button class="btn-compact-action btn-add-pl" title="Добавить в плейлист">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z"/></svg>
+          </button>
+        </div>
+      `;
+
+      const playBtn = card.querySelector('.chart-play-btn') || card.querySelector('.chart-thumb-wrap');
+      if (playBtn) {
+        playBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          playTrack(track, true);
+        });
+      }
+      card.querySelector('.btn-add-q').addEventListener('click', (e) => {
+        e.stopPropagation();
+        playTrack(track, false);
+      });
+      card.querySelector('.btn-like-track').addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleLikeTrack(track);
+        renderSoundCloudChartsView();
+      });
+      card.querySelector('.btn-add-pl').addEventListener('click', (e) => {
+        e.stopPropagation();
+        openAddToPlaylistModal(track);
+      });
+
+      grid.appendChild(card);
+    });
+
+    el.homePlatformView.appendChild(grid);
+  }
+
+  // 3. Best Albums from BOTH YouTube Music and SoundCloud
+  let currentAlbumsSubFilter = 'all'; // 'all' | 'youtube' | 'soundcloud'
+  function renderBestAlbumsView(filter = currentAlbumsSubFilter) {
+    if (!el.homePlatformView) return;
+    currentAlbumsSubFilter = filter;
+    el.homePlatformView.innerHTML = '';
+
+    const hero = renderPlatformHeroBanner({
+      title: 'Лучшие альбомы',
+      subtitle: 'Знаковые музыкальные альбомы, концептуальные релизы и культовые пластинки YouTube Music и SoundCloud.',
+      badgeText: 'Коллекция',
+      badgeClass: 'badge-albums',
+      iconSvg: `<svg viewBox="0 0 24 24" width="80" height="80" fill="#f87171"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5zm0-5.5c-.55 0-1 .45-1 1s.45 1 1 1 1-.45 1-1-.45-1-1-1z"/></svg>`,
+      playAllBtnText: 'Слушать первый альбом',
+      onPlayAll: async () => {
+        const list = getFilteredAlbums();
+        if (list && list[0]) {
+          playAlbumItem(list[0]);
+        }
+      }
+    });
+    el.homePlatformView.appendChild(hero);
+
+    // Subfilter tabs: [Все], [YouTube Music], [SoundCloud]
+    const subFilterRow = document.createElement('div');
+    subFilterRow.className = 'albums-subfilter-bar';
+    subFilterRow.innerHTML = `
+      <div class="subfilter-tabs">
+        <button type="button" class="subfilter-btn ${currentAlbumsSubFilter === 'all' ? 'active' : ''}" data-filter="all">
+          <span>Все платформы</span>
+          <span class="subfilter-count">${BEST_ALBUMS.length}</span>
+        </button>
+        <button type="button" class="subfilter-btn ${currentAlbumsSubFilter === 'youtube' ? 'active' : ''}" data-filter="youtube">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="#ff0000" style="vertical-align:middle;margin-right:4px;"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+          <span>YouTube Music</span>
+          <span class="subfilter-count">${BEST_ALBUMS.filter(a => a.platform === 'youtube').length}</span>
+        </button>
+        <button type="button" class="subfilter-btn ${currentAlbumsSubFilter === 'soundcloud' ? 'active' : ''}" data-filter="soundcloud">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="#ff5500" style="vertical-align:middle;margin-right:4px;"><path d="M11.56 8.87V17h8.76c1.86 0 3.37-1.5 3.37-3.36 0-1.85-1.51-3.35-3.37-3.35-.42 0-.82.08-1.19.22C18.8 8.08 16.73 6.3 14.2 6.3c-1.07 0-2.07.33-2.9 0.9-.38-1.54-1.74-2.7-3.38-2.7-.42 0-.82.07-1.19.21V8.87h4.83zm-1.8 8.13H8.38V7.57c.38-.17.8-.27 1.25-.27.06 0 .12 0 .18.01v9.69h-.05zm-2.82 0H5.56V8.62c.42-.31.91-.53 1.45-.63v8.71l-.07.3zm-2.82 0H2.74v-6.9c.45-.48 1.02-.85 1.66-1.06v7.66l-.48.3zm-2.82 0H0v-4.83c.39-.62.91-1.12 1.54-1.46v5.89l-.24.4z"/></svg>
+          <span>SoundCloud</span>
+          <span class="subfilter-count">${BEST_ALBUMS.filter(a => a.platform === 'soundcloud').length}</span>
+        </button>
+      </div>
+    `;
+
+    subFilterRow.querySelectorAll('.subfilter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        renderBestAlbumsView(btn.dataset.filter);
+      });
+    });
+
+    el.homePlatformView.appendChild(subFilterRow);
+
+    function getFilteredAlbums() {
+      if (currentAlbumsSubFilter === 'youtube') return BEST_ALBUMS.filter(a => a.platform === 'youtube');
+      if (currentAlbumsSubFilter === 'soundcloud') return BEST_ALBUMS.filter(a => a.platform === 'soundcloud');
+      return BEST_ALBUMS;
+    }
+
+    const albumsList = getFilteredAlbums();
+    const grid = document.createElement('div');
+    grid.className = 'albums-grid-container';
+
+    albumsList.forEach(album => {
+      const card = document.createElement('div');
+      card.className = 'album-card';
+      const isYt = album.platform === 'youtube';
+
+      card.innerHTML = `
+        <div class="album-thumb-wrap">
+          <img src="${getSafeImageUrl(album.cover)}" alt="${escapeHtml(album.title)}" class="album-thumb" onerror="this.src='/static/activity_icon.jpg';">
+          <span class="album-platform-tag ${isYt ? 'tag-yt' : 'tag-sc'}">
+            ${isYt ? 'YouTube Music' : 'SoundCloud'}
+          </span>
+          <div class="album-play-overlay" title="Слушать альбом">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="#000"><path d="M8 5v14l11-7z"/></svg>
+          </div>
+        </div>
+        <div class="album-content">
+          <div class="album-title" title="${escapeHtml(album.title)}">${escapeHtml(album.title)}</div>
+          <div class="album-artist" title="${escapeHtml(album.artist)}">${escapeHtml(album.artist)}</div>
+          <div class="album-meta-row">
+            <span>${album.tracks_count || 12} треков</span>
+            <span>•</span>
+            <span>${album.year || '2024'}</span>
+          </div>
+          <p class="album-desc">${escapeHtml(album.description || '')}</p>
+          <div class="album-actions-row">
+            <button type="button" class="btn-play-album">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+              <span>Слушать альбом</span>
+            </button>
+          </div>
+        </div>
+      `;
+
+      function playAlbumItem(alb) {
+        showToast(`Включаем альбом «${alb.title}» (${alb.platform_label || 'Альбом'})`, 'info');
+        playTrack({
+          title: `${alb.title} - ${alb.artist}`,
+          artist: alb.artist,
+          thumbnail: alb.cover,
+          source: alb.platform || 'youtube',
+          url: alb.url || `https://music.youtube.com/search?q=${encodeURIComponent(alb.title + ' ' + alb.artist + ' Album')}`
+        }, true);
+      }
+
+      const playOverlay = card.querySelector('.album-play-overlay') || card.querySelector('.album-thumb-wrap');
+      if (playOverlay) {
+        playOverlay.addEventListener('click', (e) => {
+          e.stopPropagation();
+          playAlbumItem(album);
+        });
+      }
+      const playBtn = card.querySelector('.btn-play-album');
+      if (playBtn) {
+        playBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          playAlbumItem(album);
+        });
+      }
+
+      grid.appendChild(card);
+    });
+
+    el.homePlatformView.appendChild(grid);
+  }
+
+  function renderCuratedShelf() {
+    if (!el.curatedTracksGrid) return;
+    el.curatedTracksGrid.innerHTML = '';
+    CURATED_RECOMMENDED.forEach(track => {
+      const isLiked = isTrackLiked(track);
+      const row = document.createElement('div');
+      row.className = 'compact-track-row';
+      row.innerHTML = `
+        <div class="compact-thumb-wrap">
+          <img src="${getSafeImageUrl(track.thumbnail)}" alt="${escapeHtml(track.title)}" class="compact-thumb" loading="lazy" onerror="this.src='/static/activity_icon.jpg';">
+          <div class="compact-play-hover" title="${t('track.playNowTitle')}">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="#ffffff"><path d="M8 5v14l11-7z"/></svg>
+          </div>
+        </div>
+        <div class="compact-info">
+          <span class="compact-title" title="${escapeHtml(track.title)}">${escapeHtml(track.title)}</span>
+          <span class="compact-artist" title="${escapeHtml(track.artist)}">${escapeHtml(track.artist)} • ${track.duration_str}</span>
+        </div>
+        <div class="compact-actions">
+          <button class="btn-compact-action ${isLiked ? 'liked' : ''} btn-like-track" title="${t('track.like')}">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+          </button>
+          <button class="btn-compact-action btn-add-pl" title="${t('track.addToPlaylist')}">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z"/></svg>
+          </button>
+        </div>
+      `;
+
+      const playBtn = row.querySelector('.compact-play-hover') || row.querySelector('.compact-thumb-wrap');
+      if (playBtn) {
+        playBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          playTrack(track, true);
+        });
+      }
+      row.querySelector('.btn-like-track').addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleLikeTrack(track);
+        renderHomeView();
+      });
+      row.querySelector('.btn-add-pl').addEventListener('click', (e) => {
+        e.stopPropagation();
+        openAddToPlaylistModal(track);
+      });
+
+      el.curatedTracksGrid.appendChild(row);
+    });
+  }
+
+  function renderQuickPicksShelf() {
+    if (!el.quickPicksRow) return;
+    el.quickPicksRow.innerHTML = '';
+    CURATED_QUICK_PICKS.forEach(item => {
+      const card = document.createElement('div');
+      card.className = 'square-card';
+      card.innerHTML = `
+        <div class="square-card-thumb-wrap">
+          <img src="${getSafeImageUrl(item.thumbnail)}" alt="${escapeHtml(item.title)}" class="square-card-thumb" loading="lazy" onerror="this.src='/static/activity_icon.jpg';">
+          <div class="square-card-play-btn" title="${t('track.playNowTitle')}">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="#000"><path d="M8 5v14l11-7z"/></svg>
+          </div>
+        </div>
+        <span class="square-card-title">${escapeHtml(item.title)}</span>
+        <span class="square-card-sub">${escapeHtml(item.artist)}</span>
+      `;
+      const playBtn = card.querySelector('.square-card-play-btn');
+      if (playBtn) {
+        playBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          playTrack({
+            title: item.title,
+            artist: item.artist,
+            thumbnail: item.thumbnail,
+            source: item.source || 'youtube',
+            url: item.url || `https://music.youtube.com/search?q=${encodeURIComponent(item.title + ' ' + item.artist)}`
+          }, true);
+        });
+      }
+      el.quickPicksRow.appendChild(card);
+    });
+  }
+
+  // Render Home View (Screenshot 2: Curated 3-column + Square cards + Community Playlists or Platform Charts)
   function renderHomeView() {
-    // 0. Live Servers Row
-    renderLiveServers();
+    const filter = state.activeHomeFilter || 'all';
+    const isPlatformView = (filter !== 'all');
 
-    // 0.1 Global Recent Row
-    renderGlobalRecent();
+    const defaultShelves = [
+      el.liveServersShelf,
+      el.globalRecentShelf,
+      el.curatedTracksGrid ? el.curatedTracksGrid.closest('.ytm-shelf') : null,
+      el.quickPicksRow ? el.quickPicksRow.closest('.ytm-shelf') : null,
+      el.communityPlaylistsShelf
+    ];
 
-    // 1. Curated 3-column Grid
-    if (el.curatedTracksGrid) {
-      el.curatedTracksGrid.innerHTML = '';
-      CURATED_RECOMMENDED.forEach(track => {
-        const isLiked = isTrackLiked(track);
-        const row = document.createElement('div');
-        row.className = 'compact-track-row';
-        row.innerHTML = `
-          <div class="compact-thumb-wrap">
-            <img src="${getSafeImageUrl(track.thumbnail)}" alt="${escapeHtml(track.title)}" class="compact-thumb" loading="lazy" onerror="this.src='/static/activity_icon.jpg';">
-            <div class="compact-play-hover" title="${t('track.playNowTitle')}">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="#ffffff"><path d="M8 5v14l11-7z"/></svg>
-            </div>
-          </div>
-          <div class="compact-info">
-            <span class="compact-title" title="${escapeHtml(track.title)}">${escapeHtml(track.title)}</span>
-            <span class="compact-artist" title="${escapeHtml(track.artist)}">${escapeHtml(track.artist)} • ${track.duration_str}</span>
-          </div>
-          <div class="compact-actions">
-            <button class="btn-compact-action ${isLiked ? 'liked' : ''} btn-like-track" title="${t('track.like')}">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-            </button>
-            <button class="btn-compact-action btn-add-pl" title="${t('track.addToPlaylist')}">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z"/></svg>
-            </button>
-          </div>
-        `;
+    defaultShelves.forEach(sh => {
+      if (sh) sh.style.display = isPlatformView ? 'none' : 'block';
+    });
 
-        const playBtn = row.querySelector('.compact-play-hover') || row.querySelector('.compact-thumb-wrap');
-        if (playBtn) {
-          playBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            playTrack(track, true);
-          });
-        }
-        row.querySelector('.btn-like-track').addEventListener('click', (e) => {
-          e.stopPropagation();
-          toggleLikeTrack(track);
-          renderHomeView();
-        });
-        row.querySelector('.btn-add-pl').addEventListener('click', (e) => {
-          e.stopPropagation();
-          openAddToPlaylistModal(track);
-        });
+    if (!el.homePlatformView) return;
 
-        el.curatedTracksGrid.appendChild(row);
-      });
+    if (!isPlatformView) {
+      el.homePlatformView.style.display = 'none';
+      el.homePlatformView.innerHTML = '';
+      renderLiveServers();
+      renderGlobalRecent();
+      renderCuratedShelf();
+      renderQuickPicksShelf();
+      renderCommunityPlaylists();
+      return;
     }
 
-    // 2. Square Cards Row: Хиты SoundCloud & YouTube
-    if (el.quickPicksRow) {
-      el.quickPicksRow.innerHTML = '';
-      CURATED_QUICK_PICKS.forEach(item => {
-        const card = document.createElement('div');
-        card.className = 'square-card';
-        card.innerHTML = `
-          <div class="square-card-thumb-wrap">
-            <img src="${getSafeImageUrl(item.thumbnail)}" alt="${escapeHtml(item.title)}" class="square-card-thumb" loading="lazy" onerror="this.src='/static/activity_icon.jpg';">
-            <div class="square-card-play-btn" title="${t('track.playNowTitle')}">
-              <svg viewBox="0 0 24 24" width="22" height="22" fill="#000"><path d="M8 5v14l11-7z"/></svg>
-            </div>
-          </div>
-          <span class="square-card-title">${escapeHtml(item.title)}</span>
-          <span class="square-card-sub">${escapeHtml(item.artist)}</span>
-        `;
-        const playBtn = card.querySelector('.square-card-play-btn');
-        if (playBtn) {
-          playBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            playTrack({
-              title: item.title,
-              artist: item.artist,
-              thumbnail: item.thumbnail,
-              source: item.source || 'youtube',
-              url: item.url || `https://music.youtube.com/search?q=${encodeURIComponent(item.title + ' ' + item.artist)}`
-            }, true);
-          });
-        }
-        el.quickPicksRow.appendChild(card);
-      });
+    el.homePlatformView.style.display = 'block';
+    if (filter === 'youtube') {
+      renderYouTubeChartsView();
+    } else if (filter === 'soundcloud') {
+      renderSoundCloudChartsView();
+    } else if (filter === 'albums' || filter === 'yt_albums') {
+      renderBestAlbumsView();
     }
-
-    // 3. User Community Playlists Shelf
-    renderCommunityPlaylists();
   }
 
   // Community Playlists (Shared albums and leaderboard)
