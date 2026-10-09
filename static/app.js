@@ -677,11 +677,36 @@
   }
 
   // Safe Image URL Proxy Helper
+  // Safe Image URL Helper (supports Discord Activity iframe CSP & direct website)
+  const isMiniApp = (
+    window.location.hostname.includes('discordsays.com') ||
+    window.location.hostname.includes('discord.com') ||
+    (window.self !== window.top) ||
+    Boolean(window.DiscordSDK) ||
+    Boolean(window.Telegram?.WebApp) ||
+    new URLSearchParams(window.location.search).has('frame_id')
+  );
+
   function getSafeImageUrl(url) {
     if (!url) return '/static/activity_icon.jpg';
     if (url.startsWith('/') || url.startsWith('data:')) return url;
+    // In Discord Activity & Mini Apps, external domains are blocked by iframe CSP.
+    // Proxy through same-origin /api/proxy-image to guarantee 100% loading!
+    if (isMiniApp) {
+      return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+    }
     return url;
   }
+
+  // Global capture listener for any image loading errors (graceful fallback)
+  window.addEventListener('error', function(e) {
+    if (e.target && e.target.tagName === 'IMG') {
+      if (!e.target.dataset.fallbackApplied) {
+        e.target.dataset.fallbackApplied = 'true';
+        e.target.src = '/static/activity_icon.jpg';
+      }
+    }
+  }, true);
 
   // Format seconds to mm:ss
   function formatTime(sec) {
