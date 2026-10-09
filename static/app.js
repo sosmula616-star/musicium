@@ -2382,8 +2382,20 @@
     });
   }
 
-  // Send play request to backend
-  async function playTrack(track, playNow = false) {
+  // Send play request to backend with debouncing and optional silent mode
+  let lastTrackRequestKey = '';
+  let lastTrackRequestTime = 0;
+
+  async function playTrack(track, playNow = false, silent = false) {
+    if (!track) return;
+    const trackKey = (track.url || track.title || '') + (playNow ? ':now' : ':queue');
+    const now = Date.now();
+    if (trackKey === lastTrackRequestKey && (now - lastTrackRequestTime < 900)) {
+      return; // prevent rapid duplicate clicking
+    }
+    lastTrackRequestKey = trackKey;
+    lastTrackRequestTime = now;
+
     if (!state.inVoice && !state.channelId) {
       await checkUserVoice();
       if (!state.inVoice && !state.channelId) {
@@ -2395,7 +2407,9 @@
       }
     }
 
-    showToast(t('toast.request', { title: track.title }), 'info', 'fa-music');
+    if (!silent) {
+      showToast(t('toast.request', { title: track.title }), 'info', 'fa-music');
+    }
 
     const effectiveGuildId = state.guildId;
     const effectiveChannelId = state.channelId;
@@ -2417,16 +2431,18 @@
 
       const data = await resp.json();
       if (!data.success) {
-        showToast(data.error || 'Error', 'warning');
+        if (!silent) showToast(data.error || 'Error', 'warning');
         return;
       }
 
-      if (data.action === 'album_enqueued') {
-        showToast(t('toast.albumAdded', { count: data.tracks_count }), 'success');
-      } else if (data.action === 'started' || data.action === 'playing_now') {
-        showToast(t('toast.nowPlaying', { title: track.title, channel: data.channel_name }), 'success');
-      } else {
-        showToast(t('toast.addedQueue', { title: track.title }), 'success');
+      if (!silent) {
+        if (data.action === 'album_enqueued') {
+          showToast(t('toast.albumAdded', { count: data.tracks_count }), 'success');
+        } else if (data.action === 'started' || data.action === 'playing_now') {
+          showToast(t('toast.nowPlaying', { title: track.title, channel: data.channel_name }), 'success');
+        } else {
+          showToast(t('toast.addedQueue', { title: track.title }), 'success');
+        }
       }
 
       addToHistory(track);
@@ -2439,7 +2455,7 @@
 
       checkUserVoice();
     } catch (err) {
-      showToast(t('toast.networkError'), 'error');
+      if (!silent) showToast(t('toast.networkError'), 'error');
     }
   }
 
