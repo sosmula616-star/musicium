@@ -1480,7 +1480,7 @@
           thumbnail: alb.cover,
           source: alb.platform || 'youtube',
           url: alb.url || `https://music.youtube.com/search?q=${encodeURIComponent(alb.title + ' ' + alb.artist + ' Album')}`
-        }, true);
+        }, true, true);
       }
 
       const playOverlay = card.querySelector('.album-play-overlay') || card.querySelector('.album-thumb-wrap');
