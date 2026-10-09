@@ -360,23 +360,23 @@
   // Curated neutral hits from YouTube & SoundCloud
   let CURATED_RECOMMENDED = [
     { title: 'Blinding Lights', artist: 'The Weeknd', duration: 200, duration_str: '3:20', thumbnail: 'https://i.ytimg.com/vi/4NRXx6U8ABQ/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=4NRXx6U8ABQ' },
-    { title: 'Get Lucky', artist: 'Daft Punk ft. Pharrell Williams', duration: 248, duration_str: '4:08', thumbnail: 'https://i.ytimg.com/vi/5NV6Rdv1a3I/hqdefault.jpg', source: 'soundcloud', url: 'https://api.soundcloud.com/tracks/soundcloud%3Atracks%3A88335161' },
+    { title: 'Get Lucky', artist: 'Daft Punk ft. Pharrell Williams', duration: 248, duration_str: '4:08', thumbnail: 'https://i1.sndcdn.com/artworks-000045956041-3o3t81-t500x500.jpg', source: 'soundcloud', url: 'https://api.soundcloud.com/tracks/soundcloud%3Atracks%3A88335161' },
     { title: 'Starboy', artist: 'The Weeknd ft. Daft Punk', duration: 230, duration_str: '3:50', thumbnail: 'https://i.ytimg.com/vi/34Na4j8AVgA/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=34Na4j8AVgA' },
     { title: 'Levitating', artist: 'Dua Lipa', duration: 203, duration_str: '3:23', thumbnail: 'https://i.ytimg.com/vi/TUVcZfQe-Kw/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=TUVcZfQe-Kw' },
     { title: 'Believer', artist: 'Imagine Dragons', duration: 204, duration_str: '3:24', thumbnail: 'https://i.ytimg.com/vi/7wtfhZwyrcc/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=7wtfhZwyrcc' },
-    { title: 'Alone', artist: 'Marshmello', duration: 199, duration_str: '3:19', thumbnail: 'https://i.ytimg.com/vi/ALZHF5UqnU4/hqdefault.jpg', source: 'soundcloud', url: 'https://soundcloud.com/marshmellomusic/marshmello-alone' },
-    { title: 'Faded', artist: 'Alan Walker', duration: 212, duration_str: '3:32', thumbnail: 'https://i.ytimg.com/vi/60ItHLz5WEA/hqdefault.jpg', source: 'soundcloud', url: 'https://soundcloud.com/alanwalker/faded' },
+    { title: 'Alone', artist: 'Marshmello', duration: 199, duration_str: '3:19', thumbnail: 'https://i1.sndcdn.com/artworks-000164805728-66236b-t500x500.jpg', source: 'soundcloud', url: 'https://soundcloud.com/marshmellomusic/marshmello-alone' },
+    { title: 'Faded', artist: 'Alan Walker', duration: 212, duration_str: '3:32', thumbnail: 'https://i1.sndcdn.com/artworks-000138246104-q1m5k5-t500x500.jpg', source: 'soundcloud', url: 'https://soundcloud.com/alanwalker/faded' },
     { title: 'Bad Guy', artist: 'Billie Eilish', duration: 194, duration_str: '3:14', thumbnail: 'https://i.ytimg.com/vi/DyDfgMOUjCI/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=DyDfgMOUjCI' },
-    { title: 'Animals', artist: 'Martin Garrix', duration: 176, duration_str: '2:56', thumbnail: 'https://i.ytimg.com/vi/gCYcYZW45Uk/hqdefault.jpg', source: 'soundcloud', url: 'https://soundcloud.com/martingarrix/martin-garrix-animals' },
+    { title: 'Animals', artist: 'Martin Garrix', duration: 176, duration_str: '2:56', thumbnail: 'https://i1.sndcdn.com/artworks-000050868843-g4l0w7-t500x500.jpg', source: 'soundcloud', url: 'https://soundcloud.com/martingarrix/martin-garrix-animals' },
     { title: 'Stay', artist: 'The Kid LAROI & Justin Bieber', duration: 141, duration_str: '2:21', thumbnail: 'https://i.ytimg.com/vi/kTJczUoc268/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=kTJczUoc268' },
     { title: 'Midnight City', artist: 'M83', duration: 243, duration_str: '4:03', thumbnail: 'https://i.ytimg.com/vi/dX3k_QDnzHE/hqdefault.jpg', source: 'youtube', url: 'https://music.youtube.com/watch?v=dX3k_QDnzHE' },
-    { title: 'The Nights', artist: 'Avicii', duration: 176, duration_str: '2:56', thumbnail: 'https://i.ytimg.com/vi/UtF6Jej8yb4/hqdefault.jpg', source: 'soundcloud', url: 'https://soundcloud.com/aviciiofficial/the-nights' }
+    { title: 'The Nights', artist: 'Avicii', duration: 176, duration_str: '2:56', thumbnail: 'https://i1.sndcdn.com/artworks-000100781702-86s0d8-t500x500.jpg', source: 'soundcloud', url: 'https://soundcloud.com/aviciiofficial/the-nights' }
   ];
 
   let CURATED_QUICK_PICKS = [
-    { title: 'Bangarang', artist: 'Skrillex', duration: 215, duration_str: '3:35', thumbnail: 'https://i.ytimg.com/vi/YJVmu6yttiw/hqdefault.jpg', source: 'soundcloud' },
-    { title: 'First of the Year (Equinox)', artist: 'Skrillex', duration: 195, duration_str: '3:15', thumbnail: 'https://i.ytimg.com/vi/2cXDgFwE13g/hqdefault.jpg', source: 'soundcloud' },
-    { title: 'Strobe', artist: 'deadmau5', duration: 637, duration_str: '10:37', thumbnail: 'https://i.ytimg.com/vi/tKi9Z-f6qX4/hqdefault.jpg', source: 'soundcloud' },
+    { title: 'Bangarang', artist: 'Skrillex', duration: 215, duration_str: '3:35', thumbnail: 'https://i1.sndcdn.com/artworks-000015949826-p24s0h-t500x500.jpg', source: 'soundcloud' },
+    { title: 'First of the Year (Equinox)', artist: 'Skrillex', duration: 195, duration_str: '3:15', thumbnail: 'https://i1.sndcdn.com/artworks-000014277730-1qf2o1-t500x500.jpg', source: 'soundcloud' },
+    { title: 'Strobe', artist: 'deadmau5', duration: 637, duration_str: '10:37', thumbnail: 'https://i1.sndcdn.com/artworks-000030588647-h06h98-t500x500.jpg', source: 'soundcloud' },
     { title: 'One More Time', artist: 'Daft Punk', duration: 320, duration_str: '5:20', thumbnail: 'https://i.ytimg.com/vi/FGBhQbmMxH8/hqdefault.jpg', source: 'youtube' },
     { title: 'Wake Me Up', artist: 'Avicii', duration: 247, duration_str: '4:07', thumbnail: 'https://i.ytimg.com/vi/IcrbM1l_BoI/hqdefault.jpg', source: 'youtube' },
     { title: 'Counting Stars', artist: 'OneRepublic', duration: 257, duration_str: '4:17', thumbnail: 'https://i.ytimg.com/vi/hT_nvWreIhg/hqdefault.jpg', source: 'youtube' }
