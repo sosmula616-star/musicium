@@ -179,40 +179,54 @@ class GuildPlayer:
             return 1
         return max(1, math.ceil(count * 0.6))  # 60% of listeners in room (excluding bot)
 
-    async def connect_to_channel(self, channel: discord.VoiceChannel, force: bool = False):
+    async def connect_to_channel(self, channel: discord.VoiceChannel, force: bool = True):
+        self._allow_move = True
         guild_vc = self.guild.voice_client
-        if guild_vc and guild_vc.channel:
+
+        # If already connected to the requested channel
+        if guild_vc and guild_vc.is_connected() and guild_vc.channel:
             if guild_vc.channel.id == channel.id:
-                if guild_vc.is_connected():
+                self.voice_client = guild_vc
+                return
+            else:
+                # Connected to a different channel: perform smooth channel move
+                try:
+                    logger.info(f"Moving bot from '{guild_vc.channel.name}' to '{channel.name}' in {self.guild.name}...")
+                    await guild_vc.move_to(channel)
                     self.voice_client = guild_vc
+                    await self._notify_change()
                     return
-            else:
-                if guild_vc.is_connected():
-                    if force:
-                        self._allow_move = True
-                        await guild_vc.move_to(channel)
-                        self.voice_client = guild_vc
-                        await self._notify_change()
-                        return
-                    raise RuntimeError(f"Бот уже находится в канале «{guild_vc.channel.name}». Перемещение бота по серверу запрещено!")
+                except Exception as move_err:
+                    logger.warning(f"guild_vc.move_to failed ({move_err}), disconnecting and reconnecting directly...")
+                    try:
+                        await guild_vc.disconnect(force=True)
+                        await asyncio.sleep(0.3)
+                    except Exception:
+                        pass
 
-        if self.voice_client and self.voice_client.channel:
+        if self.voice_client and self.voice_client.is_connected() and self.voice_client.channel:
             if self.voice_client.channel.id == channel.id:
-                if self.voice_client.is_connected():
-                    return
+                return
             else:
-                if self.voice_client.is_connected():
-                    if force:
-                        self._allow_move = True
-                        await self.voice_client.move_to(channel)
-                        await self._notify_change()
-                        return
-                    raise RuntimeError(f"Бот уже находится в канале «{self.voice_client.channel.name}». Перемещение бота по серверу запрещено!")
+                try:
+                    logger.info(f"Moving player voice_client to '{channel.name}' in {self.guild.name}...")
+                    await self.voice_client.move_to(channel)
+                    await self._notify_change()
+                    return
+                except Exception as move_err:
+                    logger.warning(f"voice_client.move_to failed ({move_err}), disconnecting and reconnecting directly...")
+                    try:
+                        await self.voice_client.disconnect(force=True)
+                        await asyncio.sleep(0.3)
+                    except Exception:
+                        pass
 
-        if guild_vc:
+        # Disconnect any lingering stale voice client
+        active_vc = self.guild.voice_client or self.voice_client
+        if active_vc:
             try:
-                await guild_vc.disconnect(force=True)
-                await asyncio.sleep(0.4)
+                await active_vc.disconnect(force=True)
+                await asyncio.sleep(0.3)
             except Exception as e:
                 logger.warning(f"Error disconnecting stale voice client in guild {self.guild.id}: {e}")
 
@@ -220,6 +234,7 @@ class GuildPlayer:
         for attempt in range(1, 3):
             try:
                 self.voice_client = await channel.connect(timeout=15.0, reconnect=True, self_deaf=True, self_mute=False)
+                await self._notify_change()
                 return
             except (asyncio.TimeoutError, TimeoutError) as te:
                 last_err = te
@@ -234,13 +249,17 @@ class GuildPlayer:
             except discord.ClientException as ce:
                 logger.warning(f"ClientException connecting to {channel.id}: {ce}. Attempting to use existing guild.voice_client...")
                 g_vc = self.guild.voice_client
-                if g_vc and g_vc.is_connected() and g_vc.channel:
+                if g_vc and g_vc.is_connected():
                     self.voice_client = g_vc
-                    if self.voice_client.channel.id != channel.id:
-                        raise RuntimeError(f"Бот уже находится в канале «{self.voice_client.channel.name}». Перемещение бота по серверу запрещено!")
+                    if self.voice_client.channel and self.voice_client.channel.id != channel.id:
+                        try:
+                            await self.voice_client.move_to(channel)
+                        except Exception:
+                            pass
+                    await self._notify_change()
                     return
                 else:
-                    raise
+                    last_err = ce
         if last_err:
             raise last_err
 
@@ -619,10 +638,21 @@ class GuildPlayer:
             self.current_track = None
             self.vote_skips.clear()
             if self.voice_client:
-                if self.voice_client.is_playing() or self.voice_client.is_paused():
-                    self.voice_client.stop()
-                await self.voice_client.disconnect(force=True)
+                try:
+                    if self.voice_client.is_playing() or self.voice_client.is_paused():
+                        self.voice_client.stop()
+                except Exception:
+                    pass
+                try:
+                    await self.voice_client.disconnect(force=True)
+                except Exception:
+                    pass
                 self.voice_client = None
+            if self.guild and getattr(self.guild, "voice_client", None):
+                try:
+                    await self.guild.voice_client.disconnect(force=True)
+                except Exception:
+                    pass
             await self._notify_change()
 
     async def reconnect_and_resume(self, channel: discord.VoiceChannel):
