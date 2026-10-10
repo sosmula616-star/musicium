@@ -175,13 +175,20 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
         if after.channel is None:
             logger.info(f"Bot was disconnected from voice channel in guild '{member.guild.name}'")
             if player:
-                was_playing = player.current_track is not None
-                channel_to_rejoin = before.channel
+                player._explicit_stop = True
+                player._cancel_idle_watchdog()
                 player.voice_client = None
+                if player._process:
+                    try:
+                        player._process.kill()
+                    except Exception:
+                        pass
+                    player._process = None
+                player.current_track = None
+                player.is_playing = False
+                player.is_paused = False
+                player.state_generation += 1
                 await player._notify_change()
-                if was_playing and not player._explicit_stop and channel_to_rejoin:
-                    logger.warning(f"Unexpected voice disconnect from '{channel_to_rejoin.name}' during playback. Auto-reconnecting...")
-                    asyncio.create_task(player.reconnect_and_resume(channel_to_rejoin))
         elif before.channel is not None and after.channel is not None and before.channel.id != after.channel.id:
             # Bot was moved to another channel on the server: smoothly update voice client and notify UI
             logger.info(f"Bot moved from '{before.channel.name}' to '{after.channel.name}' in guild '{member.guild.name}'.")
@@ -195,15 +202,24 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
             if not player:
                 player = player_manager.get_or_create_player(member.guild)
             player.voice_client = member.guild.voice_client
+            # If idle watchdog was running or needs to start if empty
+            if not player.current_track and not player.queue:
+                player._start_idle_watchdog("Очередь воспроизведения пуста")
             await player._notify_change()
 
-    # 2. If users joined or left the bot's room, notify WebSocket listeners
+    # 2. If users joined or left the bot's room, notify WebSocket listeners and check listeners
     guild_vc = getattr(member.guild, "voice_client", None)
     if guild_vc and guild_vc.channel:
         if before.channel == guild_vc.channel or after.channel == guild_vc.channel:
             player = player_manager.get_player_by_guild_id(member.guild.id)
             if player:
                 await player._notify_change()
+                human_listeners = [m for m in guild_vc.channel.members if not m.bot]
+                if len(human_listeners) == 0:
+                    logger.info(f"All listeners left room '{guild_vc.channel.name}' in guild '{member.guild.name}'. Starting 3-minute idle watchdog.")
+                    player._start_idle_watchdog("Все пользователи вышли из голосового канала")
+                elif player.is_playing:
+                    player._cancel_idle_watchdog()
 
 # ----------------- Native Discord Activity Views -----------------
 
@@ -317,7 +333,13 @@ async def get_activity_view(guild: Optional[discord.Guild] = None, voice_channel
 # ----------------- Helper: Control Permissions -----------------
 
 def check_user_can_control(interaction: discord.Interaction, player) -> Optional[str]:
-    """Ensures that only participants in the bot's current room or admins/requester can control playback."""
+    """Ensures that user is not restricted and only participants in the bot's current room or admins/requester can control playback."""
+    import anticrash_service
+    if anticrash_service.anticrash.is_restricted(interaction.user.id):
+        info = anticrash_service.anticrash.get_restriction(interaction.user.id)
+        r_reason = info.get("reason", "Превышение лимита запросов (спам)") if info else "Ограничение доступа"
+        return f"⛔ Доступ к боту ограничен администратором. Причина: **{r_reason}**"
+
     if not player or not player.voice_client or not player.voice_client.channel:
         return None
     bot_channel = player.voice_client.channel
@@ -401,6 +423,32 @@ async def slash_miniapp(interaction: discord.Interaction):
 @bot.tree.command(name="play", description="Включить музыку по названию или ссылке")
 @app_commands.describe(query="Название трека, артист или прямая ссылка (YouTube, SoundCloud, Яндекс)")
 async def slash_play(interaction: discord.Interaction, query: str):
+    import anticrash_service
+    anticrash = anticrash_service.anticrash
+    if anticrash.is_restricted(interaction.user.id):
+        info = anticrash.get_restriction(interaction.user.id)
+        r_reason = info.get("reason", "Превышение лимита запросов (спам)") if info else "Ограничение доступа"
+        await interaction.response.send_message(
+            f"⛔ Доступ к боту ограничен администратором.\nПричина: **{r_reason}**",
+            ephemeral=True
+        )
+        return
+
+    is_spam, spam_msg = await anticrash.check_and_record_request(
+        user_id=interaction.user.id,
+        user_name=interaction.user.display_name,
+        user_avatar=interaction.user.display_avatar.url if hasattr(interaction.user, "display_avatar") else None,
+        guild_id=interaction.guild_id,
+        guild_name=interaction.guild.name if interaction.guild else None,
+        action="slash_play"
+    )
+    if is_spam:
+        await interaction.response.send_message(
+            spam_msg or "⛔ Превышен лимит запросов к боту. Доступ временно ограничен.",
+            ephemeral=True
+        )
+        return
+
     if not interaction.user.voice or not interaction.user.voice.channel:
         await interaction.response.send_message(
             "⚠️ Вы должны находиться в голосовом канале, чтобы включить музыку!",
@@ -758,6 +806,26 @@ async def cmd_player(ctx):
 
 @bot.command(name="play")
 async def cmd_play(ctx, *, query: str):
+    import anticrash_service
+    anticrash = anticrash_service.anticrash
+    if anticrash.is_restricted(ctx.author.id):
+        info = anticrash.get_restriction(ctx.author.id)
+        r_reason = info.get("reason", "Превышение лимита запросов (спам)") if info else "Ограничение доступа"
+        await ctx.send(f"⛔ Доступ к боту ограничен администратором.\nПричина: **{r_reason}**")
+        return
+
+    is_spam, spam_msg = await anticrash.check_and_record_request(
+        user_id=ctx.author.id,
+        user_name=ctx.author.display_name,
+        user_avatar=ctx.author.display_avatar.url if hasattr(ctx.author, "display_avatar") else None,
+        guild_id=ctx.guild.id if ctx.guild else None,
+        guild_name=ctx.guild.name if ctx.guild else None,
+        action="cmd_play"
+    )
+    if is_spam:
+        await ctx.send(spam_msg or "⛔ Превышен лимит запросов к боту. Доступ временно ограничен.")
+        return
+
     if not ctx.author.voice or not ctx.author.voice.channel:
         await ctx.send("⚠️ Вы должны находиться в голосовом канале!")
         return
@@ -810,6 +878,10 @@ async def cmd_play(ctx, *, query: str):
 
 @bot.command(name="volume")
 async def cmd_volume(ctx, percent: int):
+    import anticrash_service
+    if anticrash_service.anticrash.is_restricted(ctx.author.id):
+        await ctx.send("⛔ Доступ к боту ограничен администратором.")
+        return
     player = player_manager.get_player_by_guild_id(ctx.guild.id)
     if not player or not player.is_connected:
         await ctx.send("❌ Бот не подключен к голосовому каналу.")
@@ -831,6 +903,10 @@ async def cmd_volume(ctx, percent: int):
 
 @bot.command(name="skip")
 async def cmd_skip(ctx):
+    import anticrash_service
+    if anticrash_service.anticrash.is_restricted(ctx.author.id):
+        await ctx.send("⛔ Доступ к боту ограничен администратором.")
+        return
     player = player_manager.get_player_by_guild_id(ctx.guild.id)
     if not player or not player.current_track:
         await ctx.send("❌ Сейчас ничего не играет!")
@@ -854,6 +930,10 @@ async def cmd_skip(ctx):
 
 @bot.command(name="stop")
 async def cmd_stop(ctx):
+    import anticrash_service
+    if anticrash_service.anticrash.is_restricted(ctx.author.id):
+        await ctx.send("⛔ Доступ к боту ограничен администратором.")
+        return
     player = player_manager.get_player_by_guild_id(ctx.guild.id)
     if not player and ctx.guild and getattr(ctx.guild, "voice_client", None):
         player = player_manager.get_or_create_player(ctx.guild)
