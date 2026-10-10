@@ -96,7 +96,7 @@ ensure_opus_loaded()
 
 FFMPEG_BEFORE_OPTIONS = (
     "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 "
-    "-nostdin"
+    "-nostdin -user_agent \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36\""
 )
 FFMPEG_OPTIONS = "-vn"
 IDLE_TIMEOUT_SECONDS = 180  # 3 minutes of inactivity before auto-disconnecting
@@ -480,8 +480,8 @@ class GuildPlayer:
                         return
 
                 self._consecutive_failures += 1
-                if self._consecutive_failures >= 2:
-                    logger.error(f"Stopping playback loop in {self.guild.name}: 2 consecutive stream failures. Clearing queue to prevent spam.")
+                if self._consecutive_failures >= 4:
+                    logger.error(f"Stopping playback loop in {self.guild.name}: 4 consecutive track failures. Clearing queue to prevent spam.")
                     self.current_track = None
                     self.queue.clear()
                     self._consecutive_failures = 0
@@ -490,7 +490,11 @@ class GuildPlayer:
                         self.voice_client.stop()
                     await self._notify_change()
                     return
-                await asyncio.sleep(1.0)
+                else:
+                    logger.warning(f"Track '{track.title}' could not be streamed, advancing to next track in queue ({self._consecutive_failures}/4 failures)...")
+                    self._retried_current = False
+                    await self._play_next()
+                    return
             else:
                 self._consecutive_failures = 0
                 self._retried_current = False
