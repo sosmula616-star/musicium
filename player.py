@@ -99,6 +99,7 @@ FFMPEG_BEFORE_OPTIONS = (
     "-nostdin"
 )
 FFMPEG_OPTIONS = "-vn"
+IDLE_TIMEOUT_SECONDS = 180  # 3 minutes of inactivity before auto-disconnecting
 
 class GuildPlayer:
     def __init__(self, guild: discord.Guild, bot: discord.Client, music_service: MusicService, on_change_callback: Optional[Callable] = None):
@@ -128,7 +129,33 @@ class GuildPlayer:
         self._consecutive_failures: int = 0
         self._retried_current: bool = False
         self._explicit_stop: bool = False
+        self._idle_task: Optional[asyncio.Task] = None
         self._lock = asyncio.Lock()
+
+    def _start_idle_watchdog(self):
+        """Starts 3-minute idle watchdog if nothing is playing and queue is empty."""
+        self._cancel_idle_watchdog()
+        if self.is_connected and not self.is_playing and len(self.queue) == 0:
+            logger.info(f"[IDLE WATCHDOG] Started 3-minute timer for '{self.guild.name}'.")
+            self._idle_task = asyncio.create_task(self._idle_timeout_coro())
+
+    def _cancel_idle_watchdog(self):
+        """Cancels any pending idle timer."""
+        if self._idle_task and not self._idle_task.done():
+            self._idle_task.cancel()
+        self._idle_task = None
+
+    async def _idle_timeout_coro(self):
+        try:
+            await asyncio.sleep(IDLE_TIMEOUT_SECONDS)
+            if self.is_connected and not self.is_playing and len(self.queue) == 0:
+                logger.info(f"[IDLE TIMEOUT] 3 minutes of inactivity reached in guild '{self.guild.name}'. Auto-disconnecting bot...")
+                self._explicit_stop = True
+                await self.stop()
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.error(f"Error in idle timeout watchdog: {e}")
 
     @property
     def voice_client(self) -> Optional[discord.VoiceClient]:
@@ -179,73 +206,69 @@ class GuildPlayer:
 
     async def connect_to_channel(self, channel: discord.VoiceChannel, force: bool = True):
         self._allow_move = True
+        self._explicit_stop = False
         guild_vc = self.guild.voice_client
 
-        # If already connected to the requested channel
+        # 1. If already connected to the requested channel and fully operational
         if guild_vc and guild_vc.is_connected() and guild_vc.channel:
             if guild_vc.channel.id == channel.id:
                 self.voice_client = guild_vc
+                if not self.is_playing and len(self.queue) == 0:
+                    self._start_idle_watchdog()
+                await self._notify_change()
                 return
             else:
-                # Connected to a different channel: perform smooth channel move
+                # Connected to a different channel: smooth move
                 try:
                     logger.info(f"Moving bot from '{guild_vc.channel.name}' to '{channel.name}' in {self.guild.name}...")
                     await guild_vc.move_to(channel)
                     self.voice_client = guild_vc
+                    if not self.is_playing and len(self.queue) == 0:
+                        self._start_idle_watchdog()
                     await self._notify_change()
                     return
                 except Exception as move_err:
                     logger.warning(f"guild_vc.move_to failed ({move_err}), disconnecting and reconnecting directly...")
                     try:
                         await guild_vc.disconnect(force=True)
-                        await asyncio.sleep(0.3)
                     except Exception:
                         pass
+                    await asyncio.sleep(0.2)
 
-        if self.voice_client and self.voice_client.is_connected() and self.voice_client.channel:
-            if self.voice_client.channel.id == channel.id:
-                return
-            else:
-                try:
-                    logger.info(f"Moving player voice_client to '{channel.name}' in {self.guild.name}...")
-                    await self.voice_client.move_to(channel)
-                    await self._notify_change()
-                    return
-                except Exception as move_err:
-                    logger.warning(f"voice_client.move_to failed ({move_err}), disconnecting and reconnecting directly...")
-                    try:
-                        await self.voice_client.disconnect(force=True)
-                        await asyncio.sleep(0.3)
-                    except Exception:
-                        pass
-
-        # Disconnect any lingering stale voice client
-        active_vc = self.guild.voice_client or self.voice_client
+        # 2. Clean up any stale or lingering voice connection
+        active_vc = self.guild.voice_client or self._voice_client
         if active_vc:
             try:
                 await active_vc.disconnect(force=True)
-                await asyncio.sleep(0.3)
             except Exception as e:
-                logger.warning(f"Error disconnecting stale voice client in guild {self.guild.id}: {e}")
+                logger.debug(f"Disconnecting stale voice client in {self.guild.name}: {e}")
+            try:
+                await self.guild.change_voice_state(channel=None)
+            except Exception:
+                pass
+            await asyncio.sleep(0.2)
 
+        self.voice_client = None
         last_err = None
         for attempt in range(1, 3):
             try:
-                self.voice_client = await channel.connect(timeout=15.0, reconnect=True, self_deaf=True, self_mute=False)
+                self.voice_client = await channel.connect(timeout=10.0, reconnect=True, self_deaf=True, self_mute=False)
+                if not self.is_playing and len(self.queue) == 0:
+                    self._start_idle_watchdog()
                 await self._notify_change()
                 return
             except (asyncio.TimeoutError, TimeoutError) as te:
                 last_err = te
-                logger.warning(f"Voice connection to {channel.name} timed out (attempt {attempt}/2). Cleaning up and retrying...")
+                logger.warning(f"Voice connection to {channel.name} timed out (attempt {attempt}/2). Retrying...")
                 g_vc = self.guild.voice_client
                 if g_vc:
                     try:
                         await g_vc.disconnect(force=True)
                     except Exception:
                         pass
-                await asyncio.sleep(0.8)
+                await asyncio.sleep(0.5)
             except discord.ClientException as ce:
-                logger.warning(f"ClientException connecting to {channel.id}: {ce}. Attempting to use existing guild.voice_client...")
+                logger.warning(f"ClientException connecting to {channel.id}: {ce}.")
                 g_vc = self.guild.voice_client
                 if g_vc and g_vc.is_connected():
                     self.voice_client = g_vc
@@ -254,12 +277,26 @@ class GuildPlayer:
                             await self.voice_client.move_to(channel)
                         except Exception:
                             pass
+                    if not self.is_playing and len(self.queue) == 0:
+                        self._start_idle_watchdog()
                     await self._notify_change()
                     return
                 else:
+                    # Zombie state: reset and retry once
+                    if g_vc:
+                        try:
+                            await g_vc.disconnect(force=True)
+                        except Exception:
+                            pass
+                    try:
+                        await self.guild.change_voice_state(channel=None)
+                    except Exception:
+                        pass
+                    await asyncio.sleep(0.4)
                     last_err = ce
         if last_err:
             raise last_err
+
 
     async def enqueue(self, track: Track, play_now: bool = False) -> Dict[str, Any]:
         async with self._lock:
@@ -289,12 +326,14 @@ class GuildPlayer:
             self.pause_start_time = 0
             self.total_paused_duration = 0
             await self._notify_change()
+            self._start_idle_watchdog()
             return
 
         next_track = self.queue.pop(0)
         await self._start_track(next_track)
 
     async def _start_track(self, track: Track):
+        self._cancel_idle_watchdog()
         if not self.voice_client or not self.voice_client.is_connected():
             logger.warning("Voice client is not connected when starting track.")
             return
@@ -633,9 +672,12 @@ class GuildPlayer:
     async def stop(self):
         async with self._lock:
             self._explicit_stop = True
+            self._cancel_idle_watchdog()
             self.queue.clear()
             self.current_track = None
             self.vote_skips.clear()
+            self._play_generation += 1
+
             if self.voice_client:
                 try:
                     if self.voice_client.is_playing() or self.voice_client.is_paused():
@@ -647,11 +689,18 @@ class GuildPlayer:
                 except Exception:
                     pass
                 self.voice_client = None
-            if self.guild and getattr(self.guild, "voice_client", None):
+
+            guild_vc = getattr(self.guild, "voice_client", None)
+            if guild_vc:
                 try:
-                    await self.guild.voice_client.disconnect(force=True)
+                    await guild_vc.disconnect(force=True)
                 except Exception:
                     pass
+            try:
+                await self.guild.change_voice_state(channel=None)
+            except Exception:
+                pass
+
             await self._notify_change()
 
     async def reconnect_and_resume(self, channel: discord.VoiceChannel):
