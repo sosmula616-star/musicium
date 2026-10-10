@@ -129,6 +129,7 @@ class GuildPlayer:
         self._consecutive_failures: int = 0
         self._retried_current: bool = False
         self._explicit_stop: bool = False
+        self._allow_move: bool = False
         self._idle_task: Optional[asyncio.Task] = None
         self._lock = asyncio.Lock()
 
