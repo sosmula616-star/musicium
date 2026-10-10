@@ -520,22 +520,35 @@ class MusicService:
         artist = entry.get("uploader") or entry.get("channel") or entry.get("artist") or "Неизвестный автор"
         duration = int(entry.get("duration") or 0)
         vid_id = str(entry.get("id") or "")
-        if source == "youtube" and vid_id:
-            thumbnail = f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg"
-        else:
-            tb = entry.get("thumbnail") or entry.get("artwork_url")
-            if not tb and entry.get("thumbnails"):
-                tb = entry["thumbnails"][-1].get("url")
-            if not tb and entry.get("user") and isinstance(entry["user"], dict):
+        # Extract best thumbnail from entry
+        tb = None
+        if entry.get("thumbnail") and isinstance(entry["thumbnail"], str) and entry["thumbnail"].startswith("http"):
+            tb = entry["thumbnail"]
+        elif entry.get("artwork_url") and isinstance(entry["artwork_url"], str) and entry["artwork_url"].startswith("http"):
+            tb = entry["artwork_url"]
+
+        if (not tb or "hqdefault" in tb) and entry.get("thumbnails") and isinstance(entry["thumbnails"], list):
+            valid_tbs = [x.get("url") for x in entry["thumbnails"] if isinstance(x, dict) and x.get("url") and str(x.get("url")).startswith("http")]
+            if valid_tbs:
+                tb = valid_tbs[-1]
+
+        if not tb:
+            if entry.get("user") and isinstance(entry["user"], dict):
                 tb = entry["user"].get("avatar_url")
-            if not tb:
-                tb = entry.get("uploader_avatar") or entry.get("avatar_url")
-            if tb and isinstance(tb, str):
+            elif entry.get("uploader_avatar"):
+                tb = entry["uploader_avatar"]
+
+        if not tb and source == "youtube" and vid_id and len(vid_id) == 11 and not vid_id.startswith(("OLAK", "PL", "RD", "alb_", "MPRE")):
+            tb = f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg"
+
+        if tb and isinstance(tb, str):
+            if "sndcdn.com" in tb and "/artworks-" in tb:
                 if "-large." in tb:
                     tb = tb.replace("-large.", "-t500x500.")
                 elif "-badge." in tb:
                     tb = tb.replace("-badge.", "-t500x500.")
-            thumbnail = tb or DEFAULT_THUMBNAIL
+
+        thumbnail = tb or DEFAULT_THUMBNAIL
         stream_url = entry.get("url") if entry.get("acodec") != "none" else None
 
         return Track(
@@ -569,22 +582,35 @@ class MusicService:
         artist = entry.get("uploader") or entry.get("channel") or entry.get("artist") or "Неизвестный автор"
         duration = int(entry.get("duration") or 0)
         
-        if source == "youtube" and entry_id:
-            thumbnail = f"https://i.ytimg.com/vi/{entry_id}/hqdefault.jpg"
-        else:
-            tb = entry.get("thumbnail") or entry.get("artwork_url")
-            if not tb and entry.get("thumbnails"):
-                tb = entry["thumbnails"][-1].get("url")
-            if not tb and entry.get("user") and isinstance(entry["user"], dict):
+        # Extract best thumbnail from entry
+        tb = None
+        if entry.get("thumbnail") and isinstance(entry["thumbnail"], str) and entry["thumbnail"].startswith("http"):
+            tb = entry["thumbnail"]
+        elif entry.get("artwork_url") and isinstance(entry["artwork_url"], str) and entry["artwork_url"].startswith("http"):
+            tb = entry["artwork_url"]
+
+        if (not tb or "hqdefault" in tb) and entry.get("thumbnails") and isinstance(entry["thumbnails"], list):
+            valid_tbs = [x.get("url") for x in entry["thumbnails"] if isinstance(x, dict) and x.get("url") and str(x.get("url")).startswith("http")]
+            if valid_tbs:
+                tb = valid_tbs[-1]
+
+        if not tb:
+            if entry.get("user") and isinstance(entry["user"], dict):
                 tb = entry["user"].get("avatar_url")
-            if not tb:
-                tb = entry.get("uploader_avatar") or entry.get("avatar_url")
-            if tb and isinstance(tb, str):
+            elif entry.get("uploader_avatar"):
+                tb = entry["uploader_avatar"]
+
+        if not tb and source == "youtube" and entry_id and len(entry_id) == 11 and not entry_id.startswith(("OLAK", "PL", "RD", "alb_", "MPRE")):
+            tb = f"https://i.ytimg.com/vi/{entry_id}/hqdefault.jpg"
+
+        if tb and isinstance(tb, str):
+            if "sndcdn.com" in tb and "/artworks-" in tb:
                 if "-large." in tb:
                     tb = tb.replace("-large.", "-t500x500.")
                 elif "-badge." in tb:
                     tb = tb.replace("-badge.", "-t500x500.")
-            thumbnail = tb or DEFAULT_THUMBNAIL
+
+        thumbnail = tb or DEFAULT_THUMBNAIL
 
         return Track(
             id=f"{source}_{entry_id}",
@@ -909,7 +935,7 @@ class MusicService:
                     elif alt_info:
                         cand_title = alt_info.get("title", "")
 
-                    if cand_title and not is_title_similar(track.title, cand_title):
+                    if not cand_title or not is_title_similar(track.title, cand_title):
                         logger.warning(f"Rejecting alternative YouTube stream '{cand_title}' because it does not match '{track.title}'")
                     else:
                         stream = self._extract_audio_stream_url(alt_info)
@@ -941,7 +967,7 @@ class MusicService:
                     elif sc_info:
                         cand_title = sc_info.get("title", "")
 
-                    if cand_title and not is_title_similar(track.title, cand_title):
+                    if not cand_title or not is_title_similar(track.title, cand_title):
                         logger.warning(f"Rejecting fallback SoundCloud stream '{cand_title}' because it does not match '{track.title}'")
                     else:
                         stream = self._extract_audio_stream_url(sc_info)

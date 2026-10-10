@@ -23,6 +23,7 @@ class AntiCrashService:
             "max_requests_10s": 6,       # Max requests within 10 seconds
             "max_requests_60s": 18,      # Max requests within 60 seconds
             "auto_block": True,          # Automatically block on spam threshold
+            "auto_restrict": True,       # Alias for admin UI compatibility
             "notify_admins": True,
         }
 
@@ -208,9 +209,15 @@ class AntiCrashService:
         return ok
 
     def update_settings(self, new_settings: Dict[str, Any]) -> Dict[str, Any]:
-        for k in ["enabled", "auto_block", "notify_admins"]:
+        for k in ["enabled", "notify_admins"]:
             if k in new_settings:
                 self.settings[k] = bool(new_settings[k])
+        if "auto_block" in new_settings:
+            self.settings["auto_block"] = bool(new_settings["auto_block"])
+            self.settings["auto_restrict"] = self.settings["auto_block"]
+        elif "auto_restrict" in new_settings:
+            self.settings["auto_block"] = bool(new_settings["auto_restrict"])
+            self.settings["auto_restrict"] = self.settings["auto_block"]
         for k in ["max_requests_10s", "max_requests_60s"]:
             if k in new_settings:
                 try:

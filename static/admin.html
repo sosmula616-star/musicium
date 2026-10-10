@@ -13,6 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@discord/embedded-app-sdk@1.3.1/dist/index.umd.js"></script>
 
   <style>
     :root {
@@ -1328,6 +1329,25 @@
         <i class="fa-brands fa-discord" style="font-size: 1.2rem;"></i> Войти через Discord
       </button>
 
+      <div style="display: flex; align-items: center; gap: 12px; margin: 20px 0 16px; color: var(--text-dim); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em;">
+        <div style="flex: 1; height: 1px; background: rgba(255, 255, 255, 0.08);"></div>
+        <span>Или по мастер-ключу / паролю</span>
+        <div style="flex: 1; height: 1px; background: rgba(255, 255, 255, 0.08);"></div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 12px; text-align: left;">
+        <div>
+          <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 6px;">Мастер-пароль или токен администратора:</label>
+          <input type="password" id="authPasswordInput" class="setting-input" style="width: 100%; padding: 12px 14px; font-size: 0.95rem;" placeholder="Введите пароль (по умолч: musicium2026)">
+        </div>
+        <button id="authPasswordBtn" class="btn" style="width: 100%; justify-content: center; padding: 12px; font-size: 0.92rem; background: rgba(0, 242, 254, 0.15); border: 1px solid var(--border-accent); color: var(--accent-cyan); font-weight: 600;">
+          <i class="fa-solid fa-key"></i> Войти по мастер-паролю
+        </button>
+        <div style="font-size: 0.75rem; color: var(--text-dim); text-align: center; margin-top: 2px;">
+          Пароль задаётся в <code>ADMIN_PASSWORD</code> (резервный: <code>musicium2026</code>)
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -1775,6 +1795,16 @@
         if (queryToken) {
           localStorage.setItem('musicium_admin_token', queryToken);
           sessionStorage.setItem('musicium_admin_token', queryToken);
+        }
+
+        const authErr = urlParams.get('auth_error');
+        if (authErr) {
+          if (authErr === 'not_authorized' || authErr === 'unauthorized') {
+            showAuthOverlay('У вашего Discord-аккаунта нет прав администратора бота.');
+          } else {
+            showAuthOverlay(`Ошибка авторизации Discord: ${authErr}`);
+          }
+          return false;
         }
 
         try {
@@ -2652,10 +2682,100 @@
         });
       }
 
-      // Auth Buttons
-      document.getElementById('authDiscordBtn').addEventListener('click', () => {
-        window.location.href = '/api/auth/discord?redirect=/admin';
+      // Listen for Discord OAuth popup success callback
+      window.addEventListener('message', async (event) => {
+        if (event.data && event.data.type === 'musicium_admin_auth_success') {
+          const token = event.data.token;
+          if (token) {
+            localStorage.setItem('musicium_admin_token', token);
+            sessionStorage.setItem('musicium_admin_token', token);
+          }
+          showToast('Авторизация через Discord успешна!', 'success');
+          await checkAuth();
+        }
       });
+
+      // Auth Buttons (iframe-safe popup to prevent Discord OAuth white screen)
+      const authDiscordBtn = document.getElementById('authDiscordBtn');
+      if (authDiscordBtn) {
+        authDiscordBtn.addEventListener('click', () => {
+          const authUrl = '/api/auth/discord?redirect=/admin';
+          const isIframe = window.self !== window.top;
+          if (isIframe) {
+            const width = 520;
+            const height = 750;
+            const left = Math.max(0, Math.floor((window.screen.width - width) / 2));
+            const top = Math.max(0, Math.floor((window.screen.height - height) / 2));
+            const popup = window.open(
+              authUrl,
+              'musicium_admin_oauth',
+              `width=${width},height=${height},top=${top},left=${left},scrollbars=yes,resizable=yes`
+            );
+            if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+              window.open(authUrl, '_blank');
+            }
+          } else {
+            window.location.href = authUrl;
+          }
+        });
+      }
+
+      // Password Login Handler
+      async function handlePasswordLogin() {
+        const input = document.getElementById('authPasswordInput');
+        const btn = document.getElementById('authPasswordBtn');
+        const pass = (input ? input.value : '').trim();
+        if (!pass) {
+          showAuthOverlay('Пожалуйста, введите мастер-пароль или токен');
+          if (input) input.focus();
+          return;
+        }
+
+        if (btn) {
+          btn.disabled = true;
+          btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Вход...';
+        }
+
+        try {
+          const res = await fetch('/api/admin/auth/login-key', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ password: pass })
+          });
+          const data = await res.json();
+          if (data.ok && data.token) {
+            localStorage.setItem('musicium_admin_token', data.token);
+            sessionStorage.setItem('musicium_admin_token', data.token);
+            showToast('Авторизация по мастер-ключу успешна!', 'success');
+            await checkAuth();
+          } else {
+            showAuthOverlay(data.error || 'Неверный мастер-пароль или токен');
+          }
+        } catch (e) {
+          console.error('Password login error:', e);
+          showAuthOverlay('Ошибка соединения с сервером');
+        } finally {
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-key"></i> Войти по мастер-паролю';
+          }
+        }
+      }
+
+      const authPasswordBtn = document.getElementById('authPasswordBtn');
+      if (authPasswordBtn) {
+        authPasswordBtn.addEventListener('click', handlePasswordLogin);
+      }
+      const authPasswordInput = document.getElementById('authPasswordInput');
+      if (authPasswordInput) {
+        authPasswordInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            handlePasswordLogin();
+          }
+        });
+      }
 
       // Logout Button
       const logoutBtn = document.getElementById('logoutBtn');

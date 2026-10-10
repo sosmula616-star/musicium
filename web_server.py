@@ -89,9 +89,10 @@ class WebServer:
         # Live Streams & Recent Plays Feed
         self.app.router.add_get("/api/feed/discovery", self.handle_feed_discovery)
 
-        # Admin / Diagnostics (Strictly Discord OAuth2 authenticated)
+        # Admin / Diagnostics (Discord OAuth2 and Master Key authenticated)
         self.app.router.add_get("/admin", self.handle_admin)
         self.app.router.add_get("/api/admin/auth/status", self.handle_admin_auth_status)
+        self.app.router.add_post("/api/admin/auth/login-key", self.handle_admin_auth_login_key)
         self.app.router.add_post("/api/admin/auth/logout", self.handle_admin_auth_logout)
         self.app.router.add_get("/api/admin/stats", self.handle_admin_stats)
         self.app.router.add_get("/api/admin/guilds", self.handle_admin_guilds)
@@ -463,10 +464,16 @@ class WebServer:
 
         # Anti-Crash rate limit check
         if user_id:
+            user_av = None
+            if member and hasattr(member, "display_avatar") and member.display_avatar:
+                user_av = member.display_avatar.url
+            elif data.get("user_avatar"):
+                user_av = data.get("user_avatar")
+
             is_spam, spam_msg = await anticrash.check_and_record_request(
                 user_id=user_id,
                 user_name=member_name,
-                user_avatar=None,
+                user_avatar=user_av,
                 guild_id=target_guild.id if target_guild else guild_id,
                 guild_name=target_guild.name if target_guild else None,
                 action="play"
@@ -882,8 +889,36 @@ class WebServer:
                     admin_token = admin_service.generate_admin_token(u_id, name=u_name, avatar=avatar_url)
 
                 if state_param == "admin":
-                    if is_adm:
-                        target = f"/admin?token={urllib.parse.quote(admin_token)}" if admin_token else "/admin"
+                    if is_adm and admin_token:
+                        html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Musicium Admin Auth</title>
+</head>
+<body style="background:#080b12;color:#00f2fe;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
+    <div style="text-align:center;padding:24px;background:rgba(18,24,40,0.95);border:1px solid #00f2fe;border-radius:16px;box-shadow:0 0 30px rgba(0,242,254,0.3);">
+        <h2>✓ Авторизация успешна!</h2>
+        <p style="color:#94a3b8;">Перенаправление в админ-панель...</p>
+    </div>
+    <script>
+        const token = "{admin_token}";
+        try {{
+            localStorage.setItem("musicium_admin_token", token);
+            sessionStorage.setItem("musicium_admin_token", token);
+        }} catch(e) {{}}
+        if (window.opener && !window.opener.closed) {{
+            window.opener.postMessage({{ type: "musicium_admin_auth_success", token: token }}, "*");
+            setTimeout(() => window.close(), 350);
+        }} else {{
+            window.location.replace("/admin?token=" + encodeURIComponent(token));
+        }}
+    </script>
+</body>
+</html>"""
+                        response = web.Response(text=html, content_type="text/html")
+                        response.set_cookie("musicium_admin_token", admin_token, max_age=7*86400, path="/")
+                        return response
                     else:
                         target = "/admin?auth_error=not_authorized"
                 else:
@@ -936,16 +971,27 @@ class WebServer:
         urls_to_try = []
 
         if is_sc:
-            # Try high-res 500x500 first, then original
+            # Candidate resolution order: 500x500 -> original -> large -> original size
             if "-large." in url:
                 urls_to_try.append(url.replace("-large.", "-t500x500."))
+                urls_to_try.append(url)
+                urls_to_try.append(url.replace("-large.", "-original."))
+            elif "-t500x500." in url:
+                urls_to_try.append(url)
+                urls_to_try.append(url.replace("-t500x500.", "-large."))
+                urls_to_try.append(url.replace("-t500x500.", "-original."))
             elif "-badge." in url:
                 urls_to_try.append(url.replace("-badge.", "-t500x500."))
-            urls_to_try.append(url)
-            # Add reliable CDN mirrors for SoundCloud hotlink bypass
+                urls_to_try.append(url)
+            else:
+                urls_to_try.append(url)
+
+            # Public mirrors for bypass
             clean_url = urllib.parse.quote(url, safe='')
             urls_to_try.append(f"https://wsrv.nl/?url={clean_url}&output=jpg")
-            urls_to_try.append(f"https://images.weserv.nl/?url={clean_url}&output=jpg")
+            if "-t500x500." in url:
+                clean_large = urllib.parse.quote(url.replace("-t500x500.", "-large."), safe='')
+                urls_to_try.append(f"https://wsrv.nl/?url={clean_large}&output=jpg")
         elif "ytimg.com" in url or "youtube.com" in url:
             urls_to_try.append(url)
             clean_url = urllib.parse.quote(url, safe='')
@@ -1405,7 +1451,7 @@ class WebServer:
         return ws
 
     def _verify_admin(self, request: web.Request) -> Tuple[bool, Optional[Dict[str, Any]]]:
-        # 1. Cryptographically verified cookie minted exclusively via Discord OAuth2
+        # 1. Cryptographically verified cookie
         cookie_token = request.cookies.get("musicium_admin_token")
         if cookie_token:
             valid, user_data = admin_service.verify_admin_token(cookie_token)
@@ -1417,6 +1463,13 @@ class WebServer:
         if auth_hdr.startswith("Bearer "):
             token = auth_hdr.split(" ", 1)[1].strip()
             valid, user_data = admin_service.verify_admin_token(token)
+            if valid:
+                return True, user_data
+
+        # 3. URL query parameter (?token=...)
+        query_token = request.query.get("token")
+        if query_token:
+            valid, user_data = admin_service.verify_admin_token(query_token)
             if valid:
                 return True, user_data
 
@@ -1448,6 +1501,43 @@ class WebServer:
             "authenticated": False,
             "login_url": "/api/auth/discord?redirect=/admin",
         })
+
+    async def handle_admin_auth_login_key(self, request: web.Request) -> web.Response:
+        """Authenticates admin via master password, secret key or existing admin token."""
+        try:
+            data = await request.json()
+        except Exception:
+            return web.json_response({"ok": False, "error": "Неверный формат запроса"}, status=400)
+
+        key = str(data.get("key") or data.get("password") or "").strip()
+        if not key:
+            return web.json_response({"ok": False, "error": "Введите пароль администратора"}, status=400)
+
+        # 1. Check if key is already a valid minted admin token
+        valid, u_data = admin_service.verify_admin_token(key)
+        if valid and u_data:
+            token = key
+            name = u_data.get("name", "Admin")
+            avatar = u_data.get("avatar", "/static/activity_icon.jpg")
+            uid = u_data.get("uid", admin_service.PRIMARY_ADMIN_ID)
+        # 2. Check master admin password / secret
+        elif admin_service.verify_admin_password(key):
+            uid = admin_service.PRIMARY_ADMIN_ID
+            name = "Admin (Master)"
+            avatar = "/static/activity_icon.jpg"
+            token = admin_service.generate_admin_token(uid, name=name, avatar=avatar)
+        else:
+            return web.json_response({"ok": False, "error": "Неверный пароль администратора"}, status=401)
+
+        resp = web.json_response({
+            "ok": True,
+            "token": token,
+            "user_id": uid,
+            "user_name": name,
+            "user_avatar": avatar
+        })
+        resp.set_cookie("musicium_admin_token", token, max_age=7*86400, path="/")
+        return resp
 
     async def handle_admin_auth_logout(self, request: web.Request) -> web.Response:
         resp = web.json_response({"ok": True, "redirect": "/?admin_logout=1"})
