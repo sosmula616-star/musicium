@@ -13,6 +13,8 @@ from player_manager import PlayerManager
 
 import db
 import admin_service
+import anticrash_service
+from anticrash_service import anticrash
 
 logger = logging.getLogger("web_server")
 
