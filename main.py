@@ -92,6 +92,10 @@ from music_service import MusicService
 from player_manager import PlayerManager
 from dm_controller import DMController
 from web_server import WebServer
+import anticrash_service
+from anticrash_service import anticrash
+
+PUBLIC_URL = os.getenv("PUBLIC_URL", "http://localhost:3000")
 
 # Intents
 intents = discord.Intents.all()
@@ -106,7 +110,137 @@ player_manager.set_dm_controller(dm_controller)
 # Initialize Web Server
 web_server = WebServer(bot, player_manager, music_service)
 
-PUBLIC_URL = os.getenv("PUBLIC_URL", "http://localhost:3000")
+# ----------------- Native Discord Activity Views -----------------
+
+class ActivityLaunchButton(discord.ui.Button):
+    def __init__(self, label: str = "🚀 Открыть Mini App в Discord", custom_id: str = "musicium_launch_activity_btn", row: int = 0):
+        super().__init__(
+            label=label,
+            style=discord.ButtonStyle.primary,
+            custom_id=custom_id,
+            emoji="🚀",
+            row=row,
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        # 1. Primary mechanism: launch the Discord Activity directly in Discord client
+        try:
+            await interaction.response.launch_activity()
+            return
+        except Exception as e:
+            logger.warning(f"interaction.response.launch_activity() failed ({e}), attempting fallback invite...")
+
+        # 2. Fallback: create an embedded application invite link for the user's/bot's voice channel
+        invite_url = None
+        vc = None
+        if interaction.user and getattr(interaction.user, "voice", None) and interaction.user.voice.channel:
+            vc = interaction.user.voice.channel
+        elif interaction.guild and getattr(interaction.guild, "voice_client", None) and interaction.guild.voice_client.channel:
+            vc = interaction.guild.voice_client.channel
+
+        if vc:
+            try:
+                app_id = interaction.client.application_id or (interaction.client.user.id if interaction.client.user else 1555020109507199066)
+                invite = await vc.create_invite(
+                    target_type=discord.InviteTarget.embedded_application,
+                    target_application_id=app_id,
+                    max_age=3600,
+                )
+                invite_url = invite.url
+            except Exception as inv_err:
+                logger.debug(f"Could not generate activity invite: {inv_err}")
+
+        guild_param = f"?guild_id={interaction.guild_id}" if interaction.guild_id else ""
+        msg = "⚠️ Нажмите кнопку ниже для запуска Mini App в канале или откройте браузер:\n"
+        if invite_url:
+            msg += f"👉 **[Запустить Mini App в канале]({invite_url})**\n"
+        msg += f"🌐 Веб-версия в браузере: {PUBLIC_URL}{guild_param}"
+
+        try:
+            if not interaction.response.is_done():
+                await interaction.response.send_message(msg, ephemeral=True)
+            else:
+                await interaction.followup.send(msg, ephemeral=True)
+        except Exception as send_err:
+            logger.debug(f"Could not send activity launch response: {send_err}")
+
+
+class PersistentActivityView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        self.add_item(ActivityLaunchButton())
+
+    async def on_error(self, interaction: discord.Interaction, error: Exception, item: discord.ui.Item) -> None:
+        logger.error(f"Error in PersistentActivityView ({item}): {error}", exc_info=error)
+        try:
+            msg = "⚠️ Не удалось открыть активность напрямую. Попробуйте воспользоваться веб-версией."
+            if interaction.response.is_done():
+                await interaction.followup.send(msg, ephemeral=True)
+            else:
+                await interaction.response.send_message(msg, ephemeral=True)
+        except Exception:
+            pass
+
+
+async def get_activity_view(guild: Optional[discord.Guild] = None, voice_channel: Optional[discord.VoiceChannel] = None) -> discord.ui.View:
+    view = discord.ui.View(timeout=None)
+
+    # 1. Native Activity launch button
+    view.add_item(ActivityLaunchButton())
+
+    # 2. Activity Voice Channel Invite Link
+    target_vc = voice_channel
+    if not target_vc and guild and getattr(guild, "voice_client", None) and guild.voice_client.channel:
+        target_vc = guild.voice_client.channel
+
+    if target_vc:
+        try:
+            app_id = bot.application_id or (bot.user.id if bot.user else 1555020109507199066)
+            invite = await target_vc.create_invite(
+                target_type=discord.InviteTarget.embedded_application,
+                target_application_id=app_id,
+                max_age=86400,
+            )
+            view.add_item(discord.ui.Button(
+                label=f"🎮 Войти в {target_vc.name}",
+                style=discord.ButtonStyle.link,
+                url=invite.url,
+            ))
+        except Exception as e:
+            logger.debug(f"Could not create activity invite for {target_vc.name}: {e}")
+
+    # 3. External browser fallback link
+    guild_param = f"?guild_id={guild.id}" if guild else ""
+    view.add_item(discord.ui.Button(
+        label="🌐 Браузер",
+        style=discord.ButtonStyle.link,
+        url=f"{PUBLIC_URL}{guild_param}",
+    ))
+
+    return view
+
+# ----------------- Helper: Control Permissions -----------------
+
+def check_user_can_control(interaction: discord.Interaction, player) -> Optional[str]:
+    """Ensures that user is not restricted and only participants in the bot's current room or admins/requester can control playback."""
+    if anticrash.is_restricted(interaction.user.id):
+        info = anticrash.get_restriction(interaction.user.id)
+        r_reason = info.get("reason", "Превышение лимита запросов (спам)") if info else "Ограничение доступа"
+        return f"⛔ Доступ к боту ограничен администратором. Причина: **{r_reason}**"
+
+    if not player or not player.voice_client or not player.voice_client.channel:
+        return None
+    bot_channel = player.voice_client.channel
+    human_members = [m for m in bot_channel.members if not m.bot]
+    if not human_members:
+        return None
+    if interaction.user.id in [m.id for m in human_members]:
+        return None
+    if player.current_track and player.current_track.requester_id == interaction.user.id:
+        return None
+    if getattr(interaction.user, "guild_permissions", None) and interaction.user.guild_permissions.administrator:
+        return None
+    return f"⚠️ Управлять плеером могут только участники голосовой комнаты `🔊 {bot_channel.name}`!"
 
 @bot.event
 async def on_ready():
