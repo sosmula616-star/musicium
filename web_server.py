@@ -27,7 +27,7 @@ async def cache_control_middleware(request: web.Request, handler):
         response.headers["Expires"] = "0"
     return response
 
-def safe_int(val, default=None):
+def safe_int(val: Any, default: int = 0) -> int:
     if val is None or val == "":
         return default
     try:
@@ -453,6 +453,7 @@ class WebServer:
         # 1. Resolve user's voice channel
         target_channel = None
         target_guild = None
+        member = None
         member_name = "Пользователь Discord" if user_id else "Гость"
 
         if user_id:
@@ -688,7 +689,7 @@ class WebServer:
                     }, status=403)
 
         try:
-            res_data = {"success": True}
+            res_data: Dict[str, Any] = {"success": True}
             if action == "play_pause":
                 paused = await player.toggle_play_pause()
                 res_data["is_paused"] = paused
@@ -1682,9 +1683,9 @@ class WebServer:
             return web.json_response({"error": "Unauthorized"}, status=401)
         if request.method == "GET":
             cookie_path = self.music_service.youtube_cookie_path
-            configured = bool(cookie_path and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0)
+            configured = bool(cookie_path and isinstance(cookie_path, str) and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0)
             cookie_count = 0
-            if configured:
+            if configured and isinstance(cookie_path, str):
                 try:
                     with open(cookie_path, "r", encoding="utf-8", errors="ignore") as f:
                         lines = f.readlines()

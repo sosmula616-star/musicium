@@ -285,9 +285,12 @@ class GuildPlayer:
                 g_vc = self.guild.voice_client
                 if g_vc and g_vc.is_connected():
                     self.voice_client = g_vc
-                    if self.voice_client.channel and self.voice_client.channel.id != channel.id:
+                    vc_ch = getattr(g_vc, "channel", None)
+                    ch_id = getattr(channel, "id", None)
+                    if vc_ch and getattr(vc_ch, "id", None) != ch_id:
                         try:
-                            await self.voice_client.move_to(channel)
+                            if hasattr(g_vc, "move_to"):
+                                await g_vc.move_to(channel)
                         except Exception:
                             pass
                     if not self.is_playing and len(self.queue) == 0:

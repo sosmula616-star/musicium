@@ -83,7 +83,7 @@ ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "musicium2026")
 def verify_admin_password(password: Optional[str]) -> bool:
     if not password:
         return False
-    pwd = str(password).strip()
+    pwd = password.strip()
     valid_passwords = {ADMIN_PASSWORD.strip(), "musicium2026", "admin", PRIMARY_ADMIN_ID}
     discord_token = os.getenv("DISCORD_TOKEN", "").strip()
     if discord_token:
@@ -99,7 +99,7 @@ def is_admin_id(user_id: Any) -> bool:
     return str(user_id).strip() in get_admin_ids()
 
 def generate_admin_token(user_id: str, name: str = "", avatar: str = "", max_age_days: int = 7) -> str:
-    user_id = str(user_id).strip()
+    user_id = user_id.strip()
     exp = int(time.time()) + (max_age_days * 86400)
     payload_data = {
         "uid": user_id,
@@ -243,10 +243,10 @@ async def get_system_stats(bot: discord.Client, player_manager: Any, music_servi
 
     # YouTube cookies info
     cookie_path = getattr(music_service, "youtube_cookie_path", None)
-    cookies_valid = bool(cookie_path and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0)
+    cookies_valid = bool(cookie_path and isinstance(cookie_path, str) and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0)
     cookie_count = 0
     cookie_size_kb = 0.0
-    if cookies_valid:
+    if cookies_valid and isinstance(cookie_path, str):
         try:
             with open(cookie_path, "r", encoding="utf-8", errors="ignore") as f:
                 lines = f.readlines()
@@ -322,26 +322,27 @@ def get_guilds_admin_data(bot: discord.Client, player_manager: Any) -> List[Dict
     for g in bot.guilds:
         # Check voice state
         guild_vc = getattr(g, "voice_client", None)
-        is_connected = bool(guild_vc and guild_vc.is_connected() and guild_vc.channel)
+        active_channel = getattr(guild_vc, "channel", None) if guild_vc else None
+        is_connected = bool(guild_vc and getattr(guild_vc, "is_connected", lambda: False)() and active_channel)
         
         current_ch_data = None
         current_members = []
-        if is_connected and guild_vc.channel:
-            ch = guild_vc.channel
-            for m in ch.members:
+        if is_connected and active_channel:
+            ch_members = getattr(active_channel, "members", [])
+            for m in ch_members:
                 current_members.append({
-                    "id": str(m.id),
-                    "name": m.display_name or m.name,
+                    "id": str(getattr(m, "id", "")),
+                    "name": getattr(m, "display_name", None) or getattr(m, "name", "User"),
                     "avatar": m.display_avatar.url if hasattr(m, "display_avatar") else None,
-                    "bot": m.bot,
+                    "bot": getattr(m, "bot", False),
                 })
             current_ch_data = {
-                "id": str(ch.id),
-                "name": ch.name,
-                "bitrate": getattr(ch, "bitrate", 64000) // 1000,
-                "user_limit": getattr(ch, "user_limit", 0),
+                "id": str(getattr(active_channel, "id", "")),
+                "name": getattr(active_channel, "name", "Voice"),
+                "bitrate": getattr(active_channel, "bitrate", 64000) // 1000,
+                "user_limit": getattr(active_channel, "user_limit", 0),
                 "members": current_members,
-                "member_count": len([m for m in ch.members if not m.bot]),
+                "member_count": len([m for m in ch_members if not getattr(m, "bot", False)]),
             }
 
         # Player state
@@ -365,13 +366,14 @@ def get_guilds_admin_data(bot: discord.Client, player_manager: Any) -> List[Dict
         # Available Voice & Stage channels for switching
         all_vcs = []
         for vc in list(getattr(g, "voice_channels", [])) + list(getattr(g, "stage_channels", [])):
-            non_bots = len([m for m in vc.members if not m.bot])
+            vc_members = getattr(vc, "members", [])
+            non_bots = len([m for m in vc_members if not getattr(m, "bot", False)])
             all_vcs.append({
-                "id": str(vc.id),
-                "name": vc.name,
+                "id": str(getattr(vc, "id", "")),
+                "name": getattr(vc, "name", "Voice"),
                 "type": "stage" if isinstance(vc, discord.StageChannel) else "voice",
                 "user_count": non_bots,
-                "is_current": bool(is_connected and guild_vc.channel and guild_vc.channel.id == vc.id),
+                "is_current": bool(is_connected and active_channel and getattr(active_channel, "id", None) == getattr(vc, "id", None)),
             })
 
         # Sort channels: current first, then by name

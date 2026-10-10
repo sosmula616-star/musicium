@@ -49,7 +49,7 @@ def clean_youtube_url(url: str) -> str:
             pass
     return url
 
-def is_title_similar(original: str, candidate: str) -> bool:
+def is_title_similar(original: Optional[str], candidate: Optional[str]) -> bool:
     """Verifies that an alternative track or fallback search candidate actually matches the requested track title."""
     if not original or not candidate:
         return False
@@ -73,7 +73,6 @@ def is_title_similar(original: str, candidate: str) -> bool:
 def format_duration(seconds: Optional[int]) -> str:
     if not seconds or seconds <= 0:
         return "00:00"
-    seconds = int(seconds)
     hours = seconds // 3600
     minutes = (seconds % 3600) // 60
     secs = seconds % 60
@@ -158,7 +157,7 @@ class Track:
 class MusicService:
     def __init__(self):
         # yt-dlp configuration for fast searching
-        self.ydl_opts = {
+        self.ydl_opts: Dict[str, Any] = {
             "format": "ba/b/bestaudio/best",
             "noplaylist": False,
             "quiet": True,
@@ -172,9 +171,9 @@ class MusicService:
             "source_address": "0.0.0.0",
         }
 
-        # Ultra-fast Innertube extractor options for stream resolution (Android / iOS)
+        # Multi-client Innertube extractor options for stream resolution (Android / iOS / Embedded / VR)
         # Avoids JavaScript n-sig decryption and bot challenges; resolves direct audio in ~0.3-0.8s
-        self.fast_yt_opts = {
+        self.fast_yt_opts: Dict[str, Any] = {
             "format": "ba[acodec^=opus]/ba[ext=webm]/ba[ext=m4a]/ba/b/bestaudio/best",
             "quiet": True,
             "no_warnings": True,
@@ -191,18 +190,37 @@ class MusicService:
             "source_address": "0.0.0.0",
             "extractor_args": {
                 "youtube": {
-                    "player_client": ["android"],
+                    "player_client": ["android", "ios", "web_embedded", "android_vr"],
                     "player_skip": ["configs", "webpage"],
                 }
             }
         }
 
+        # Optional Proxy configuration (YTDLP_PROXY / HTTP_PROXY)
+        proxy_url = os.getenv("YTDLP_PROXY") or os.getenv("HTTP_PROXY") or os.getenv("HTTPS_PROXY")
+        if proxy_url:
+            self.ydl_opts["proxy"] = proxy_url
+            self.fast_yt_opts["proxy"] = proxy_url
+            logger.info(f"Configured yt-dlp proxy: {proxy_url}")
+
+        # Optional PO Token / POT provider URL (e.g. http://127.0.0.1:4416 via bgutil Docker)
+        pot_url = os.getenv("POT_PROVIDER_URL", "http://127.0.0.1:4416")
+        po_token = os.getenv("YT_PO_TOKEN")
+        if po_token:
+            self.fast_yt_opts["extractor_args"]["youtube"]["po_token"] = [po_token]
+        elif pot_url:
+            self.fast_yt_opts["extractor_args"]["youtube"]["po_token_server"] = [pot_url]
+
         # Cache for resolved audio stream URLs: {key: (stream_url, expire_timestamp)}
         self._stream_cache: Dict[str, Tuple[str, float]] = {}
 
-        # Comprehensive search and auto-repair for cookies.txt
+        # Search and sanitize cookies.txt if cookieless mode is not explicitly enabled
         self.youtube_cookie_path = None
-        self._load_and_sanitize_cookies()
+        use_cookies = os.getenv("USE_COOKIES", "true").lower() not in ("false", "0", "no")
+        if use_cookies:
+            self._load_and_sanitize_cookies()
+        else:
+            logger.info("Running in Cookieless Mode (USE_COOKIES=false)")
 
     @staticmethod
     def _sanitize_cookie_text(text: str) -> Optional[str]:
@@ -490,7 +508,8 @@ class MusicService:
                     return []
                 if "entries" in info:
                     tracks = []
-                    for entry in info["entries"][:50]:
+                    entries = list(info.get("entries") or [])
+                    for entry in entries[:50]:
                         if entry:
                             tracks.append(self._parse_flat_entry(entry, default_source="youtube"))
                     return tracks
@@ -508,7 +527,7 @@ class MusicService:
             logger.error(f"Error extracting url info ({url}): {e}")
             return []
 
-    def _parse_ytdlp_entry(self, entry: Dict[str, Any], default_source: str = "youtube") -> Track:
+    def _parse_ytdlp_entry(self, entry: Any, default_source: str = "youtube") -> Track:
         webpage_url = entry.get("webpage_url") or entry.get("url") or ""
         extractor = (entry.get("extractor") or entry.get("extractor_key") or "").lower()
 
@@ -563,7 +582,7 @@ class MusicService:
             raw_info=entry,
         )
 
-    def _parse_flat_entry(self, entry: Dict[str, Any], default_source: str = "youtube") -> Track:
+    def _parse_flat_entry(self, entry: Any, default_source: str = "youtube") -> Track:
         entry_id = str(entry.get("id") or "")
         webpage_url = entry.get("url") or entry.get("webpage_url") or ""
         
@@ -782,7 +801,8 @@ class MusicService:
                 with yt_dlp.YoutubeDL(sc_opts) as ydl:
                     info = ydl.extract_info(search_q, download=False)
                     if info and "entries" in info:
-                        for entry in info["entries"]:
+                        entries = list(info.get("entries") or [])
+                        for entry in entries:
                             if entry and is_title_similar(track.title, entry.get("title", "")):
                                 stream = self._extract_audio_stream_url(entry)
                                 if stream:
@@ -799,7 +819,7 @@ class MusicService:
 
         return await asyncio.to_thread(_get)
 
-    def _extract_audio_stream_url(self, info: Optional[Dict[str, Any]]) -> Optional[str]:
+    def _extract_audio_stream_url(self, info: Any) -> Optional[str]:
         """Extracts the direct playable audio stream URL from yt-dlp info dictionary."""
         if not info:
             return None
@@ -929,9 +949,10 @@ class MusicService:
                 search_opts["socket_timeout"] = 3.5
                 with yt_dlp.YoutubeDL(search_opts) as ydl:
                     alt_info = ydl.extract_info(f"ytsearch1:{search_query}", download=False)
+                    entries = list(alt_info.get("entries") or []) if alt_info else []
                     cand_title = ""
-                    if alt_info and "entries" in alt_info and alt_info["entries"]:
-                        cand_title = alt_info["entries"][0].get("title", "")
+                    if entries:
+                        cand_title = entries[0].get("title", "")
                     elif alt_info:
                         cand_title = alt_info.get("title", "")
 
@@ -948,7 +969,7 @@ class MusicService:
             # Strategy 4: SoundCloud fallback search with 3s timeout
             logger.warning(f"All YouTube extraction attempts failed for '{track.title}', attempting SoundCloud fallback...")
             try:
-                sc_opts = {
+                sc_opts: Dict[str, Any] = {
                     "format": "bestaudio/best",
                     "quiet": True,
                     "no_warnings": True,
@@ -961,9 +982,10 @@ class MusicService:
                 }
                 with yt_dlp.YoutubeDL(sc_opts) as ydl:
                     sc_info = ydl.extract_info(f"scsearch1:{search_query}", download=False)
+                    entries = list(sc_info.get("entries") or []) if sc_info else []
                     cand_title = ""
-                    if sc_info and "entries" in sc_info and sc_info["entries"]:
-                        cand_title = sc_info["entries"][0].get("title", "")
+                    if entries:
+                        cand_title = entries[0].get("title", "")
                     elif sc_info:
                         cand_title = sc_info.get("title", "")
 
