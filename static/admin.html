@@ -1047,6 +1047,215 @@
       to { transform: translateX(0); opacity: 1; }
     }
 
+    /* Anti-Crash Tab Styles */
+    .anticrash-banner {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 24px;
+      margin-bottom: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .anticrash-settings-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      align-items: center;
+    }
+
+    .setting-item {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .setting-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .setting-input {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      color: #fff;
+      padding: 9px 12px;
+      font-size: 0.88rem;
+      outline: none;
+    }
+    .setting-input:focus {
+      border-color: var(--accent-cyan);
+    }
+
+    .restricted-user-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .restricted-user-card::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background: var(--accent-red);
+    }
+    .restricted-user-card:hover {
+      background: var(--bg-card-hover);
+      border-color: rgba(239, 68, 68, 0.45);
+      transform: translateY(-1px);
+    }
+
+    .restricted-user-profile {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .restricted-avatar {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid rgba(239, 68, 68, 0.5);
+      flex-shrink: 0;
+    }
+
+    .restricted-info {
+      min-width: 0;
+    }
+
+    .restricted-name {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .restricted-meta {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 4px;
+      flex-wrap: wrap;
+    }
+
+    .restricted-reason-tag {
+      font-size: 0.76rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(239, 68, 68, 0.15);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      font-weight: 600;
+    }
+
+    .restricted-server-tag {
+      font-size: 0.76rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(79, 172, 254, 0.12);
+      color: var(--accent-blue);
+      border: 1px solid rgba(79, 172, 254, 0.25);
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .copy-id-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 0.75rem;
+      padding: 2px 4px;
+    }
+    .copy-id-btn:hover {
+      color: var(--accent-cyan);
+    }
+
+    /* Queue Inspector in Guild Card */
+    .guild-queue-drawer {
+      display: none;
+      background: rgba(0, 0, 0, 0.45);
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 12px;
+      margin-top: 8px;
+      max-height: 240px;
+      overflow-y: auto;
+    }
+    .guild-queue-drawer.open {
+      display: block;
+    }
+
+    .queue-track-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 6px 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      font-size: 0.82rem;
+    }
+    .queue-track-item:last-child {
+      border-bottom: none;
+    }
+    .queue-track-title {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex: 1;
+      font-weight: 500;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(8px);
+      z-index: 99999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-backdrop.show {
+      display: flex;
+    }
+    .modal-card {
+      background: #0f1424;
+      border: 1px solid var(--border-accent);
+      border-radius: var(--radius-lg);
+      width: 100%;
+      max-width: 520px;
+      padding: 28px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+    }
+
     @media (max-width: 768px) {
       .admin-navbar {
         padding: 12px 16px;
@@ -1054,8 +1263,8 @@
       .admin-container {
         padding: 16px 16px 40px;
       }
-      .header-quick-stats {
-        display: none;
+      .header-quick-stats, .hide-mobile {
+        display: none !important;
       }
       .guilds-grid {
         grid-template-columns: 1fr;
@@ -1067,6 +1276,42 @@
 
   <!-- Toast Notification Container -->
   <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Manual Restrict User Modal -->
+  <div id="manualRestrictModal" class="modal-backdrop">
+    <div class="modal-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+        <h3 style="font-size: 1.15rem; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px;">
+          <i class="fa-solid fa-user-slash" style="color: var(--accent-red);"></i> Ограничить пользователя
+        </h3>
+        <button type="button" class="ctrl-btn" onclick="window.closeRestrictModal()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div>
+          <label class="setting-label">Discord User ID (числовой ID)*</label>
+          <input type="text" id="modalUserId" class="setting-input" style="width: 100%;" placeholder="Например: 123456789012345678">
+        </div>
+        <div>
+          <label class="setting-label">Имя пользователя (необязательно)</label>
+          <input type="text" id="modalUserName" class="setting-input" style="width: 100%;" placeholder="Никнейм">
+        </div>
+        <div>
+          <label class="setting-label">ID Сервера / Название (необязательно)</label>
+          <input type="text" id="modalGuildId" class="setting-input" style="width: 100%;" placeholder="ID сервера где произошло нарушение">
+        </div>
+        <div>
+          <label class="setting-label">Причина ограничения</label>
+          <input type="text" id="modalReason" class="setting-input" style="width: 100%;" placeholder="Спам запросами музыки / Нарушение правил">
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
+          <button type="button" class="btn" onclick="window.closeRestrictModal()">Отмена</button>
+          <button type="button" id="btnConfirmRestrict" class="btn btn-danger" onclick="window.submitManualRestrict()">
+            <i class="fa-solid fa-ban"></i> Ограничить доступ
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Auth Modal Overlay (shown when not logged in as Admin) -->
   <div id="authOverlay" class="auth-overlay" style="display: none;">
@@ -1093,7 +1338,7 @@
       <div>
         <div class="brand-title">
           <span>Musicium</span>
-          <span class="brand-badge">ADMIN v2.5</span>
+          <span class="brand-badge">ADMIN v2.6</span>
         </div>
       </div>
     </div>
@@ -1114,12 +1359,18 @@
     </div>
 
     <div class="nav-actions">
+      <button id="navClearCacheBtn" class="btn" onclick="window.adminClearCache()" title="Очистить кэш плеера">
+        <i class="fa-solid fa-broom"></i> <span class="hide-mobile">Кэш</span>
+      </button>
+      <button id="navSyncCmdsBtn" class="btn" onclick="window.adminSyncCommands()" title="Синхронизировать слэш-команды">
+        <i class="fa-solid fa-rotate"></i> <span class="hide-mobile">Синхр.</span>
+      </button>
       <div class="user-pill">
         <img id="navUserAvatar" src="/static/activity_icon.jpg" alt="Avatar" class="user-avatar">
         <span id="navUserName" style="font-size: 0.88rem; font-weight: 600;">Admin</span>
       </div>
-      <a href="/" target="_blank" class="btn" title="Открыть музыкальный плеер">
-        <i class="fa-solid fa-compact-disc"></i> <span>Плеер</span>
+      <a href="/" id="backToPlayerBtn" class="btn btn-primary" title="Перейти в музыкальный плеер">
+        <i class="fa-solid fa-compact-disc"></i> <span>В плеер</span>
       </a>
       <button id="logoutBtn" class="btn btn-danger" title="Выйти из админки">
         <i class="fa-solid fa-right-from-bracket"></i>
@@ -1140,6 +1391,11 @@
         <i class="fa-solid fa-tower-broadcast"></i>
         <span>Серверы & Голосовые Боты</span>
         <span id="tabVoiceCountBadge" class="tab-badge">0</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-anticrash">
+        <i class="fa-solid fa-shield-virus"></i>
+        <span>Антикраш & Спам-фильтр</span>
+        <span id="tabAnticrashBadge" class="tab-badge" style="background: rgba(239, 68, 68, 0.35); color: #fca5a5;">0</span>
       </button>
       <button class="tab-btn" data-tab="tab-logs">
         <i class="fa-solid fa-terminal"></i>
@@ -1362,6 +1618,81 @@
       </div>
     </section>
 
+    <!-- TAB 5: ANTICRASH & SPAM PROTECTION -->
+    <section id="tab-anticrash" class="tab-content">
+      <div class="anticrash-banner">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap;">
+          <div>
+            <h2 style="font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+              <i class="fa-solid fa-shield-virus" style="color: var(--accent-red);"></i> Антикраш & Спам-фильтр бота
+            </h2>
+            <p style="font-size: 0.88rem; color: var(--text-muted); max-width: 720px;">
+              Автоматическое отслеживание и ограничение пользователей, спамящих запросами музыки для вызова краша или перегрузки бота.
+              Здесь вы можете видеть нарушителей, их ID, аватар, ник и сервер, а также вручную снимать ограничения или добавлять пользователей в чёрный список.
+            </p>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <button class="btn btn-primary" onclick="window.openRestrictModal()">
+              <i class="fa-solid fa-user-plus"></i> Ограничить вручную
+            </button>
+            <button class="btn" onclick="window.fetchAnticrashUsers()" title="Обновить список">
+              <i class="fa-solid fa-rotate-right"></i>
+            </button>
+          </div>
+        </div>
+
+        <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 16px;">
+          <h4 style="font-size: 0.88rem; font-weight: 700; margin-bottom: 12px; color: var(--accent-cyan); display: flex; align-items: center; gap: 6px;">
+            <i class="fa-solid fa-sliders"></i> Параметры срабатывания Антикраша
+          </h4>
+          <div class="anticrash-settings-grid">
+            <div class="setting-item">
+              <label class="setting-label">Статус защиты</label>
+              <select id="antiEnabledSelect" class="setting-input">
+                <option value="true">Включена (Active)</option>
+                <option value="false">Отключена (Disabled)</option>
+              </select>
+            </div>
+            <div class="setting-item">
+              <label class="setting-label">Лимит за 10 сек (быстрый спам)</label>
+              <input type="number" id="antiMax10sInput" class="setting-input" min="2" max="50" value="6">
+            </div>
+            <div class="setting-item">
+              <label class="setting-label">Лимит за 60 сек (флуд запросами)</label>
+              <input type="number" id="antiMax60sInput" class="setting-input" min="5" max="100" value="18">
+            </div>
+            <div class="setting-item">
+              <label class="setting-label">Авто-блокировка нарушителей</label>
+              <select id="antiAutoBanSelect" class="setting-input">
+                <option value="true">Да, блокировать доступ</option>
+                <option value="false">Только отклонять запрос</option>
+              </select>
+            </div>
+          </div>
+          <div style="display: flex; justify-content: flex-end; margin-top: 14px;">
+            <button id="saveAntiSettingsBtn" class="btn" style="background: rgba(0, 242, 254, 0.15); border: 1px solid var(--border-accent); color: var(--accent-cyan);" onclick="window.saveAnticrashSettings()">
+              <i class="fa-solid fa-check"></i> Сохранить настройки защиты
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Search bar & Violators list -->
+      <div class="toolbar-bar">
+        <div class="search-input-wrap">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" id="anticrashSearchInput" class="search-input" placeholder="Поиск по нику, ID пользователя или названию сервера...">
+        </div>
+        <div style="font-size: 0.88rem; color: var(--text-muted);">
+          Ограничено пользователей: <strong id="restrictedCountLabel" style="color: var(--accent-red);">0</strong>
+        </div>
+      </div>
+
+      <div id="restrictedUsersContainer">
+        <!-- Rendered list of restricted users -->
+      </div>
+    </section>
+
   </main>
 
   <!-- Admin Script Logic -->
@@ -1377,6 +1708,9 @@
         guilds: [],
         guildsFilter: 'all',
         guildsSearch: '',
+        anticrashUsers: [],
+        anticrashSearch: '',
+        anticrashSettings: {},
         logLevel: 'ALL',
         logSearch: '',
         logPaused: false,
@@ -1401,17 +1735,50 @@
         }, 3500);
       }
 
+      function getAdminToken() {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get('token') || localStorage.getItem('musicium_admin_token') || sessionStorage.getItem('musicium_admin_token') || '';
+      }
+
+      async function adminFetch(url, options = {}) {
+        const token = getAdminToken();
+        const headers = Object.assign({}, options.headers || {});
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        options.headers = headers;
+        options.credentials = 'include';
+        return fetch(url, options);
+      }
+
+      window.copyToClipboard = function(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text);
+          showToast(`Скопировано: ${text}`, 'success');
+        } else {
+          prompt('Скопируйте вручную:', text);
+        }
+      };
+
       // Check Authentication on Page Load
       async function checkAuth() {
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('logout') === '1' || urlParams.get('logged_out') === '1') {
+          localStorage.removeItem('musicium_admin_token');
+          sessionStorage.removeItem('musicium_admin_token');
           history.replaceState(null, '', window.location.pathname);
           showAuthOverlay('Вы успешно вышли из админ-панели.');
           return false;
         }
 
+        const queryToken = urlParams.get('token');
+        if (queryToken) {
+          localStorage.setItem('musicium_admin_token', queryToken);
+          sessionStorage.setItem('musicium_admin_token', queryToken);
+        }
+
         try {
-          const res = await fetch('/api/admin/auth/status');
+          const res = await adminFetch('/api/admin/auth/status');
           const data = await res.json();
           if (data.authenticated) {
             state.authenticated = true;
@@ -1458,6 +1825,7 @@
 
           // Trigger instant refresh for active tab
           if (targetTab === 'tab-guilds') fetchGuilds();
+          if (targetTab === 'tab-anticrash') fetchAnticrashUsers();
           if (targetTab === 'tab-logs') fetchLogs();
           if (targetTab === 'tab-cookies') fetchCookiesInfo();
         });
@@ -1467,7 +1835,7 @@
       async function fetchStats() {
         if (!state.authenticated) return;
         try {
-          const res = await fetch('/api/admin/stats');
+          const res = await adminFetch('/api/admin/stats');
           if (res.status === 401) {
             showAuthOverlay('Сессия истекла, авторизуйтесь заново.');
             return;
@@ -1493,6 +1861,14 @@
             ramBar.style.width = `${ramPct}%`;
           }
           document.getElementById('statUptimeShort').textContent = s.uptime_str.split(' ')[0] || '0ч';
+
+          // Restricted Count badge
+          if (s.restricted_count !== undefined) {
+            const rBadge = document.getElementById('tabAnticrashBadge');
+            if (rBadge) rBadge.textContent = s.restricted_count;
+            const rLabel = document.getElementById('restrictedCountLabel');
+            if (rLabel) rLabel.textContent = s.restricted_count;
+          }
 
           // Diag
           document.getElementById('diagBotOnline').textContent = s.bot_online ? 'Онлайн' : 'Офлайн';
@@ -1523,7 +1899,7 @@
       async function fetchGuilds() {
         if (!state.authenticated) return;
         try {
-          const res = await fetch('/api/admin/guilds');
+          const res = await adminFetch('/api/admin/guilds');
           if (res.status === 401) return;
           const data = await res.json();
           state.guilds = data.guilds || [];
@@ -1540,7 +1916,6 @@
 
         let filtered = state.guilds.slice();
 
-        // Count stats
         const countAll = filtered.length;
         const countConnected = filtered.filter(g => g.is_connected).length;
         const countPlaying = filtered.filter(g => g.player && g.player.is_playing).length;
@@ -1549,14 +1924,12 @@
         document.getElementById('pillCountConnected').textContent = countConnected;
         document.getElementById('pillCountPlaying').textContent = countPlaying;
 
-        // Apply tab filter
         if (state.guildsFilter === 'connected') {
           filtered = filtered.filter(g => g.is_connected);
         } else if (state.guildsFilter === 'playing') {
           filtered = filtered.filter(g => g.player && g.player.is_playing);
         }
 
-        // Apply search query
         if (state.guildsSearch.trim()) {
           const q = state.guildsSearch.toLowerCase().trim();
           filtered = filtered.filter(g => g.name.toLowerCase().includes(q) || g.id.includes(q));
@@ -1578,54 +1951,79 @@
           const curCh = g.current_channel;
           const p = g.player;
 
-          // Member chips in voice room
           let listenersHtml = '';
           if (curCh && curCh.members && curCh.members.length > 0) {
             listenersHtml = `
               <div class="listeners-row">
                 <span style="font-size: 0.76rem; color: var(--text-dim);">Слушатели:</span>
                 ${curCh.members.map(m => `
-                  <img src="${m.avatar || '/static/activity_icon.jpg'}" title="${m.name}" alt="${m.name}" class="listener-avatar">
+                  <img src="${m.avatar || '/static/activity_icon.jpg'}" title="${m.name}" alt="${m.name}" class="listener-avatar" onerror="this.src='/static/activity_icon.jpg'">
                 `).join('')}
               </div>
             `;
           }
 
-          // Player mini track box
           let playerHtml = '';
-          if (isConn && p && p.current_track) {
-            const track = p.current_track;
-            const isPaused = p.is_paused;
-            playerHtml = `
-              <div class="guild-player-box">
-                <div class="track-row">
-                  <img src="${track.thumbnail || '/static/activity_icon.jpg'}" alt="cover" class="track-thumb">
-                  <div class="track-info">
-                    <div class="track-title" title="${track.title}">${track.title}</div>
-                    <div class="track-artist">${track.artist || 'Неизвестный исполнитель'} • ${p.volume}% громкости</div>
+          let queueDrawerHtml = '';
+          if (isConn && p) {
+            const queueItems = Array.isArray(p.queue) ? p.queue : [];
+            if (p.current_track) {
+              const track = p.current_track;
+              const isPaused = p.is_paused;
+              playerHtml = `
+                <div class="guild-player-box">
+                  <div class="track-row">
+                    <img src="${track.thumbnail || '/static/activity_icon.jpg'}" alt="cover" class="track-thumb" onerror="this.src='/static/activity_icon.jpg'">
+                    <div class="track-info">
+                      <div class="track-title" title="${track.title}">${track.title}</div>
+                      <div class="track-artist">${track.artist || 'Неизвестный исполнитель'} • ${p.volume}% громкости</div>
+                    </div>
+                  </div>
+                  <div class="player-ctrl-row">
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                      <button class="ctrl-btn" onclick="window.adminPlayerAction('${g.id}', '${isPaused ? 'resume' : 'pause'}')">
+                        <i class="fa-solid ${isPaused ? 'fa-play' : 'fa-pause'}"></i> ${isPaused ? 'Возобновить' : 'Пауза'}
+                      </button>
+                      <button class="ctrl-btn" onclick="window.adminPlayerAction('${g.id}', 'skip')">
+                        <i class="fa-solid fa-forward-step"></i> Пропустить
+                      </button>
+                      <button class="ctrl-btn" onclick="window.adminPlayerAction('${g.id}', 'stop')">
+                        <i class="fa-solid fa-stop"></i> Стоп
+                      </button>
+                      <button class="ctrl-btn" onclick="window.toggleGuildQueue('${g.id}')">
+                        <i class="fa-solid fa-list-ol"></i> Очередь (${queueItems.length})
+                      </button>
+                    </div>
+                    <span style="font-size: 0.76rem; color: var(--text-dim); font-family: monospace;">
+                      ${formatTime(p.elapsed)} / ${formatTime(p.duration)}
+                    </span>
                   </div>
                 </div>
-                <div class="player-ctrl-row">
-                  <div style="display: flex; gap: 6px;">
-                    <button class="ctrl-btn" onclick="window.adminPlayerAction('${g.id}', '${isPaused ? 'resume' : 'pause'}')">
-                      <i class="fa-solid ${isPaused ? 'fa-play' : 'fa-pause'}"></i> ${isPaused ? 'Возобновить' : 'Пауза'}
-                    </button>
-                    <button class="ctrl-btn" onclick="window.adminPlayerAction('${g.id}', 'skip')">
-                      <i class="fa-solid fa-forward-step"></i> Пропустить
-                    </button>
-                    <button class="ctrl-btn" onclick="window.adminPlayerAction('${g.id}', 'stop')">
-                      <i class="fa-solid fa-stop"></i> Стоп
+              `;
+            }
+
+            // Queue Drawer
+            queueDrawerHtml = `
+              <div id="queue-drawer-${g.id}" class="guild-queue-drawer">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                  <span style="font-size: 0.8rem; font-weight: 700; color: var(--accent-cyan);">Очередь сервера (${queueItems.length} треков)</span>
+                  ${queueItems.length > 0 ? `<button class="btn btn-danger" style="padding: 2px 8px; font-size: 0.72rem;" onclick="window.adminClearQueue('${g.id}')"><i class="fa-solid fa-trash"></i> Очистить всю очередь</button>` : ''}
+                </div>
+                ${queueItems.length === 0 ? '<div style="color: #64748b; font-size: 0.78rem; text-align: center; padding: 10px;">В очереди нет треков</div>' : ''}
+                ${queueItems.map((qt, qIdx) => `
+                  <div class="queue-track-item">
+                    <span style="color: #64748b; font-size: 0.75rem; width: 20px;">#${qIdx + 1}</span>
+                    <span class="queue-track-title" title="${qt.title}">${qt.title} <small style="color: #94a3b8;">(${qt.artist || ''})</small></span>
+                    <span style="color: #64748b; font-size: 0.72rem;">${qt.duration_str || ''}</span>
+                    <button class="ctrl-btn" style="padding: 2px 6px; font-size: 0.72rem; color: #fca5a5;" onclick="window.adminRemoveQueueTrack('${g.id}', ${qIdx})" title="Удалить из очереди">
+                      <i class="fa-solid fa-xmark"></i>
                     </button>
                   </div>
-                  <span style="font-size: 0.76rem; color: var(--text-dim); font-family: monospace;">
-                    ${formatTime(p.elapsed)} / ${formatTime(p.duration)}
-                  </span>
-                </div>
+                `).join('')}
               </div>
             `;
           }
 
-          // Options for voice channels select
           const optionsHtml = (g.voice_channels || []).map(vc => {
             const isSelected = isConn && curCh && curCh.id === vc.id;
             const userBadge = vc.user_count > 0 ? ` (${vc.user_count} чел.)` : '';
@@ -1648,13 +2046,14 @@
                 </div>
                 <div>
                   ${isConn 
-                    ? `<span class="voice-status-badge online">${isPlaying ? '<div class="admin-eq-bars"><div class="bar"></div><div class="bar"></div><div class="bar"></div></div>' : '<i class="fa-solid fa-signal"></i>'} ${curCh ? curCh.name : 'В эфире'}</span>` 
+                    ? `<span class="voice-status-badge online">${isPlaying ? '<div class="admin-eq-bars"><span></span><span></span><span></span><span></span></div>' : '<i class="fa-solid fa-signal"></i>'} ${curCh ? curCh.name : 'В эфире'}</span>` 
                     : `<span class="voice-status-badge offline">Не в сети</span>`}
                 </div>
               </div>
 
               ${listenersHtml}
               ${playerHtml}
+              ${queueDrawerHtml}
 
               <div class="channel-switch-section">
                 <div class="switch-label">
@@ -1667,6 +2066,13 @@
                   </select>
                   <button id="btn-switch-${g.id}" class="btn btn-primary" style="padding: 8px 14px; font-size: 0.82rem;" onclick="window.adminSwitchChannel('${g.id}')">
                     <i class="fa-solid fa-bolt"></i> ${isConn ? 'Переключить' : 'Подключить'}
+                  </button>
+                </div>
+                <!-- Direct Play Track by URL on this guild -->
+                <div style="display: flex; gap: 8px; margin-top: 6px;">
+                  <input type="text" id="play-url-${g.id}" class="channel-select" placeholder="Вставить ссылку трека (YouTube, SoundCloud, Яндекс)..." style="font-size: 0.82rem; padding: 7px 10px;">
+                  <button class="btn btn-primary" style="padding: 7px 12px; font-size: 0.8rem; white-space: nowrap;" onclick="window.adminPlayUrl('${g.id}')">
+                    <i class="fa-solid fa-play"></i> Включить
                   </button>
                 </div>
               </div>
@@ -1692,12 +2098,329 @@
         });
       });
 
-      // Search input handler
       const guildSearch = document.getElementById('guildSearchInput');
       if (guildSearch) {
         guildSearch.addEventListener('input', (e) => {
           state.guildsSearch = e.target.value;
           renderGuilds();
+        });
+      }
+
+      // ─── Extended Bot Controls ──────────────────────────────────────────
+
+      window.toggleGuildQueue = function(guildId) {
+        const el = document.getElementById(`queue-drawer-${guildId}`);
+        if (el) el.classList.toggle('open');
+      };
+
+      window.adminClearQueue = async function(guildId) {
+        try {
+          const res = await adminFetch('/api/admin/bot/clear-queue', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ guild_id: guildId })
+          });
+          const d = await res.json();
+          if (d.ok) {
+            showToast('Очередь сервера успешно очищена', 'success');
+            await fetchGuilds();
+          } else {
+            showToast(d.error || 'Ошибка очистки очереди', 'error');
+          }
+        } catch (e) {
+          showToast('Ошибка связи с сервером', 'error');
+        }
+      };
+
+      window.adminRemoveQueueTrack = async function(guildId, index) {
+        try {
+          const res = await adminFetch('/api/admin/bot/player-action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ guild_id: guildId, action: 'remove_queue_track', value: index })
+          });
+          const d = await res.json();
+          if (d.ok) {
+            showToast('Трек удален из очереди', 'info');
+            await fetchGuilds();
+          } else {
+            showToast(d.error || 'Ошибка удаления трека', 'error');
+          }
+        } catch (e) {
+          showToast('Ошибка связи с сервером', 'error');
+        }
+      };
+
+      window.adminPlayUrl = async function(guildId) {
+        const inp = document.getElementById(`play-url-${guildId}`);
+        const url = inp ? inp.value.trim() : '';
+        if (!url) {
+          showToast('Вставьте ссылку на трек или плейлист', 'error');
+          return;
+        }
+        inp.disabled = true;
+        try {
+          const res = await adminFetch('/api/admin/bot/play-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ guild_id: guildId, url: url })
+          });
+          const d = await res.json();
+          if (d.ok) {
+            showToast(d.message || 'Трек запущен', 'success');
+            if (inp) inp.value = '';
+            await fetchGuilds();
+            await fetchStats();
+          } else {
+            showToast(d.error || 'Ошибка воспроизведения', 'error');
+          }
+        } catch (e) {
+          showToast('Ошибка связи с сервером', 'error');
+        } finally {
+          if (inp) inp.disabled = false;
+        }
+      };
+
+      window.adminClearCache = async function() {
+        const btn = document.getElementById('navClearCacheBtn');
+        if (btn) btn.disabled = true;
+        try {
+          const res = await adminFetch('/api/admin/bot/clear-cache', { method: 'POST' });
+          const d = await res.json();
+          if (d.ok) {
+            showToast(d.message || 'Кэш плеера очищен', 'success');
+          } else {
+            showToast(d.error || 'Ошибка очистки кэша', 'error');
+          }
+        } catch (e) {
+          showToast('Ошибка связи с сервером', 'error');
+        } finally {
+          if (btn) btn.disabled = false;
+        }
+      };
+
+      window.adminSyncCommands = async function() {
+        const btn = document.getElementById('navSyncCmdsBtn');
+        if (btn) btn.disabled = true;
+        try {
+          const res = await adminFetch('/api/admin/bot/sync-commands', { method: 'POST' });
+          const d = await res.json();
+          if (d.ok) {
+            showToast(d.message || 'Слэш-команды синхронизированы', 'success');
+          } else {
+            showToast(d.error || 'Ошибка синхронизации команд', 'error');
+          }
+        } catch (e) {
+          showToast('Ошибка связи с сервером', 'error');
+        } finally {
+          if (btn) btn.disabled = false;
+        }
+      };
+
+      // ─── Anti-Crash Logic ────────────────────────────────────────────────
+
+      window.fetchAnticrashUsers = async function() {
+        if (!state.authenticated) return;
+        try {
+          const res = await adminFetch('/api/admin/anticrash/users');
+          if (res.status === 401) return;
+          const data = await res.json();
+          state.anticrashUsers = Array.isArray(data.users) ? data.users : [];
+          state.anticrashSettings = data.settings || {};
+
+          // Populate settings
+          const s = state.anticrashSettings;
+          if (s) {
+            const enSel = document.getElementById('antiEnabledSelect');
+            if (enSel) enSel.value = s.enabled ? 'true' : 'false';
+            const m10 = document.getElementById('antiMax10sInput');
+            if (m10 && s.max_requests_10s !== undefined) m10.value = s.max_requests_10s;
+            const m60 = document.getElementById('antiMax60sInput');
+            if (m60 && s.max_requests_60s !== undefined) m60.value = s.max_requests_60s;
+            const autoBan = document.getElementById('antiAutoBanSelect');
+            if (autoBan) autoBan.value = s.auto_restrict ? 'true' : 'false';
+          }
+
+          const badge = document.getElementById('tabAnticrashBadge');
+          if (badge) badge.textContent = state.anticrashUsers.length;
+          const lbl = document.getElementById('restrictedCountLabel');
+          if (lbl) lbl.textContent = state.anticrashUsers.length;
+
+          renderAnticrashUsers();
+        } catch (e) {
+          console.debug('Anticrash fetch error:', e);
+        }
+      };
+
+      function renderAnticrashUsers() {
+        const container = document.getElementById('restrictedUsersContainer');
+        if (!container) return;
+
+        let filtered = state.anticrashUsers.slice();
+        if (state.anticrashSearch.trim()) {
+          const q = state.anticrashSearch.toLowerCase().trim();
+          filtered = filtered.filter(u => 
+            (u.user_name && u.user_name.toLowerCase().includes(q)) ||
+            (u.user_id && u.user_id.includes(q)) ||
+            (u.guild_name && u.guild_name.toLowerCase().includes(q)) ||
+            (u.reason && u.reason.toLowerCase().includes(q))
+          );
+        }
+
+        if (filtered.length === 0) {
+          container.innerHTML = `
+            <div style="background: var(--bg-card); border: 1px dashed var(--border-subtle); border-radius: var(--radius-md); padding: 50px 20px; text-align: center; color: var(--text-muted);">
+              <i class="fa-solid fa-shield-halved" style="font-size: 3rem; color: var(--accent-green); opacity: 0.6; margin-bottom: 14px; display: block;"></i>
+              <h3 style="color: #fff; font-size: 1.1rem; margin-bottom: 6px;">Нарушителей не обнаружено</h3>
+              <p style="font-size: 0.88rem;">Антикраш-система Musicium работает в штатном режиме. Ни один пользователь сейчас не ограничен.</p>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = filtered.map(u => {
+          const avatarUrl = u.user_avatar || 'https://cdn.discordapp.com/embed/avatars/0.png';
+          const dtStr = u.restricted_at ? u.restricted_at.replace('T', ' ').slice(0, 19) : '--';
+          return `
+            <div class="restricted-user-card">
+              <div class="restricted-user-profile">
+                <img src="${avatarUrl}" class="restricted-avatar" alt="${u.user_name || 'User'}" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+                <div class="restricted-info">
+                  <div class="restricted-name">
+                    <span>${escapeHtml(u.user_name || 'Пользователь')}</span>
+                    <button class="copy-id-btn" onclick="window.copyToClipboard('${u.user_id}')" title="Скопировать Discord ID">
+                      ID: ${u.user_id} <i class="fa-regular fa-copy"></i>
+                    </button>
+                  </div>
+                  <div class="restricted-meta">
+                    <span class="restricted-reason-tag"><i class="fa-solid fa-triangle-exclamation"></i> ${escapeHtml(u.reason || 'Спам запросами')}</span>
+                    ${u.guild_name ? `<span class="restricted-server-tag"><i class="fa-solid fa-server"></i> ${escapeHtml(u.guild_name)}</span>` : (u.guild_id ? `<span class="restricted-server-tag"><i class="fa-solid fa-server"></i> Guild ${u.guild_id}</span>` : '')}
+                    <span style="color: var(--text-dim); font-size: 0.76rem;"><i class="fa-regular fa-clock"></i> ${dtStr}</span>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <button class="btn btn-primary" style="padding: 9px 18px; font-size: 0.84rem;" onclick="window.unrestrictUser('${u.user_id}')">
+                  <i class="fa-solid fa-lock-open"></i> Снять ограничение
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      window.unrestrictUser = async function(userId) {
+        try {
+          const res = await adminFetch('/api/admin/anticrash/unrestrict', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId })
+          });
+          const d = await res.json();
+          if (d.ok) {
+            showToast(d.message || 'Ограничение успешно снято!', 'success');
+            await fetchAnticrashUsers();
+            await fetchStats();
+          } else {
+            showToast(d.error || 'Ошибка при снятии ограничения', 'error');
+          }
+        } catch (e) {
+          showToast('Ошибка связи с сервером', 'error');
+        }
+      };
+
+      window.saveAnticrashSettings = async function() {
+        const btn = document.getElementById('saveAntiSettingsBtn');
+        if (btn) btn.disabled = true;
+        try {
+          const payload = {
+            enabled: document.getElementById('antiEnabledSelect').value === 'true',
+            max_requests_10s: parseInt(document.getElementById('antiMax10sInput').value) || 6,
+            max_requests_60s: parseInt(document.getElementById('antiMax60sInput').value) || 18,
+            auto_restrict: document.getElementById('antiAutoBanSelect').value === 'true',
+          };
+          const res = await adminFetch('/api/admin/anticrash/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const d = await res.json();
+          if (d.ok) {
+            showToast('Настройки Антикраша успешно сохранены!', 'success');
+          } else {
+            showToast(d.error || 'Ошибка сохранения настроек', 'error');
+          }
+        } catch (e) {
+          showToast('Ошибка связи с сервером', 'error');
+        } finally {
+          if (btn) btn.disabled = false;
+        }
+      };
+
+      window.openRestrictModal = function() {
+        const m = document.getElementById('manualRestrictModal');
+        if (m) m.classList.add('show');
+      };
+
+      window.closeRestrictModal = function() {
+        const m = document.getElementById('manualRestrictModal');
+        if (m) m.classList.remove('show');
+      };
+
+      window.submitManualRestrict = async function() {
+        const uId = document.getElementById('modalUserId').value.trim();
+        if (!uId) {
+          showToast('Укажите Discord User ID', 'error');
+          return;
+        }
+        const btn = document.getElementById('btnConfirmRestrict');
+        if (btn) btn.disabled = true;
+        try {
+          const payload = {
+            user_id: uId,
+            user_name: document.getElementById('modalUserName').value.trim(),
+            guild_id: document.getElementById('modalGuildId').value.trim(),
+            reason: document.getElementById('modalReason').value.trim() || 'Ручная блокировка администратором',
+          };
+          const res = await adminFetch('/api/admin/anticrash/restrict', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const d = await res.json();
+          if (d.ok) {
+            showToast(d.message || 'Пользователь успешно ограничен', 'success');
+            window.closeRestrictModal();
+            document.getElementById('modalUserId').value = '';
+            document.getElementById('modalUserName').value = '';
+            document.getElementById('modalGuildId').value = '';
+            document.getElementById('modalReason').value = '';
+            await fetchAnticrashUsers();
+            await fetchStats();
+          } else {
+            showToast(d.error || 'Ошибка ограничения пользователя', 'error');
+          }
+        } catch (e) {
+          showToast('Ошибка связи с сервером', 'error');
+        } finally {
+          if (btn) btn.disabled = false;
+        }
+      };
+
+      const antiSearch = document.getElementById('anticrashSearchInput');
+      if (antiSearch) {
+        antiSearch.addEventListener('input', (e) => {
+          state.anticrashSearch = e.target.value;
+          renderAnticrashUsers();
+        });
+      }
+
+      // Back to Player button handler (clean in-app navigation)
+      const backToPlayerBtn = document.getElementById('backToPlayerBtn');
+      if (backToPlayerBtn) {
+        backToPlayerBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          window.location.href = '/';
         });
       }
 
@@ -1716,7 +2439,7 @@
           btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Перемещение...';
         }
         try {
-          const res = await fetch('/api/admin/bot/switch-channel', {
+          const res = await adminFetch('/api/admin/bot/switch-channel', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ guild_id: guildId, channel_id: channelId })
@@ -1747,7 +2470,7 @@
           btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
         }
         try {
-          const res = await fetch('/api/admin/bot/disconnect', {
+          const res = await adminFetch('/api/admin/bot/disconnect', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ guild_id: guildId })
@@ -1772,7 +2495,7 @@
 
       window.adminPlayerAction = async function(guildId, action) {
         try {
-          const res = await fetch('/api/admin/bot/player-action', {
+          const res = await adminFetch('/api/admin/bot/player-action', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ guild_id: guildId, action: action })
@@ -1795,7 +2518,7 @@
         try {
           const levelQuery = state.logLevel === 'ALL' ? '' : `&level=${state.logLevel}`;
           const searchQuery = state.logSearch ? `&search=${encodeURIComponent(state.logSearch)}` : '';
-          const res = await fetch(`/api/admin/logs?limit=400${levelQuery}${searchQuery}`);
+          const res = await adminFetch(`/api/admin/logs?limit=400${levelQuery}${searchQuery}`);
           if (res.status === 401) return;
           const data = await res.json();
           renderLogs(data.logs || []);
@@ -1875,7 +2598,7 @@
       async function fetchCookiesInfo() {
         if (!state.authenticated) return;
         try {
-          const res = await fetch('/api/admin/cookies');
+          const res = await adminFetch('/api/admin/cookies');
           const d = await res.json();
           document.getElementById('cookieStatusText').textContent = d.configured ? 'Подключено и готово' : 'Отсутствует';
           document.getElementById('cookieStatusText').style.color = d.configured ? 'var(--accent-green)' : 'var(--accent-red)';
@@ -1898,7 +2621,7 @@
           saveCookiesBtn.disabled = true;
           saveCookiesBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Сохранение...';
           try {
-            const res = await fetch('/api/admin/cookies', {
+            const res = await adminFetch('/api/admin/cookies', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ cookies: val })
@@ -1921,7 +2644,6 @@
         });
       }
 
-      // Refresh Guilds Button
       const refreshGuildsBtn = document.getElementById('refreshGuildsBtn');
       if (refreshGuildsBtn) {
         refreshGuildsBtn.addEventListener('click', () => {
@@ -1942,8 +2664,10 @@
           logoutBtn.disabled = true;
           logoutBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
           try {
-            await fetch('/api/admin/auth/logout', { method: 'POST' });
+            await adminFetch('/api/admin/auth/logout', { method: 'POST' });
           } catch (_) {}
+          localStorage.removeItem('musicium_admin_token');
+          sessionStorage.removeItem('musicium_admin_token');
           state.authenticated = false;
           clearInterval(state.statsInterval);
           clearInterval(state.logsInterval);
@@ -1952,10 +2676,24 @@
         });
       }
 
+      // Back to Player button (preserves Discord Activity iframe parameters)
+      const backBtn = document.getElementById('backToPlayerBtn');
+      if (backBtn) {
+        backBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          const p = new URLSearchParams(window.location.search);
+          p.delete('token');
+          p.delete('logout');
+          const qs = p.toString();
+          window.location.href = '/' + (qs ? `?${qs}` : '');
+        });
+      }
+
       // Initialize Everything Once Authenticated
       function initAdminDashboard() {
         fetchStats();
         fetchGuilds();
+        fetchAnticrashUsers();
         fetchLogs();
 
         // Intervals for live updates
