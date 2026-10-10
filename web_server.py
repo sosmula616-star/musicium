@@ -440,8 +440,6 @@ class WebServer:
         channel_id = safe_int(channel_id_str)
 
         # Anti-Crash restriction check
-        import anticrash_service
-        anticrash = anticrash_service.anticrash
         if user_id and anticrash.is_restricted(user_id):
             info = anticrash.get_restriction(user_id)
             r_reason = info.get("reason", "Превышение лимита запросов (спам)") if info else "Ограничение доступа"
@@ -610,8 +608,6 @@ class WebServer:
         channel_id = safe_int(channel_id_str)
 
         # Anti-Crash restriction check
-        import anticrash_service
-        anticrash = anticrash_service.anticrash
         if user_id and anticrash.is_restricted(user_id):
             info = anticrash.get_restriction(user_id)
             r_reason = info.get("reason", "Превышение лимита запросов (спам)") if info else "Ограничение доступа"
@@ -1637,11 +1633,10 @@ class WebServer:
         is_adm, _ = self._verify_admin(request)
         if not is_adm:
             return web.json_response({"error": "Unauthorized"}, status=401)
-        import anticrash_service
-        users = await anticrash_service.anticrash.get_all_restricted_users()
+        users = await anticrash.get_all_restricted_users()
         return web.json_response({
             "users": users,
-            "settings": anticrash_service.anticrash.settings,
+            "settings": anticrash.settings,
         })
 
     async def handle_admin_anticrash_unrestrict(self, request: web.Request) -> web.Response:
@@ -1653,8 +1648,7 @@ class WebServer:
             user_id = safe_int(data.get("user_id"))
             if not user_id:
                 return web.json_response({"ok": False, "error": "Не указан user_id"}, status=400)
-            import anticrash_service
-            ok = await anticrash_service.anticrash.unrestrict_user(user_id)
+            ok = await anticrash.unrestrict_user(user_id)
             return web.json_response({
                 "ok": ok,
                 "message": f"Ограничение для пользователя {user_id} успешно снято" if ok else "Пользователь не найден в списке ограничений"
@@ -1690,8 +1684,7 @@ class WebServer:
                 if g:
                     guild_name = g.name
 
-            import anticrash_service
-            ok = await anticrash_service.anticrash.restrict_user_manually(
+            ok = await anticrash.restrict_user_manually(
                 user_id=user_id,
                 user_name=user_name,
                 user_avatar=user_avatar,
