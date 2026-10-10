@@ -84,7 +84,6 @@ try:
 except Exception as e:
     logger.warning(f"Failed to load opus in main.py: {e}")
 
-import discord
 from discord import app_commands
 from discord.ext import commands
 

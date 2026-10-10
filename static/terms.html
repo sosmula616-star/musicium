@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Условия использования — Musicium</title>
+  <link rel="icon" type="image/jpeg" href="/static/activity_icon.jpg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    :root {
+      --bg-dark: #0b0c10;
+      --bg-card: rgba(22, 24, 34, 0.75);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --accent-blurple: #5865f2;
+      --accent-cyan: #00d2ff;
+      --text-main: #f3f4f6;
+      --text-secondary: #9ca3af;
+      --text-muted: #6b7280;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(circle at 10% 20%, rgba(88, 101, 242, 0.12) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(0, 210, 255, 0.08) 0%, transparent 40%);
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      line-height: 1.6;
+      padding: 40px 20px 80px;
+    }
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+    }
+    .header-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid var(--border-subtle);
+      border-radius: 20px;
+      padding: 32px;
+      margin-bottom: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .brand-logo {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+    }
+    h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 26px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #fff, #a5b4fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .meta-tag {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+    .badge-dev {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(88, 101, 242, 0.15);
+      border: 1px solid rgba(88, 101, 242, 0.3);
+      color: #c7d2fe;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .btn-back {
+      color: var(--text-main);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.06);
+      transition: all 0.2s;
+    }
+    .btn-back:hover {
+      background: rgba(255,255,255,0.12);
+    }
+    .content-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid var(--border-subtle);
+      border-radius: 20px;
+      padding: 40px;
+    }
+    .section-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 19px;
+      font-weight: 700;
+      color: #fff;
+      margin: 32px 0 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section-title:first-child { margin-top: 0; }
+    .section-title i { color: var(--accent-cyan); font-size: 17px; }
+    p, li {
+      color: #d1d5db;
+      font-size: 14.5px;
+      margin-bottom: 12px;
+    }
+    ul {
+      padding-left: 20px;
+      margin-bottom: 16px;
+    }
+    li { margin-bottom: 6px; }
+    .highlight-box {
+      background: rgba(88, 101, 242, 0.08);
+      border-left: 3px solid var(--accent-blurple);
+      padding: 14px 18px;
+      border-radius: 0 12px 12px 0;
+      margin: 18px 0;
+      font-size: 13.5px;
+      color: #e0e7ff;
+    }
+    .footer-credits {
+      text-align: center;
+      margin-top: 40px;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+    .footer-credits strong {
+      color: #e5e7eb;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header-card">
+      <div class="brand-title">
+        <img src="/static/activity_icon.jpg" alt="Logo" class="brand-logo">
+        <div>
+          <h1>Условия использования</h1>
+          <div class="meta-tag">Musicium Bot & Discord Mini App • Редакция от 2 октября 2026 г.</div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <a href="https://discord.gg/nvhyKTjZNh" target="_blank" rel="noopener noreferrer" class="btn-back"><i class="fa-brands fa-discord"></i> Тех.поддержка</a>
+        <a href="/" class="btn-back"><i class="fa-solid fa-arrow-left"></i> В плеер</a>
+      </div>
+    </div>
+
+    <div class="content-card">
+      <div class="badge-dev" style="margin-bottom: 20px;">
+        <i class="fa-solid fa-code"></i> Developed by Musicium Team
+      </div>
+
+      <h2 class="section-title"><i class="fa-solid fa-gavel"></i> 1. Общие положения и принятие соглашения</h2>
+      <p>
+        Настоящие Условия использования («Условия», «Пользовательское соглашение») представляют собой юридически обязывающее соглашение между пользователем («Пользователь», «Вы») и командой разработчиков <strong>Musicium Team</strong> («Администрация», «Разработчик», «Мы»), регулирующее порядок доступа и использования Discord-бота «Musicium», интерактивного веб-приложения Discord Activity (Mini App), API-сервисов и сопутствующих ресурсов (далее совокупно — «Сервис»).
+      </p>
+      <p>
+        Активируя, запуская, приглашая Сервис на сервер Discord или взаимодействуя с его интерфейсом (включая текстовые команды, вызовы слеш-команд, веб-панель или прослушивание аудиопотока в голосовом канале), Пользователь подтверждает, что в полном объеме ознакомлен с настоящими Условиями, понимает их правовой смысл и выражает безоговорочное согласие соблюдать их требования.
+      </p>
+
+      <h2 class="section-title"><i class="fa-solid fa-microchip"></i> 2. Предмет и архитектура Сервиса</h2>
+      <p>
+        Сервис «Musicium» является исключительно техническим инструментом маршрутизации и трансляции мультимедийного потока («Media Relay Gateway») в голосовые каналы Discord по прямым командам авторизованных пользователей.
+      </p>
+      <div class="highlight-box">
+        <strong>Важное технико-юридическое уведомление:</strong><br>
+        Сервис не является файловым хранилищем, хостингом аудиофайлов, цифровой фонотекой или магазином музыкального контента. Сервис не хранит, не загружает на постоянные физические носители и не распространяет защищенные авторским правом копии музыкальных произведений. Воспроизведение осуществляется в оперативном режиме реального времени («on-the-fly streaming») на основании прямых пользовательских сетевых запросов к общедоступным открытым веб-ресурсам (таким как YouTube, SoundCloud и др.).
+      </div>
+
+      <h2 class="section-title"><i class="fa-solid fa-copyright"></i> 3. Интеллектуальная собственность и авторские права (DMCA)</h2>
+      <p>
+        Все имущественные и неимущественные авторские и смежные права на транслируемые музыкальные треки, аудиозаписи, тексты песен, художественные обложки альбомов и видеоматериалы принадлежат их законным авторам, исполнителям, издателям, композиторам и правообладателям.
+      </p>
+      <ul>
+        <li>Торговые марки, логотипы и фирменные наименования Discord, YouTube, Google, SoundCloud и др. упоминаются исключительно в идентификационных и совместимых целях («fair nominative use»).</li>
+        <li>Пользователь единолично несет ответственность за соблюдение правил правообладателей контента, который он инициирует к воспроизведению на публичных либо частных серверах Discord.</li>
+        <li>Команда Musicium Team уважает права законных правообладателей и соблюдает требования законодательства об авторском праве (включая положения DMCA). В случае возникновения обоснованных претензий правообладатели могут направить мотивированный запрос команде разработчиков для оперативного блокирования спорных ссылок либо источников.</li>
+      </ul>
+
+      <h2 class="section-title"><i class="fa-solid fa-ban"></i> 4. Правила допустимого использования (Acceptable Use Policy)</h2>
+      <p>Пользователю категорически запрещается:</p>
+      <ul>
+        <li>Использовать Сервис в противоправных целях, нарушающих действующее законодательство страны нахождения пользователя или хостинга;</li>
+        <li>Использовать бота для трансляции экстремистских материалов, призывов к насилию, разжигания ненависти или преднамеренного акустического саботажа (earrape/loud noise abuse);</li>
+        <li>Предпринимать попытки обратной разработки (reverse engineering), декомпиляции, деассемблирования или взлома серверного кода и защитных протоколов Сервиса;</li>
+        <li>Создавать искусственную чрезмерную нагрузку на инфраструктуру (DDoS-атаки, флуд поисковыми запросами, запуск автоматизированных вредоносных скриптов);</li>
+        <li>Использовать Сервис в нарушение Условий обслуживания Discord (Discord Terms of Service) и Правил сообщества Discord.</li>
+      </ul>
+      <p>
+        Musicium Team оставляет за собой исключительное право без предварительного уведомления ограничить доступ к Сервису (blacklist) для любого пользователя, гильдии (сервера) или диапазона IP-адресов при выявлении нарушений.
+      </p>
+
+      <h2 class="section-title"><i class="fa-solid fa-shield-virus"></i> 5. Отказ от гарантий и ограничение ответственности («AS IS»)</h2>
+      <p>
+        СЕРВИС ПРЕДОСТАВЛЯЕТСЯ НА УСЛОВИЯХ «КАК ЕСТЬ» («AS IS») И «ПО МЕРЕ ДОСТУПНОСТИ» («AS AVAILABLE»). РАЗРАБОТЧИКИ НЕ ПРЕДОСТАВЛЯЮТ НИКАКИХ ЯВНЫХ ИЛИ ПОДРАЗУМЕВАЕМЫХ ГАРАНТИЙ В ОТНОШЕНИИ БЕСПЕРЕБОЙНОСТИ, СКОРОСТИ, БЕЗОШИБОЧНОСТИ ИЛИ НЕПРЕРЫВНОСТИ ЕГО РАБОТЫ.
+      </p>
+      <p>
+        В максимальной степени, допускаемой применимым законодательством, Musicium Team не несет ответственности за:
+      </p>
+      <ul>
+        <li>Временные сбои, тайм-ауты или прекращение доступности внешних API (YouTube, SoundCloud, Discord Gateway);</li>
+        <li>Территориальные блокировки, ограничения хостинг-провайдеров или сетевую фрагментацию;</li>
+        <li>Любые прямые, косвенные, случайные или штрафные убытки, потерю данных, потерю репутации или прерывание активности сервера Discord, возникшие в связи с использованием либо невозможностью использования Сервиса.</li>
+      </ul>
+
+      <h2 class="section-title"><i class="fa-solid fa-arrows-rotate"></i> 6. Изменение условий и контакты</h2>
+      <p>
+        Musicium Team вправе в любое время пересматривать и изменять настоящие Условия. Изменения вступают в силу с момента их публикации на данной веб-странице. Продолжение использования Сервиса после обновления Условий означает полное принятие Пользователем обновленной редакции.
+      </p>
+      <p>
+        По всем правовым вопросам, предложениям и обращениям правообладателей вы можете обратиться напрямую к команде разработки.
+      </p>
+    </div>
+
+    <div class="footer-credits">
+      <p>© 2025–2026 Musicium. Все права защищены.</p>
+      <p><strong>Developed by Musicium Team</strong></p>
+    </div>
+  </div>
+</body>
+</html>

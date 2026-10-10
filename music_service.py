@@ -5,7 +5,7 @@ import base64
 import asyncio
 import logging
 import urllib.parse
-from typing import List, Optional, Dict, Any, Tuple
+from typing import List, Optional, Dict, Any, Tuple, Set
 import yt_dlp
 
 logger = logging.getLogger("music_service")

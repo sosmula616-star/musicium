@@ -1,0 +1,28 @@
+# Secrets and Credentials
+.env
+cookies.txt
+
+# Python cache & virtualenvs
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+!libopus.so*
+.venv/
+env/
+venv/
+ENV/
+
+# OS and IDE files
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/*.json
+!.vscode/settings.json
+
+# Audio and temporary cache
+cache/
+downloads/
+temp/
+scratch/

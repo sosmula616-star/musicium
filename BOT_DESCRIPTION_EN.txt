@@ -1,0 +1,122 @@
+================================================================================
+MUSICIUM — DISCORD MUSIC BOT & MINI APP (DISCORD ACTIVITY)
+Developed by: Musicium Team
+Language: English
+Version: 3.2
+================================================================================
+
+1. CONCEPT & PURPOSE
+--------------------------------------------------------------------------------
+Musicium is a next-generation, cross-platform Discord music bot and interactive
+Discord Activity (Mini App) designed for modern Discord communities.
+
+Unlike legacy text-only bots where users are restricted to typing chat commands,
+Musicium bridges the raw power of a Python server bot with a full-featured visual
+web interface. Voice channel participants can launch a collaborative session
+directly inside their Discord client (via the Discord Embedded App SDK) or via
+any web browser. Listeners enjoy a shared realtime queue, interactive seeking
+timeline, and live-synchronized album artwork.
+
+
+2. ARCHITECTURE & TECH STACK
+--------------------------------------------------------------------------------
+Backend & Core Engine:
+  • Python 3.10+ / discord.py: Gateway v10 event handling, PyNaCl voice encryption,
+    and native Slash Commands.
+  • aiohttp Web Server: High-performance asynchronous HTTP/WebSocket server
+    hosting the Mini App and handling real-time API requests.
+  • WebSocket Realtime Sync: Instant bidirectional synchronization of playback
+    state (timeline, current track, queue, pause/resume, volume) across all
+    connected users without page reloads.
+  • FFmpeg Audio Pipeline: Dynamic audio normalization, ultra-fast seeking (-ss),
+    and adaptive buffering to withstand network jitter.
+
+Frontend (Mini App & Activity):
+  • Vanilla JavaScript (ES6+): Lightweight, framework-free client ensuring
+    lightning-fast load times even on mobile devices.
+  • Discord Embedded App SDK 1.1.0: Deep native integration inside Discord
+    voice activities and collaborative sessions.
+  • Design System (Glassmorphism): Sleek dark theme, subtle ambient background
+    glow, responsive layout, animated spinning vinyl record plate, and dynamic
+    equalizer visualizer.
+
+
+3. SUPPORTED MUSIC PLATFORMS
+--------------------------------------------------------------------------------
+Musicium integrates a unified multi-provider search and streaming engine:
+  1. YouTube Music / YouTube: Comprehensive global music catalog, official
+     releases, music videos, and remixes with automated stream bypass.
+  2. SoundCloud: Millions of independent songs, community mixes, DJ sets,
+     and exclusive tracks.
+  3. Yandex.Music: Official API integration offering high-bitrate audio
+     streams and extensive international and Russian music libraries.
+  4. Direct Streams & Web Radio: Support for live web radio stations and
+     direct audio stream URLs.
+
+
+4. PLAYER FEATURES & WEB UI
+--------------------------------------------------------------------------------
+  • Compact Vinyl Record Plate: Stylized animated vinyl disc with dynamic sheen
+    reflection and center album cover, spinning during active playback.
+  • Interactive Timeline Seeking: Clickable progress bar enabling users to
+    jump instantly to any minute or second of a song.
+  • Dynamic Equalizer Bars: Visual representation of active audio playback.
+  • Loop Modes:
+      - Normal — Sequential queue playback;
+      - Track Loop — Repeatedly play the current song;
+      - Queue Loop — Loop through the entire playlist continuously.
+  • Shuffle Mode: Randomize the upcoming queue in a single click.
+  • Volume Controls: Smooth volume slider with percentage readout and quick
+    mute/unmute toggling.
+
+
+5. QUEUE MANAGEMENT & SOCIAL INTERACTION
+--------------------------------------------------------------------------------
+  • Per-Guild Isolation: Every Discord server operates an independent player
+    instance, queue, and playback configuration.
+  • Queue Management: Instant in-app search and addition, requester avatar and
+    username display, single-item removal, and one-click queue clearing.
+  • Listening History: Dedicated tab listing recently played tracks.
+  • Democratic Vote Skip: Built-in voting mechanism allowing channel members
+    to vote to skip unpopular tracks without requiring server administrator rights.
+  • Idle Timeout & Power Saving: Automatic disconnect and cleanup when voice
+    channels become empty or the queue remains idle.
+
+
+6. DISCORD SLASH COMMANDS
+--------------------------------------------------------------------------------
+  /play <query or URL>    — Search and play a track (or append to queue)
+  /activity               — Launch the collaborative Discord Activity (Mini App)
+  /pause / /resume        — Pause or resume audio playback
+  /skip                   — Skip current song (or submit a skip vote)
+  /seek <timestamp>       — Jump to a specific time (e.g., 1:30 or 90)
+  /queue                  — Display upcoming songs in chat
+  /stop                   — Stop playback, clear queue, and leave voice channel
+  /volume <1-150>         — Adjust playback volume
+  /nowplaying             — Display rich track status card with timeline
+
+
+7. SECURITY, PRIVACY & LEGAL COMPLIANCE
+--------------------------------------------------------------------------------
+  • Zero-Logs Voice Principle (Privacy by Design): The bot operates strictly
+    in Audio Output mode. Under no circumstances does the bot record, capture,
+    transcribe, or store voice channel audio conversations.
+  • Data Minimization: Only technical IDs (Guild ID and Channel ID) necessary
+    for voice routing are stored in memory. No personal data is tracked or sold.
+  • DMCA & Copyright Compliance: Musicium does not host or store copyrighted
+    MP3 or audio files on disk; streams are retrieved in real-time from public CDNs.
+  • Built-in Legal Documentation: Dedicated legal modal and standalone web routes:
+      - /terms   — Comprehensive Terms of Service;
+      - /privacy — GDPR-compliant Privacy Policy.
+
+
+8. CONCLUSION
+--------------------------------------------------------------------------------
+Musicium is a complete audio ecosystem engineered for communities of any size:
+from cozy voice calls with friends to massive gaming guilds. The combination of
+rock-solid audio performance, multi-platform streaming, and a gorgeous visual
+web player sets a new benchmark for Discord music activities.
+
+================================================================================
+© 2025–2026 Musicium. All rights reserved. Developed by Musicium Team.
+================================================================================
