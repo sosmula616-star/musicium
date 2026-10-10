@@ -1092,6 +1092,36 @@
       border-color: var(--accent-cyan);
     }
 
+    .streaming-mode-card {
+      background: var(--bg-card);
+      border: 2px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      position: relative;
+    }
+    .streaming-mode-card:hover {
+      border-color: rgba(0, 242, 254, 0.4);
+      background: var(--bg-surface);
+      transform: translateY(-2px);
+    }
+    .streaming-mode-card.active-cookieless {
+      border-color: var(--accent-cyan) !important;
+      background: rgba(0, 242, 254, 0.08) !important;
+      box-shadow: 0 0 16px rgba(0, 242, 254, 0.15);
+    }
+    .streaming-mode-card.active-youtube_cookies {
+      border-color: #fbbf24 !important;
+      background: rgba(251, 191, 36, 0.08) !important;
+      box-shadow: 0 0 16px rgba(251, 191, 36, 0.15);
+    }
+    .streaming-mode-card.active-soundcloud_first {
+      border-color: #ff5500 !important;
+      background: rgba(255, 85, 0, 0.08) !important;
+      box-shadow: 0 0 16px rgba(255, 85, 0, 0.15);
+    }
+
     .restricted-user-card {
       background: var(--bg-card);
       border: 1px solid rgba(239, 68, 68, 0.25);
@@ -1582,21 +1612,106 @@
       </div>
     </section>
 
-    <!-- TAB 4: COOKIES -->
+    <!-- TAB 4: COOKIES & STREAMING MODES -->
     <section id="tab-cookies" class="tab-content">
       <div class="cookies-box">
         <div>
           <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 6px;">
-            <i class="fa-solid fa-cookie-bite" style="color: var(--accent-cyan);"></i> Управление YouTube Cookies
+            <i class="fa-solid fa-cookie-bite" style="color: var(--accent-cyan);"></i> Управление YouTube Cookies & Режимы стриминга
           </h2>
           <p style="font-size: 0.88rem; color: var(--text-muted);">
-            YouTube cookies необходимы для воспроизведения треков без ограничений скорости и блокировок 429/Sign in to confirm you're not a bot.
+            Настройте активный режим воспроизведения и обхода блокировок: без cookies (InnerTube & PO-Token), с загруженным cookies.txt или приоритет SoundCloud, а также параметры сетевого Proxy.
           </p>
         </div>
 
-        <div class="cookie-status-bar">
+        <!-- Режимы воспроизведения и обхода блокировок -->
+        <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 18px; margin-top: 14px;">
+          <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 14px; color: var(--accent-cyan); display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-satellite-dish"></i> Выберите активный режим воспроизведения
+          </h4>
+
+          <div class="streaming-modes-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px;">
+            <!-- Mode 1: Cookieless -->
+            <label class="streaming-mode-card" id="modeCardCookieless" onclick="window.selectStreamingMode('cookieless')">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                <span style="font-weight: 700; font-size: 0.98rem; display: flex; align-items: center; gap: 8px; color: #fff;">
+                  <i class="fa-solid fa-shield-halved" style="color: var(--accent-cyan);"></i> Без Cookies (PO-Token)
+                </span>
+                <input type="radio" name="streamingMode" value="cookieless" id="modeRadioCookieless" style="accent-color: var(--accent-cyan);">
+              </div>
+              <p style="font-size: 0.82rem; color: var(--text-muted); margin: 0; line-height: 1.4;">
+                Мобильные клиенты InnerTube (Android/iOS) + PO-Token генератор bgutil. Ваш личный аккаунт не используется и защищен от банов.
+              </p>
+              <div style="display: flex; gap: 6px; margin-top: 8px;">
+                <span class="badge" style="font-size: 0.72rem; padding: 2px 8px; background: rgba(0, 242, 254, 0.15); color: var(--accent-cyan); border-radius: 4px;">Безопасно</span>
+                <span class="badge" style="font-size: 0.72rem; padding: 2px 8px; background: rgba(16, 185, 129, 0.15); color: var(--accent-green); border-radius: 4px;">Рекомендуется</span>
+              </div>
+            </label>
+
+            <!-- Mode 2: YouTube Cookies -->
+            <label class="streaming-mode-card" id="modeCardCookies" onclick="window.selectStreamingMode('youtube_cookies')">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                <span style="font-weight: 700; font-size: 0.98rem; display: flex; align-items: center; gap: 8px; color: #fff;">
+                  <i class="fa-solid fa-cookie-bite" style="color: #fbbf24;"></i> YouTube Cookies
+                </span>
+                <input type="radio" name="streamingMode" value="youtube_cookies" id="modeRadioCookies" style="accent-color: #fbbf24;">
+              </div>
+              <p style="font-size: 0.82rem; color: var(--text-muted); margin: 0; line-height: 1.4;">
+                Использование загруженного cookies.txt. Открывает доступ к трекам 18+, региональным трекам и Premium качеству аккаунта.
+              </p>
+              <div style="display: flex; gap: 6px; margin-top: 8px;">
+                <span class="badge" style="font-size: 0.72rem; padding: 2px 8px; background: rgba(251, 191, 36, 0.15); color: #fbbf24; border-radius: 4px;">Треки 18+</span>
+              </div>
+            </label>
+
+            <!-- Mode 3: SoundCloud First -->
+            <label class="streaming-mode-card" id="modeCardSoundcloud" onclick="window.selectStreamingMode('soundcloud_first')">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                <span style="font-weight: 700; font-size: 0.98rem; display: flex; align-items: center; gap: 8px; color: #fff;">
+                  <i class="fa-brands fa-soundcloud" style="color: #ff5500;"></i> Приоритет SoundCloud
+                </span>
+                <input type="radio" name="streamingMode" value="soundcloud_first" id="modeRadioSoundcloud" style="accent-color: #ff5500;">
+              </div>
+              <p style="font-size: 0.82rem; color: var(--text-muted); margin: 0; line-height: 1.4;">
+                Стриминг треков в первую очередь с SoundCloud (без капчи и 429). При отсутствии трека — автоматический fallback на YouTube.
+              </p>
+              <div style="display: flex; gap: 6px; margin-top: 8px;">
+                <span class="badge" style="font-size: 0.72rem; padding: 2px 8px; background: rgba(255, 85, 0, 0.15); color: #ff5500; border-radius: 4px;">Обход блокировок</span>
+              </div>
+            </label>
+          </div>
+
+          <!-- Network & Proxy inputs -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-top: 18px;">
+            <div class="setting-item">
+              <label class="setting-label">HTTP / SOCKS5 Прокси для yt-dlp (опционально)</label>
+              <input type="text" id="streamingProxyInput" class="setting-input" placeholder="http://user:pass@192.168.1.1:8080 или socks5://...">
+            </div>
+            <div class="setting-item">
+              <label class="setting-label">URL PO-Token провайдера (POT Provider)</label>
+              <input type="text" id="streamingPotUrlInput" class="setting-input" placeholder="http://127.0.0.1:4416" value="http://127.0.0.1:4416">
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
+            <button id="clearCookiesBtn" class="btn" style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); color: #fca5a5;" onclick="window.clearAdminCookies()">
+              <i class="fa-solid fa-trash-can"></i> Очистить / удалить Cookies
+            </button>
+            <button id="saveStreamingModeBtn" class="btn btn-primary" onclick="window.saveStreamingSettings()">
+              <i class="fa-solid fa-check"></i> Сохранить и применить режим
+            </button>
+          </div>
+        </div>
+
+        <div class="cookie-status-bar" style="margin-top: 16px;">
           <div>
-            <div style="font-size: 0.82rem; color: var(--text-muted);">Статус файла куки:</div>
+            <div style="font-size: 0.82rem; color: var(--text-muted);">Активный режим стриминга:</div>
+            <div id="streamingActiveModeBadge" style="font-weight: 700; font-size: 1.05rem; color: var(--accent-cyan); margin-top: 2px;">
+              Cookieless (PO-Token)
+            </div>
+          </div>
+          <div>
+            <div style="font-size: 0.82rem; color: var(--text-muted);">Статус cookies.txt:</div>
             <div id="cookieStatusText" style="font-weight: 700; font-size: 1.05rem; color: var(--accent-green); margin-top: 2px;">
               Подключено
             </div>
@@ -1605,12 +1720,6 @@
             <div style="font-size: 0.82rem; color: var(--text-muted);">Количество cookie-записей:</div>
             <div id="cookieCountText" style="font-weight: 700; font-size: 1.05rem; font-family: monospace; margin-top: 2px;">
               0 шт
-            </div>
-          </div>
-          <div>
-            <div style="font-size: 0.82rem; color: var(--text-muted);">Размер файла:</div>
-            <div id="cookieSizeText" style="font-weight: 700; font-size: 1.05rem; font-family: monospace; margin-top: 2px;">
-              0 KB
             </div>
           </div>
           <div>
@@ -1623,7 +1732,7 @@
 
         <div>
           <label style="font-size: 0.88rem; font-weight: 600; display: block; margin-bottom: 8px;">
-            Вставьте содержимое cookies.txt (Netscape формат или Base64):
+            Вставьте содержимое cookies.txt для режима «YouTube Cookies» (Netscape формат или Base64):
           </label>
           <textarea id="cookiesTextarea" class="cookies-textarea" placeholder="# Netscape HTTP Cookie File
 # http://curl.haxx.se/rfc/cookie_spec.html
@@ -1632,7 +1741,7 @@
 
         <div style="display: flex; align-items: center; justify-content: flex-end; gap: 12px;">
           <button id="saveCookiesBtn" class="btn btn-primary" style="padding: 12px 24px;">
-            <i class="fa-solid fa-floppy-disk"></i> Сохранить и применить Cookies
+            <i class="fa-solid fa-floppy-disk"></i> Загрузить cookies.txt и активировать режим
           </button>
         </div>
       </div>
@@ -1857,7 +1966,7 @@
           if (targetTab === 'tab-guilds') fetchGuilds();
           if (targetTab === 'tab-anticrash') fetchAnticrashUsers();
           if (targetTab === 'tab-logs') fetchLogs();
-          if (targetTab === 'tab-cookies') fetchCookiesInfo();
+          if (targetTab === 'tab-cookies') window.fetchStreamingSettings();
         });
       });
 
@@ -2361,13 +2470,17 @@
 
       window.saveAnticrashSettings = async function() {
         const btn = document.getElementById('saveAntiSettingsBtn');
-        if (btn) btn.disabled = true;
+        if (btn) {
+          btn.disabled = true;
+          btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Сохранение...';
+        }
         try {
           const payload = {
             enabled: document.getElementById('antiEnabledSelect').value === 'true',
             max_requests_10s: parseInt(document.getElementById('antiMax10sInput').value) || 6,
             max_requests_60s: parseInt(document.getElementById('antiMax60sInput').value) || 18,
             auto_restrict: document.getElementById('antiAutoBanSelect').value === 'true',
+            auto_block: document.getElementById('antiAutoBanSelect').value === 'true',
           };
           const res = await adminFetch('/api/admin/anticrash/settings', {
             method: 'POST',
@@ -2376,6 +2489,21 @@
           });
           const d = await res.json();
           if (d.ok) {
+            state.anticrashSettings = d.settings || payload;
+            const s = state.anticrashSettings;
+            if (s) {
+              const enSel = document.getElementById('antiEnabledSelect');
+              if (enSel && s.enabled !== undefined) enSel.value = s.enabled ? 'true' : 'false';
+              const m10 = document.getElementById('antiMax10sInput');
+              if (m10 && s.max_requests_10s !== undefined) m10.value = s.max_requests_10s;
+              const m60 = document.getElementById('antiMax60sInput');
+              if (m60 && s.max_requests_60s !== undefined) m60.value = s.max_requests_60s;
+              const autoBan = document.getElementById('antiAutoBanSelect');
+              if (autoBan) {
+                const val = (s.auto_restrict !== undefined) ? s.auto_restrict : s.auto_block;
+                if (val !== undefined) autoBan.value = val ? 'true' : 'false';
+              }
+            }
             showToast('Настройки Антикраша успешно сохранены!', 'success');
           } else {
             showToast(d.error || 'Ошибка сохранения настроек', 'error');
@@ -2383,7 +2511,10 @@
         } catch (e) {
           showToast('Ошибка связи с сервером', 'error');
         } finally {
-          if (btn) btn.disabled = false;
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> Сохранить настройки защиты';
+          }
         }
       };
 
@@ -2624,20 +2755,136 @@
         });
       }
 
-      // Cookies Info & Save
-      async function fetchCookiesInfo() {
+      // ─── Streaming Modes & Cookies Management ──────────────────────────────
+      window.selectedStreamingMode = 'cookieless';
+
+      window.selectStreamingMode = function(mode) {
+        window.selectedStreamingMode = mode;
+        const radioMap = {
+          'cookieless': 'modeRadioCookieless',
+          'youtube_cookies': 'modeRadioCookies',
+          'soundcloud_first': 'modeRadioSoundcloud'
+        };
+        const cardMap = {
+          'cookieless': 'modeCardCookieless',
+          'youtube_cookies': 'modeCardCookies',
+          'soundcloud_first': 'modeCardSoundcloud'
+        };
+        Object.entries(radioMap).forEach(([m, id]) => {
+          const r = document.getElementById(id);
+          if (r) r.checked = (m === mode);
+        });
+        Object.entries(cardMap).forEach(([m, id]) => {
+          const card = document.getElementById(id);
+          if (card) {
+            card.classList.remove('active-cookieless', 'active-youtube_cookies', 'active-soundcloud_first');
+            if (m === mode) card.classList.add(`active-${mode}`);
+          }
+        });
+
+        const badge = document.getElementById('streamingActiveModeBadge');
+        if (badge) {
+          if (mode === 'cookieless') {
+            badge.textContent = 'Cookieless (PO-Token & InnerTube)';
+            badge.style.color = 'var(--accent-cyan)';
+          } else if (mode === 'youtube_cookies') {
+            badge.textContent = 'YouTube Cookies (cookies.txt)';
+            badge.style.color = '#fbbf24';
+          } else if (mode === 'soundcloud_first') {
+            badge.textContent = 'SoundCloud First (Обход YT)';
+            badge.style.color = '#ff5500';
+          }
+        }
+      };
+
+      window.fetchStreamingSettings = async function() {
         if (!state.authenticated) return;
         try {
-          const res = await adminFetch('/api/admin/cookies');
+          const res = await adminFetch('/api/admin/streaming/settings');
+          if (res.status === 401) return;
           const d = await res.json();
-          document.getElementById('cookieStatusText').textContent = d.configured ? 'Подключено и готово' : 'Отсутствует';
-          document.getElementById('cookieStatusText').style.color = d.configured ? 'var(--accent-green)' : 'var(--accent-red)';
-          document.getElementById('cookieCountText').textContent = `${d.cookie_count} шт`;
-          document.getElementById('cookiePathText').textContent = d.cookie_path || '--';
+          if (d.ok && d.settings) {
+            const mode = d.settings.mode || 'cookieless';
+            window.selectStreamingMode(mode);
+            const proxyInp = document.getElementById('streamingProxyInput');
+            if (proxyInp && d.settings.proxy !== undefined) proxyInp.value = d.settings.proxy;
+            const potInp = document.getElementById('streamingPotUrlInput');
+            if (potInp && d.settings.pot_provider_url !== undefined) potInp.value = d.settings.pot_provider_url;
+          }
+          if (d.cookies) {
+            const c = d.cookies;
+            const statusEl = document.getElementById('cookieStatusText');
+            if (statusEl) {
+              statusEl.textContent = c.configured ? 'Подключено и готово' : 'Отсутствует';
+              statusEl.style.color = c.configured ? 'var(--accent-green)' : 'var(--accent-red)';
+            }
+            const countEl = document.getElementById('cookieCountText');
+            if (countEl) countEl.textContent = `${c.count || 0} шт`;
+            const pathEl = document.getElementById('cookiePathText');
+            if (pathEl) pathEl.textContent = c.path || '--';
+          }
         } catch (e) {
-          console.debug('Cookie check failed:', e);
+          console.debug('Streaming settings check failed:', e);
         }
-      }
+      };
+
+      window.saveStreamingSettings = async function() {
+        const btn = document.getElementById('saveStreamingModeBtn');
+        if (btn) {
+          btn.disabled = true;
+          btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Сохранение...';
+        }
+        try {
+          const payload = {
+            mode: window.selectedStreamingMode || 'cookieless',
+            proxy: (document.getElementById('streamingProxyInput')?.value || '').trim(),
+            pot_provider_url: (document.getElementById('streamingPotUrlInput')?.value || '').trim() || 'http://127.0.0.1:4416',
+          };
+          const res = await adminFetch('/api/admin/streaming/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const d = await res.json();
+          if (d.ok) {
+            showToast('Режим стриминга и параметры сети успешно применены!', 'success');
+            await window.fetchStreamingSettings();
+            await fetchStats();
+          } else {
+            showToast(d.error || 'Ошибка при сохранении настроек', 'error');
+          }
+        } catch (e) {
+          showToast('Ошибка связи с сервером', 'error');
+        } finally {
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> Сохранить и применить режим';
+          }
+        }
+      };
+
+      window.clearAdminCookies = async function() {
+        if (!confirm('Вы уверены, что хотите удалить файл cookies.txt? Бот будет переключен в безопасный режим Cookieless.')) return;
+        const btn = document.getElementById('clearCookiesBtn');
+        if (btn) btn.disabled = true;
+        try {
+          const res = await adminFetch('/api/admin/cookies/clear', { method: 'POST' });
+          const d = await res.json();
+          if (d.ok) {
+            showToast(d.message || 'Cookies успешно удалены!', 'success');
+            const textarea = document.getElementById('cookiesTextarea');
+            if (textarea) textarea.value = '';
+            await window.fetchStreamingSettings();
+            await fetchStats();
+          } else {
+            showToast(d.error || 'Ошибка удаления cookies', 'error');
+          }
+        } catch (e) {
+          showToast('Ошибка связи с сервером', 'error');
+        } finally {
+          if (btn) btn.disabled = false;
+        }
+      };
 
       const saveCookiesBtn = document.getElementById('saveCookiesBtn');
       if (saveCookiesBtn) {
@@ -2658,10 +2905,10 @@
             });
             const d = await res.json();
             if (d.ok) {
-              showToast(`Успешно сохранено ${d.cookie_count} cookies!`, 'success');
+              showToast(`Успешно сохранено ${d.cookie_count} cookies! Режим YouTube Cookies активирован.`, 'success');
               if (textarea) textarea.value = '';
-              fetchCookiesInfo();
-              fetchStats();
+              await window.fetchStreamingSettings();
+              await fetchStats();
             } else {
               showToast(d.error || 'Ошибка при сохранении cookies', 'error');
             }
@@ -2669,7 +2916,7 @@
             showToast('Ошибка соединения с сервером', 'error');
           } finally {
             saveCookiesBtn.disabled = false;
-            saveCookiesBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Сохранить и применить Cookies';
+            saveCookiesBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Загрузить cookies.txt и активировать режим';
           }
         });
       }
@@ -2815,6 +3062,7 @@
         fetchGuilds();
         fetchAnticrashUsers();
         fetchLogs();
+        window.fetchStreamingSettings();
 
         // Intervals for live updates
         clearInterval(state.statsInterval);

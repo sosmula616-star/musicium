@@ -93,6 +93,12 @@ async def init_db() -> Optional[asyncpg.Pool]:
                     is_active BOOLEAN DEFAULT TRUE
                 );
                 CREATE INDEX IF NOT EXISTS idx_restricted_active ON bot_restricted_users(is_active);
+
+                CREATE TABLE IF NOT EXISTS bot_settings (
+                    key VARCHAR(64) PRIMARY KEY,
+                    value TEXT NOT NULL,
+                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                );
             """)
         logger.info("PostgreSQL database initialized successfully.")
         return _pool
@@ -730,5 +736,47 @@ async def is_user_restricted(user_id: str) -> bool:
             return bool(val)
     except Exception as e:
         logger.debug(f"is_user_restricted check: {e}")
+        return False
+
+# --- Bot Settings (Persistent Key-Value Store) ---
+
+async def get_bot_setting(key: str) -> Optional[str]:
+    global _pool
+    if not _pool:
+        await init_db()
+    if not _pool or not key:
+        return None
+    try:
+        async with _pool.acquire() as conn:
+            val = await conn.fetchval(
+                "SELECT value FROM bot_settings WHERE key = $1;",
+                str(key).strip()
+            )
+            return str(val) if val is not None else None
+    except Exception as e:
+        logger.debug(f"get_bot_setting ({key}) check: {e}")
+        return None
+
+async def set_bot_setting(key: str, value: str) -> bool:
+    global _pool
+    if not _pool:
+        await init_db()
+    if not _pool or not key:
+        return False
+    try:
+        async with _pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO bot_settings (key, value, updated_at)
+                VALUES ($1, $2, CURRENT_TIMESTAMP)
+                ON CONFLICT (key) DO UPDATE
+                SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP;
+                """,
+                str(key).strip(),
+                str(value)
+            )
+            return True
+    except Exception as e:
+        logger.error(f"set_bot_setting ({key}) error: {e}")
         return False
 

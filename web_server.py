@@ -88,6 +88,7 @@ class WebServer:
 
         # Live Streams & Recent Plays Feed
         self.app.router.add_get("/api/feed/discovery", self.handle_feed_discovery)
+        self.app.router.add_get("/api/feed/soundcloud", self.handle_feed_soundcloud)
 
         # Admin / Diagnostics (Discord OAuth2 and Master Key authenticated)
         self.app.router.add_get("/admin", self.handle_admin)
@@ -106,6 +107,9 @@ class WebServer:
         self.app.router.add_post("/api/admin/broadcast", self.handle_admin_broadcast)
         self.app.router.add_get("/api/admin/cookies", self.handle_admin_cookies)
         self.app.router.add_post("/api/admin/cookies", self.handle_admin_cookies)
+        self.app.router.add_get("/api/admin/streaming/settings", self.handle_admin_streaming_settings)
+        self.app.router.add_post("/api/admin/streaming/settings", self.handle_admin_update_streaming_settings)
+        self.app.router.add_post("/api/admin/cookies/clear", self.handle_admin_clear_cookies)
 
         # Anti-Crash Protection & Restrictions
         self.app.router.add_get("/api/admin/anticrash/users", self.handle_admin_anticrash_users)
@@ -1261,6 +1265,23 @@ class WebServer:
             "recent_history": recent_history
         })
 
+    async def handle_feed_soundcloud(self, request: web.Request) -> web.Response:
+        """Dynamically provides trending / recommended tracks from SoundCloud by genre with offset pagination."""
+        genre = request.query.get("genre", "all").strip().lower()
+        limit = safe_int(request.query.get("limit", 15)) or 15
+        offset = safe_int(request.query.get("offset", 0)) or 0
+        limit = max(1, min(limit, 50))
+        offset = max(0, offset)
+        tracks = await self.music_service.get_soundcloud_trending(genre=genre, limit=limit, offset=offset)
+        return web.json_response({
+            "ok": True,
+            "genre": genre,
+            "offset": offset,
+            "limit": limit,
+            "tracks": tracks,
+            "has_more": len(tracks) >= limit
+        })
+
     # --- User PostgreSQL Endpoints ---
 
     async def handle_get_liked(self, request: web.Request) -> web.Response:
@@ -1714,9 +1735,52 @@ class WebServer:
 
             ok, path_or_err, count = self.music_service.update_cookies(raw)
             if ok:
-                return web.json_response({"ok": True, "path": path_or_err, "cookie_count": count})
+                return web.json_response({
+                    "ok": True,
+                    "path": path_or_err,
+                    "cookie_count": count,
+                    "settings": self.music_service.get_streaming_settings()
+                })
             else:
                 return web.json_response({"ok": False, "error": path_or_err}, status=400)
+
+    async def handle_admin_streaming_settings(self, request: web.Request) -> web.Response:
+        is_adm, _ = self._verify_admin(request)
+        if not is_adm:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+        await self.music_service.ensure_streaming_settings_loaded()
+        settings = self.music_service.get_streaming_settings()
+        adm_stats = await admin_service.get_admin_stats(self.bot, self.music_service)
+        return web.json_response({
+            "ok": True,
+            "settings": settings,
+            "cookies": adm_stats.get("cookies", {})
+        })
+
+    async def handle_admin_update_streaming_settings(self, request: web.Request) -> web.Response:
+        is_adm, _ = self._verify_admin(request)
+        if not is_adm:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+        try:
+            data = await request.json()
+            updated = await self.music_service.update_streaming_settings(data)
+            return web.json_response({"ok": True, "settings": updated})
+        except Exception as e:
+            return web.json_response({"ok": False, "error": str(e)}, status=500)
+
+    async def handle_admin_clear_cookies(self, request: web.Request) -> web.Response:
+        is_adm, _ = self._verify_admin(request)
+        if not is_adm:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+        try:
+            ok, msg = self.music_service.clear_cookies()
+            return web.json_response({
+                "ok": ok,
+                "message": msg,
+                "settings": self.music_service.get_streaming_settings()
+            })
+        except Exception as e:
+            return web.json_response({"ok": False, "error": str(e)}, status=500)
 
     # ─── Anti-Crash Endpoints ───────────────────────────────────────────────
 
@@ -1795,8 +1859,8 @@ class WebServer:
         try:
             data = await request.json()
             import anticrash_service
-            anticrash_service.anticrash.update_settings(data)
-            return web.json_response({"ok": True, "settings": anticrash_service.anticrash.settings})
+            updated = await anticrash_service.anticrash.update_settings(data)
+            return web.json_response({"ok": True, "settings": updated})
         except Exception as e:
             return web.json_response({"ok": False, "error": str(e)}, status=500)
 

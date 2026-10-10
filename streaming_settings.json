@@ -1,0 +1,6 @@
+{
+  "mode": "cookieless",
+  "proxy": "",
+  "pot_provider_url": "http://127.0.0.1:4416",
+  "pot_token": ""
+}

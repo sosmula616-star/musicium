@@ -1327,41 +1327,134 @@
     el.homePlatformView.appendChild(grid);
   }
 
-  // 2. SoundCloud Top Charts View
+  // 2. SoundCloud Dynamic Recommendations & Top Charts View
+  let scCurrentGenre = 'all';
+  let scLoadedTracks = [];
+  let scIsLoading = false;
+  let scHasMore = true;
+
+  const SC_GENRES = [
+    { id: 'all', label: 'Все / В тренде' },
+    { id: 'electronic', label: 'Электроника & EDM' },
+    { id: 'hiphop', label: 'Хип-Хоп / Рэп' },
+    { id: 'house', label: 'Хаус & Клубная' },
+    { id: 'dnb', label: 'Драм-н-бейс & Фонк' },
+    { id: 'chill', label: 'Chill & Lo-Fi' },
+  ];
+
+  async function loadMoreSoundCloudTracks() {
+    if (scIsLoading) return;
+    scIsLoading = true;
+    renderSoundCloudChartsView();
+
+    try {
+      const offset = scLoadedTracks.length;
+      const res = await fetch(`/api/feed/soundcloud?genre=${encodeURIComponent(scCurrentGenre)}&limit=12&offset=${offset}`);
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.tracks) && data.tracks.length > 0) {
+        data.tracks.forEach(newTr => {
+          if (!scLoadedTracks.some(t => t.id === newTr.id || (t.title === newTr.title && t.artist === newTr.artist))) {
+            scLoadedTracks.push(newTr);
+          }
+        });
+        scHasMore = data.has_more && data.tracks.length >= 6;
+        showToast(`Подгружено +${data.tracks.length} треков из SoundCloud`, 'success');
+      } else {
+        scHasMore = false;
+        showToast('Все доступные рекомендации SoundCloud загружены', 'info');
+      }
+    } catch (e) {
+      console.error('Error loading more SoundCloud tracks:', e);
+      showToast('Не удалось подгрузить треки SoundCloud', 'error');
+    } finally {
+      scIsLoading = false;
+      renderSoundCloudChartsView();
+    }
+  }
+
+  async function switchSoundCloudGenre(genreId) {
+    if (scCurrentGenre === genreId && scLoadedTracks.length > 0) return;
+    scCurrentGenre = genreId;
+    scIsLoading = true;
+    scHasMore = true;
+    renderSoundCloudChartsView();
+
+    try {
+      const res = await fetch(`/api/feed/soundcloud?genre=${encodeURIComponent(genreId)}&limit=16&offset=0`);
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.tracks) && data.tracks.length > 0) {
+        scLoadedTracks = data.tracks;
+        scHasMore = data.has_more;
+      }
+    } catch (e) {
+      console.error('Error switching SoundCloud genre:', e);
+    } finally {
+      scIsLoading = false;
+      renderSoundCloudChartsView();
+    }
+  }
+
   function renderSoundCloudChartsView() {
     if (!el.homePlatformView) return;
     el.homePlatformView.innerHTML = '';
 
+    // Initial fallback if list is empty
+    if (scLoadedTracks.length === 0 && Array.isArray(SOUNDCLOUD_CHARTS) && SOUNDCLOUD_CHARTS.length > 0) {
+      scLoadedTracks = SOUNDCLOUD_CHARTS.slice();
+    }
+
     const hero = renderPlatformHeroBanner({
-      title: 'Топ-чарты SoundCloud',
+      title: 'Топ-чарты & Рекомендации SoundCloud',
       subtitle: 'Самые горячие треки, клубные релизы и вирусные хиты электронной музыки на SoundCloud.',
       badgeText: 'В тренде',
       badgeClass: 'badge-sc',
       iconSvg: `<svg viewBox="0 0 24 24" width="80" height="80" fill="#ff5500"><path d="M11.56 8.87V17h8.76c1.86 0 3.37-1.5 3.37-3.36 0-1.85-1.51-3.35-3.37-3.35-.42 0-.82.08-1.19.22C18.8 8.08 16.73 6.3 14.2 6.3c-1.07 0-2.07.33-2.9 0.9-.38-1.54-1.74-2.7-3.38-2.7-.42 0-.82.07-1.19.21V8.87h4.83zm-1.8 8.13H8.38V7.57c.38-.17.8-.27 1.25-.27.06 0 .12 0 .18.01v9.69h-.05zm-2.82 0H5.56V8.62c.42-.31.91-.53 1.45-.63v8.71l-.07.3zm-2.82 0H2.74v-6.9c.45-.48 1.02-.85 1.66-1.06v7.66l-.48.3zm-2.82 0H0v-4.83c.39-.62.91-1.12 1.54-1.46v5.89l-.24.4z"/></svg>`,
       playAllBtnText: 'Включить топ-чарт',
       onPlayAll: async () => {
-        if (!SOUNDCLOUD_CHARTS || !SOUNDCLOUD_CHARTS.length) return;
-        const total = Math.min(SOUNDCLOUD_CHARTS.length, 10);
+        if (!scLoadedTracks || !scLoadedTracks.length) return;
+        const total = Math.min(scLoadedTracks.length, 15);
         showToast(`Включаем топ-чарт SoundCloud (${total} треков)`, 'success');
         for (let i = 0; i < total; i++) {
-          await playTrack(SOUNDCLOUD_CHARTS[i], i === 0, true);
+          await playTrack(scLoadedTracks[i], i === 0, true);
         }
       }
     });
     el.homePlatformView.appendChild(hero);
 
+    // Genre Selector Tabs
+    const genreBar = document.createElement('div');
+    genreBar.className = 'sc-genres-bar albums-subfilter-bar';
+    genreBar.innerHTML = `
+      <div class="subfilter-tabs">
+        ${SC_GENRES.map(g => `
+          <button type="button" class="subfilter-btn ${scCurrentGenre === g.id ? 'sc-active' : ''}" data-scgenre="${g.id}">
+            <span>${escapeHtml(g.label)}</span>
+            ${scCurrentGenre === g.id ? `<span class="subfilter-count">${scLoadedTracks.length}</span>` : ''}
+          </button>
+        `).join('')}
+      </div>
+    `;
+    genreBar.querySelectorAll('button[data-scgenre]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const gId = btn.getAttribute('data-scgenre');
+        if (gId) switchSoundCloudGenre(gId);
+      });
+    });
+    el.homePlatformView.appendChild(genreBar);
+
+    // Section title
     const sectionTitle = document.createElement('div');
     sectionTitle.className = 'chart-section-title';
     sectionTitle.innerHTML = `
       <h3>Рейтинг треков SoundCloud</h3>
-      <span class="chart-meta-pill">Обновлено сегодня • ${SOUNDCLOUD_CHARTS.length} треков</span>
+      <span class="chart-meta-pill">Обновлено сегодня • Загружено ${scLoadedTracks.length} треков</span>
     `;
     el.homePlatformView.appendChild(sectionTitle);
 
     const grid = document.createElement('div');
     grid.className = 'chart-tracks-grid';
 
-    SOUNDCLOUD_CHARTS.forEach((track, idx) => {
+    scLoadedTracks.forEach((track, idx) => {
       const rank = track.rank || (idx + 1);
       const isTop3 = rank <= 3 ? `top-${rank}` : '';
       const isLiked = isTrackLiked(track);
@@ -1421,6 +1514,40 @@
     });
 
     el.homePlatformView.appendChild(grid);
+
+    // "Подгрузить ещё из SoundCloud" button at bottom
+    const loadMoreWrap = document.createElement('div');
+    loadMoreWrap.className = 'sc-load-more-wrap';
+    if (scIsLoading) {
+      loadMoreWrap.innerHTML = `
+        <button class="btn-sc-load-more" disabled>
+          <svg viewBox="0 0 50 50" width="18" height="18" style="animation: spin 1s linear infinite;"><circle cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-width="4"></circle></svg>
+          Загрузка треков SoundCloud...
+        </button>
+      `;
+    } else if (scHasMore) {
+      loadMoreWrap.innerHTML = `
+        <button id="btnScLoadMore" class="btn-sc-load-more">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg>
+          Подгрузить ещё из SoundCloud
+        </button>
+      `;
+      const btn = loadMoreWrap.querySelector('#btnScLoadMore');
+      if (btn) {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          loadMoreSoundCloudTracks();
+        });
+      }
+    } else {
+      loadMoreWrap.innerHTML = `
+        <div style="color: var(--text-muted); font-size: 13px; padding: 10px 20px;">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="#ff5500" style="vertical-align: middle; margin-right: 6px;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+          Все доступные рекомендации SoundCloud загружены (${scLoadedTracks.length} треков)
+        </div>
+      `;
+    }
+    el.homePlatformView.appendChild(loadMoreWrap);
   }
 
   // 3. Best Albums from BOTH YouTube Music and SoundCloud

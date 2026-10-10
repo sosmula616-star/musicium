@@ -1,17 +1,20 @@
 import os
 import re
 import time
+import json
 import base64
 import asyncio
 import logging
 import urllib.parse
 from typing import List, Optional, Dict, Any, Tuple, Set
 import yt_dlp
+import db
 
 logger = logging.getLogger("music_service")
 
 # Default placeholders
 DEFAULT_THUMBNAIL = "/static/activity_icon.jpg"
+STREAMING_SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "streaming_settings.json")
 
 def clean_youtube_url(url: str) -> str:
     """
@@ -214,13 +217,134 @@ class MusicService:
         # Cache for resolved audio stream URLs: {key: (stream_url, expire_timestamp)}
         self._stream_cache: Dict[str, Tuple[str, float]] = {}
 
-        # Search and sanitize cookies.txt if cookieless mode is not explicitly enabled
-        self.youtube_cookie_path = None
+        # Streaming & Cookies Mode configuration
+        self.streaming_settings: Dict[str, Any] = {
+            "mode": "cookieless",  # "cookieless" | "youtube_cookies" | "soundcloud_first"
+            "proxy": "",
+            "pot_provider_url": "http://127.0.0.1:4416",
+            "pot_token": ""
+        }
+        self._sc_trending_cache: Dict[str, Tuple[List[Dict[str, Any]], float]] = {}
+        self.youtube_cookie_path: Optional[str] = None
+        self._load_streaming_settings()
+
         use_cookies = os.getenv("USE_COOKIES", "true").lower() not in ("false", "0", "no")
-        if use_cookies:
+        if use_cookies and self.streaming_settings.get("mode") == "youtube_cookies":
             self._load_and_sanitize_cookies()
         else:
-            logger.info("Running in Cookieless Mode (USE_COOKIES=false)")
+            logger.info(f"MusicService running in mode: {self.streaming_settings.get('mode', 'cookieless')}")
+
+    def _load_streaming_settings(self):
+        try:
+            if os.path.exists(STREAMING_SETTINGS_FILE):
+                with open(STREAMING_SETTINGS_FILE, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if isinstance(data, dict):
+                        self.streaming_settings.update(data)
+                        logger.info(f"Loaded streaming settings from disk: {self.streaming_settings}")
+        except Exception as e:
+            logger.warning(f"Could not load streaming settings from disk: {e}")
+        self._apply_streaming_settings()
+
+    def _save_streaming_settings(self):
+        try:
+            with open(STREAMING_SETTINGS_FILE, "w", encoding="utf-8") as f:
+                json.dump(self.streaming_settings, f, ensure_ascii=False, indent=2)
+            logger.info("Saved streaming settings to disk.")
+        except Exception as e:
+            logger.warning(f"Could not save streaming settings to disk: {e}")
+
+    def _apply_streaming_settings(self):
+        mode = self.streaming_settings.get("mode", "cookieless")
+        proxy = self.streaming_settings.get("proxy", "").strip()
+        pot_url = self.streaming_settings.get("pot_provider_url", "http://127.0.0.1:4416").strip()
+        pot_token = self.streaming_settings.get("pot_token", "").strip()
+
+        # Cookies handling based on mode
+        if mode == "youtube_cookies":
+            if not self.youtube_cookie_path or not os.path.exists(self.youtube_cookie_path):
+                self._load_and_sanitize_cookies()
+            if self.youtube_cookie_path and os.path.exists(self.youtube_cookie_path):
+                self.ydl_opts["cookiefile"] = self.youtube_cookie_path
+                self.fast_yt_opts["cookiefile"] = self.youtube_cookie_path
+        else:
+            self.ydl_opts.pop("cookiefile", None)
+            self.fast_yt_opts.pop("cookiefile", None)
+
+        # Proxy handling
+        if proxy:
+            self.ydl_opts["proxy"] = proxy
+            self.fast_yt_opts["proxy"] = proxy
+        else:
+            env_proxy = os.getenv("YTDLP_PROXY") or os.getenv("HTTP_PROXY") or os.getenv("HTTPS_PROXY")
+            if env_proxy:
+                self.ydl_opts["proxy"] = env_proxy
+                self.fast_yt_opts["proxy"] = env_proxy
+            else:
+                self.ydl_opts.pop("proxy", None)
+                self.fast_yt_opts.pop("proxy", None)
+
+        # POT provider handling
+        if pot_token:
+            self.fast_yt_opts["extractor_args"]["youtube"]["po_token"] = [pot_token]
+        elif pot_url:
+            self.fast_yt_opts["extractor_args"]["youtube"]["po_token_server"] = [pot_url]
+
+    async def ensure_streaming_settings_loaded(self):
+        try:
+            db_val = await db.get_bot_setting("streaming_settings")
+            if db_val:
+                data = json.loads(db_val)
+                if isinstance(data, dict):
+                    self.streaming_settings.update(data)
+                    self._save_streaming_settings()
+                    self._apply_streaming_settings()
+            else:
+                await db.set_bot_setting("streaming_settings", json.dumps(self.streaming_settings))
+        except Exception as e:
+            logger.debug(f"ensure_streaming_settings_loaded db check: {e}")
+
+    def get_streaming_settings(self) -> Dict[str, Any]:
+        return dict(self.streaming_settings)
+
+    async def update_streaming_settings(self, new_settings: Dict[str, Any]) -> Dict[str, Any]:
+        if "mode" in new_settings:
+            mode = str(new_settings["mode"]).strip()
+            if mode in ("cookieless", "youtube_cookies", "soundcloud_first"):
+                self.streaming_settings["mode"] = mode
+        if "proxy" in new_settings:
+            self.streaming_settings["proxy"] = str(new_settings["proxy"]).strip()
+        if "pot_provider_url" in new_settings:
+            self.streaming_settings["pot_provider_url"] = str(new_settings["pot_provider_url"]).strip()
+        if "pot_token" in new_settings:
+            self.streaming_settings["pot_token"] = str(new_settings["pot_token"]).strip()
+
+        self._save_streaming_settings()
+        self._apply_streaming_settings()
+        try:
+            await db.set_bot_setting("streaming_settings", json.dumps(self.streaming_settings))
+        except Exception as e:
+            logger.warning(f"Could not persist streaming settings to DB: {e}")
+        return dict(self.streaming_settings)
+
+    def clear_cookies(self) -> Tuple[bool, str]:
+        app_cookie_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt")
+        try:
+            if os.path.exists(app_cookie_path):
+                os.remove(app_cookie_path)
+        except Exception as e:
+            logger.warning(f"Failed to remove cookies file {app_cookie_path}: {e}")
+
+        self.youtube_cookie_path = None
+        self.ydl_opts.pop("cookiefile", None)
+        self.fast_yt_opts.pop("cookiefile", None)
+        self.streaming_settings["mode"] = "cookieless"
+        self._save_streaming_settings()
+        try:
+            asyncio.create_task(db.set_bot_setting("streaming_settings", json.dumps(self.streaming_settings)))
+        except Exception:
+            pass
+        return True, "Cookies успешно удалены, активирован режим Cookieless"
 
     @staticmethod
     def _sanitize_cookie_text(text: str) -> Optional[str]:
@@ -369,6 +493,12 @@ class MusicService:
             self.youtube_cookie_path = app_cookie_path
             self.ydl_opts["cookiefile"] = app_cookie_path
             self.fast_yt_opts["cookiefile"] = app_cookie_path
+            self.streaming_settings["mode"] = "youtube_cookies"
+            self._save_streaming_settings()
+            try:
+                asyncio.create_task(db.set_bot_setting("streaming_settings", json.dumps(self.streaming_settings)))
+            except Exception:
+                pass
             count = sum(1 for l in sanitized.splitlines() if l and not l.startswith("#"))
             return True, app_cookie_path, count
         except Exception as e:
@@ -497,9 +627,13 @@ class MusicService:
 
         # Single YouTube / YouTube Music track: resolve metadata AND direct audio stream in ONE fast shot (~1.2s)
         opts = dict(self.fast_yt_opts if is_single_yt else self.ydl_opts)
-        cookie_file = self.youtube_cookie_path if (self.youtube_cookie_path and os.path.exists(self.youtube_cookie_path)) else None
+        cookie_file = None
+        if self.streaming_settings.get("mode") == "youtube_cookies":
+            cookie_file = self.youtube_cookie_path if (self.youtube_cookie_path and os.path.exists(self.youtube_cookie_path)) else None
         if cookie_file:
             opts["cookiefile"] = cookie_file
+        else:
+            opts.pop("cookiefile", None)
 
         try:
             with yt_dlp.YoutubeDL(opts) as ydl:
@@ -743,7 +877,11 @@ class MusicService:
             else:
                 self._stream_cache.pop(cache_key, None)
 
-        if track.source == "soundcloud" or (track.url and "soundcloud.com" in track.url) or (track.id and track.id.startswith("soundcloud_")):
+        if self.streaming_settings.get("mode") == "soundcloud_first":
+            stream = await self._get_soundcloud_stream(track)
+            if not stream:
+                stream = await self._get_youtube_stream(track)
+        elif track.source == "soundcloud" or (track.url and "soundcloud.com" in track.url) or (track.id and track.id.startswith("soundcloud_")):
             stream = await self._get_soundcloud_stream(track)
         else:
             stream = await self._get_youtube_stream(track)
@@ -894,13 +1032,17 @@ class MusicService:
                 else:
                     target_url = f"ytsearch1:{track.title} {track.artist}"
 
-            cookie_file = self.youtube_cookie_path if (self.youtube_cookie_path and os.path.exists(self.youtube_cookie_path)) else None
+            cookie_file = None
+            if self.streaming_settings.get("mode") == "youtube_cookies":
+                cookie_file = self.youtube_cookie_path if (self.youtube_cookie_path and os.path.exists(self.youtube_cookie_path)) else None
 
             # Strategy 1 (MAX SPEED): Direct Innertube Android Client
             # Completely bypasses JavaScript n-sig decryption and downloads in ~1.0-1.5s
             fast_opts = dict(self.fast_yt_opts)
             if cookie_file:
                 fast_opts["cookiefile"] = cookie_file
+            else:
+                fast_opts.pop("cookiefile", None)
 
             t0 = time.time()
             try:
@@ -1002,3 +1144,111 @@ class MusicService:
             return None
 
         return await asyncio.to_thread(_get)
+
+    async def get_soundcloud_trending(self, genre: str = "all", limit: int = 15, offset: int = 0) -> List[Dict[str, Any]]:
+        """
+        Dynamically fetches trending / recommended tracks from SoundCloud by genre,
+        with 30-minute in-memory caching and rich curated fallback catalog.
+        """
+        genre_key = (genre or "all").lower().strip()
+        now = time.time()
+
+        GENRE_QUERIES = {
+            "all": "trending hot edm electronic hits 2024 2025",
+            "electronic": "electronic dance music edm festival anthem",
+            "hiphop": "hip hop rap trap drill trending",
+            "house": "tech house deep house club vibes",
+            "dnb": "drum and bass dnb rave jungle phonk",
+            "chill": "lo-fi chill beats ambient chillhop",
+        }
+        query = GENRE_QUERIES.get(genre_key, GENRE_QUERIES["all"])
+
+        # Check in-memory 30-min cache
+        if genre_key in self._sc_trending_cache:
+            cached_tracks, expire_at = self._sc_trending_cache[genre_key]
+            if now < expire_at and len(cached_tracks) > 0:
+                return cached_tracks[offset : offset + limit]
+
+        # Fetch up to 50 tracks from SoundCloud via scsearch
+        fetch_limit = 50
+        search_query = f"scsearch{fetch_limit}:{query}"
+
+        loop = asyncio.get_event_loop()
+        def _fetch():
+            try:
+                opts = dict(self.ydl_opts)
+                opts["extract_flat"] = True
+                opts["socket_timeout"] = 5.0
+                opts["retries"] = 1
+                with yt_dlp.YoutubeDL(opts) as ydl:
+                    info = ydl.extract_info(search_query, download=False)
+                    if not info or "entries" not in info:
+                        return []
+                    entries = list(info.get("entries") or [])
+                    res = []
+                    for idx, entry in enumerate(entries):
+                        if not entry:
+                            continue
+                        e_id = entry.get("id") or str(idx + 1)
+                        title = entry.get("title") or "SoundCloud Track"
+                        uploader = entry.get("uploader") or entry.get("channel") or "SoundCloud Artist"
+                        dur = int(entry.get("duration") or 210)
+                        thumb = entry.get("thumbnail") or DEFAULT_THUMBNAIL
+                        webpage = entry.get("url") or entry.get("webpage_url") or f"https://soundcloud.com/search?q={urllib.parse.quote(title)}"
+                        views = entry.get("view_count")
+                        plays_str = f"{round(views / 1_000_000, 1)}M" if views and views >= 1_000_000 else (f"{round(views / 1_000)}K" if views and views >= 1_000 else "Hot")
+                        res.append({
+                            "rank": idx + 1,
+                            "id": f"soundcloud_{e_id}",
+                            "title": title,
+                            "artist": uploader,
+                            "duration": dur,
+                            "duration_str": format_duration(dur),
+                            "thumbnail": thumb,
+                            "source": "soundcloud",
+                            "url": webpage,
+                            "plays": plays_str,
+                        })
+                    return res
+            except Exception as e:
+                logger.warning(f"Error fetching SoundCloud trending for genre '{genre_key}': {e}")
+                return []
+
+        tracks = await loop.run_in_executor(None, _fetch)
+
+        # Fallback to rich curated catalog if empty
+        if not tracks:
+            tracks = self._get_default_soundcloud_tracks(genre_key)
+
+        self._sc_trending_cache[genre_key] = (tracks, now + 1800)  # 30 mins TTL
+        return tracks[offset : offset + limit]
+
+    @staticmethod
+    def _get_default_soundcloud_tracks(genre: str = "all") -> List[Dict[str, Any]]:
+        base_charts = [
+            {"rank": 1, "id": "soundcloud_sc1", "title": "Rumble", "artist": "Skrillex, Fred again.. & Flowdan", "duration_str": "2:26", "duration": 146, "thumbnail": "https://i1.sndcdn.com/artworks-9V7b7jN0sEhy-0-t500x500.jpg", "source": "soundcloud", "url": "https://soundcloud.com/skrillex/rumble", "plays": "42M"},
+            {"rank": 2, "id": "soundcloud_sc2", "title": "leavemealone", "artist": "Fred again.. & Baby Keem", "duration_str": "3:43", "duration": 223, "thumbnail": "https://i1.sndcdn.com/artworks-sIe87uG23rI4-0-t500x500.jpg", "source": "soundcloud", "url": "https://soundcloud.com/fredagain/leavemealone", "plays": "31M"},
+            {"rank": 3, "id": "soundcloud_sc3", "title": "(It Goes Like) Nanana", "artist": "Peggy Gou", "duration_str": "3:51", "duration": 231, "thumbnail": "https://i1.sndcdn.com/artworks-PqG8U7s8H4mJ-0-t500x500.jpg", "source": "soundcloud", "url": "https://soundcloud.com/peggygou/it-goes-like-nanana", "plays": "58M"},
+            {"rank": 4, "id": "soundcloud_sc4", "title": "Where You Are", "artist": "John Summit & Hayla", "duration_str": "3:58", "duration": 238, "thumbnail": "https://i1.sndcdn.com/artworks-5z1sO5aFqH4g-0-t500x500.jpg", "source": "soundcloud", "url": "https://soundcloud.com/johnsummit/where-you-are", "plays": "37M"},
+            {"rank": 5, "id": "soundcloud_sc5", "title": "Rhyme Dust", "artist": "MK & Dom Dolla", "duration_str": "3:01", "duration": 181, "thumbnail": "https://i1.sndcdn.com/artworks-V02X4d0z3h4G-0-t500x500.jpg", "source": "soundcloud", "url": "https://soundcloud.com/domdolla/rhyme-dust", "plays": "29M"},
+            {"rank": 6, "id": "soundcloud_sc6", "title": "Baddadan", "artist": "Chase & Status, Bou ft. Trigga & Flowdan", "duration_str": "2:45", "duration": 165, "thumbnail": "https://i1.sndcdn.com/artworks-8J2xZ0c2N4kK-0-t500x500.jpg", "source": "soundcloud", "url": "https://soundcloud.com/chaseandstatus/baddadan", "plays": "34M"},
+            {"rank": 7, "id": "soundcloud_sc7", "title": "Bangarang", "artist": "Skrillex ft. Sirah", "duration_str": "3:35", "duration": 215, "thumbnail": "https://i1.sndcdn.com/artworks-000015949826-p24s0h-t500x500.jpg", "source": "soundcloud", "url": "https://soundcloud.com/skrillex/bangarang-feat-sirah", "plays": "120M"},
+            {"rank": 8, "id": "soundcloud_sc8", "title": "Alone", "artist": "Marshmello", "duration_str": "3:19", "duration": 199, "thumbnail": "https://i1.sndcdn.com/artworks-000164805728-66236b-t500x500.jpg", "source": "soundcloud", "url": "https://soundcloud.com/marshmellomusic/marshmello-alone", "plays": "95M"},
+            {"rank": 9, "id": "soundcloud_sc9", "title": "Faded", "artist": "Alan Walker", "duration_str": "3:32", "duration": 212, "thumbnail": "https://i1.sndcdn.com/artworks-000138246104-q1m5k5-t500x500.jpg", "source": "soundcloud", "url": "https://soundcloud.com/alanwalker/faded", "plays": "88M"},
+            {"rank": 10, "id": "soundcloud_sc10", "title": "Animals", "artist": "Martin Garrix", "duration_str": "2:56", "duration": 176, "thumbnail": "https://i1.sndcdn.com/artworks-000050868843-g4l0w7-t500x500.jpg", "source": "soundcloud", "url": "https://soundcloud.com/martingarrix/martin-garrix-animals", "plays": "115M"},
+            {"rank": 11, "id": "soundcloud_sc11", "title": "The Nights", "artist": "Avicii", "duration_str": "2:56", "duration": 176, "thumbnail": "https://i1.sndcdn.com/artworks-000100781702-86s0d8-t500x500.jpg", "source": "soundcloud", "url": "https://soundcloud.com/aviciiofficial/the-nights", "plays": "110M"},
+            {"rank": 12, "id": "soundcloud_sc12", "title": "Strobe", "artist": "deadmau5", "duration_str": "10:37", "duration": 637, "thumbnail": "https://i1.sndcdn.com/artworks-000030588647-h06h98-t500x500.jpg", "source": "soundcloud", "url": "https://soundcloud.com/deadmau5/strobe", "plays": "46M"},
+            {"rank": 13, "id": "soundcloud_sc13", "title": "Cinema (Skrillex Remix)", "artist": "Benny Benassi", "duration_str": "5:07", "duration": 307, "thumbnail": "https://i1.sndcdn.com/artworks-000007842606-d2qg5t-t500x500.jpg", "source": "soundcloud", "url": "https://soundcloud.com/benny-benassi/cinema-skrillex-remix", "plays": "82M"},
+            {"rank": 14, "id": "soundcloud_sc14", "title": "Levels", "artist": "Avicii", "duration_str": "3:19", "duration": 199, "thumbnail": "https://i1.sndcdn.com/artworks-000014760416-24k6m0-t500x500.jpg", "source": "soundcloud", "url": "https://soundcloud.com/aviciiofficial/levels", "plays": "140M"},
+            {"rank": 15, "id": "soundcloud_sc15", "title": "Titanium", "artist": "David Guetta ft. Sia", "duration_str": "4:05", "duration": 245, "thumbnail": "https://i1.sndcdn.com/artworks-000011504993-9qfdf8-t500x500.jpg", "source": "soundcloud", "url": "https://soundcloud.com/davidguetta/titanium-feat-sia", "plays": "98M"},
+            {"rank": 16, "id": "soundcloud_sc16", "title": "Clarity", "artist": "Zedd ft. Foxes", "duration_str": "4:31", "duration": 271, "thumbnail": "https://i1.sndcdn.com/artworks-000031853609-b4qg9u-t500x500.jpg", "source": "soundcloud", "url": "https://soundcloud.com/zedd/clarity-feat-foxes", "plays": "76M"},
+            {"rank": 17, "id": "soundcloud_sc17", "title": "Midnight City", "artist": "M83", "duration_str": "4:03", "duration": 243, "thumbnail": "https://i1.sndcdn.com/artworks-000010992381-80r176-t500x500.jpg", "source": "soundcloud", "url": "https://soundcloud.com/m83/midnight-city", "plays": "64M"},
+            {"rank": 18, "id": "soundcloud_sc18", "title": "Lean On", "artist": "Major Lazer & DJ Snake", "duration_str": "2:56", "duration": 176, "thumbnail": "https://i1.sndcdn.com/artworks-000108398460-7053r1-t500x500.jpg", "source": "soundcloud", "url": "https://soundcloud.com/majorlazer/lean-on-feat-m", "plays": "135M"},
+            {"rank": 19, "id": "soundcloud_sc19", "title": "One More Time", "artist": "Daft Punk", "duration_str": "5:20", "duration": 320, "thumbnail": "https://i1.sndcdn.com/artworks-000031804297-fghq4t-t500x500.jpg", "source": "soundcloud", "url": "https://soundcloud.com/daft-punk/one-more-time", "plays": "89M"},
+            {"rank": 20, "id": "soundcloud_sc20", "title": "Language", "artist": "Porter Robinson", "duration_str": "6:08", "duration": 368, "thumbnail": "https://i1.sndcdn.com/artworks-000021666498-84221a-t500x500.jpg", "source": "soundcloud", "url": "https://soundcloud.com/porter-robinson/language", "plays": "41M"},
+            {"rank": 21, "id": "soundcloud_sc21", "title": "Spectrum", "artist": "Zedd ft. Matthew Koma", "duration_str": "4:03", "duration": 243, "thumbnail": "https://i1.sndcdn.com/artworks-000025176161-q8fdf9-t500x500.jpg", "source": "soundcloud", "url": "https://soundcloud.com/zedd/spectrum", "plays": "52M"},
+            {"rank": 22, "id": "soundcloud_sc22", "title": "Wake Me Up", "artist": "Avicii", "duration_str": "4:09", "duration": 249, "thumbnail": "https://i1.sndcdn.com/artworks-000051833509-f8s0d8-t500x500.jpg", "source": "soundcloud", "url": "https://soundcloud.com/aviciiofficial/wake-me-up", "plays": "165M"},
+            {"rank": 23, "id": "soundcloud_sc23", "title": "First of the Year (Equinox)", "artist": "Skrillex", "duration_str": "4:22", "duration": 262, "thumbnail": "https://i1.sndcdn.com/artworks-000014277730-1qf2o1-t500x500.jpg", "source": "soundcloud", "url": "https://soundcloud.com/skrillex/first-of-the-year-equinox", "plays": "73M"},
+            {"rank": 24, "id": "soundcloud_sc24", "title": "Satisfaction", "artist": "Benny Benassi", "duration_str": "3:11", "duration": 191, "thumbnail": "https://i1.sndcdn.com/artworks-000008546102-k1e87u-t500x500.jpg", "source": "soundcloud", "url": "https://soundcloud.com/benny-benassi/satisfaction", "plays": "61M"}
+        ]
+        return base_charts

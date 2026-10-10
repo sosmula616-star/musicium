@@ -305,6 +305,7 @@ async def get_system_stats(bot: discord.Client, player_manager: Any, music_servi
             "size_kb": cookie_size_kb,
             "path": cookie_path,
         },
+        "streaming_settings": getattr(music_service, "streaming_settings", {}),
         "database": db_stats,
         "ws_clients": ws_clients_count,
         "log_buffer_size": len(admin_log_handler.buffer),

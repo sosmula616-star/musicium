@@ -1,3 +1,5 @@
+import os
+import json
 import time
 import asyncio
 import logging
@@ -7,6 +9,8 @@ from typing import Dict, Any, List, Optional, Tuple, Set
 import db
 
 logger = logging.getLogger("anticrash")
+
+ANTICRASH_SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "anticrash_settings.json")
 
 class AntiCrashService:
     def __init__(self):
@@ -26,11 +30,52 @@ class AntiCrashService:
             "auto_restrict": True,       # Alias for admin UI compatibility
             "notify_admins": True,
         }
+        self._load_settings_from_disk()
+
+    def _load_settings_from_disk(self):
+        try:
+            if os.path.exists(ANTICRASH_SETTINGS_FILE):
+                with open(ANTICRASH_SETTINGS_FILE, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if isinstance(data, dict):
+                        self.settings.update(data)
+                        if "auto_block" in data and "auto_restrict" not in data:
+                            self.settings["auto_restrict"] = data["auto_block"]
+                        elif "auto_restrict" in data and "auto_block" not in data:
+                            self.settings["auto_block"] = data["auto_restrict"]
+                        logger.info(f"Loaded AntiCrash settings from disk: {self.settings}")
+        except Exception as e:
+            logger.warning(f"Could not load anticrash settings from disk: {e}")
+
+    def _save_settings_to_disk(self):
+        try:
+            with open(ANTICRASH_SETTINGS_FILE, "w", encoding="utf-8") as f:
+                json.dump(self.settings, f, ensure_ascii=False, indent=2)
+            logger.info("Saved AntiCrash settings to disk.")
+        except Exception as e:
+            logger.warning(f"Could not save anticrash settings to disk: {e}")
 
     async def ensure_loaded(self):
         if self._cache_loaded:
             return
         try:
+            # 1. Load settings from database if available
+            db_settings_str = await db.get_bot_setting("anticrash_settings")
+            if db_settings_str:
+                try:
+                    db_settings = json.loads(db_settings_str)
+                    if isinstance(db_settings, dict):
+                        self.settings.update(db_settings)
+                        self._save_settings_to_disk()
+                except Exception:
+                    pass
+            else:
+                try:
+                    await db.set_bot_setting("anticrash_settings", json.dumps(self.settings))
+                except Exception:
+                    pass
+
+            # 2. Load restricted users
             users = await db.get_restricted_users()
             for u in users:
                 self._restricted_cache[str(u["user_id"])] = u
@@ -208,7 +253,7 @@ class AntiCrashService:
         logger.info(f"[ANTI-CRASH] User {user_name} ({uid}) manually restricted by admin on {g_name}. Reason: {r_reason}")
         return ok
 
-    def update_settings(self, new_settings: Dict[str, Any]) -> Dict[str, Any]:
+    async def update_settings(self, new_settings: Dict[str, Any]) -> Dict[str, Any]:
         for k in ["enabled", "notify_admins"]:
             if k in new_settings:
                 self.settings[k] = bool(new_settings[k])
@@ -227,6 +272,36 @@ class AntiCrashService:
                 except (ValueError, TypeError):
                     pass
         logger.info(f"[ANTI-CRASH] Settings updated: {self.settings}")
+        self._save_settings_to_disk()
+        try:
+            await db.set_bot_setting("anticrash_settings", json.dumps(self.settings))
+        except Exception as e:
+            logger.warning(f"[ANTI-CRASH] Could not persist settings to db: {e}")
+        return dict(self.settings)
+
+    def update_settings_sync(self, new_settings: Dict[str, Any]) -> Dict[str, Any]:
+        for k in ["enabled", "notify_admins"]:
+            if k in new_settings:
+                self.settings[k] = bool(new_settings[k])
+        if "auto_block" in new_settings:
+            self.settings["auto_block"] = bool(new_settings["auto_block"])
+            self.settings["auto_restrict"] = self.settings["auto_block"]
+        elif "auto_restrict" in new_settings:
+            self.settings["auto_block"] = bool(new_settings["auto_restrict"])
+            self.settings["auto_restrict"] = self.settings["auto_block"]
+        for k in ["max_requests_10s", "max_requests_60s"]:
+            if k in new_settings:
+                try:
+                    val = int(new_settings[k])
+                    if 2 <= val <= 100:
+                        self.settings[k] = val
+                except (ValueError, TypeError):
+                    pass
+        self._save_settings_to_disk()
+        try:
+            asyncio.create_task(db.set_bot_setting("anticrash_settings", json.dumps(self.settings)))
+        except Exception:
+            pass
         return dict(self.settings)
 
 

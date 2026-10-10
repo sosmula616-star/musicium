@@ -1,0 +1,8 @@
+{
+  "enabled": true,
+  "max_requests_10s": 6,
+  "max_requests_60s": 18,
+  "auto_block": true,
+  "auto_restrict": true,
+  "notify_admins": true
+}
