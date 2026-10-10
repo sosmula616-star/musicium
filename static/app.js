@@ -34,12 +34,18 @@
   const queryUserId = urlParams.get('user_id');
   const queryUserName = urlParams.get('user_name');
   const queryUserAvatar = urlParams.get('user_avatar');
+  const queryAdminToken = urlParams.get('admin_token') || urlParams.get('token');
+
+  if (queryAdminToken) {
+    localStorage.setItem('musicium_admin_token', queryAdminToken);
+    localStorage.setItem('music_is_admin', 'true');
+  }
 
   if (queryUserId) {
     localStorage.setItem('music_user_id', queryUserId);
     if (queryUserName) localStorage.setItem('music_user_name', decodeURIComponent(queryUserName));
     if (queryUserAvatar) localStorage.setItem('music_user_avatar', decodeURIComponent(queryUserAvatar));
-    if (urlParams.get('is_admin') === '1' || queryUserId === '410432175373156352') {
+    if (urlParams.get('is_admin') === '1' || queryUserId === '410432175373156352' || queryAdminToken) {
       localStorage.setItem('music_is_admin', 'true');
     }
     localStorage.setItem('music_authenticated', 'true');
@@ -690,6 +696,19 @@
   function getSafeImageUrl(url) {
     if (!url) return '/static/activity_icon.jpg';
     if (url.startsWith('/') || url.startsWith('data:')) return url;
+
+    // SoundCloud CDN blocks foreign referrers with HTTP 403 Forbidden.
+    // Also upgrade low-res -large.jpg / -badge.jpg / -small.jpg to high-res -t500x500.jpg.
+    // Always route SoundCloud artwork through /api/proxy-image!
+    if (url.includes('sndcdn.com') || url.includes('soundcloud.com')) {
+      const upgraded = url
+        .replace(/-large\./i, '-t500x500.')
+        .replace(/-badge\./i, '-t500x500.')
+        .replace(/-small\./i, '-t500x500.')
+        .replace(/-tiny\./i, '-t500x500.');
+      return `/api/proxy-image?url=${encodeURIComponent(upgraded)}`;
+    }
+
     // In Discord Activity & Mini Apps, external domains are blocked by iframe CSP.
     // Proxy through same-origin /api/proxy-image to guarantee 100% loading!
     if (isMiniApp) {
@@ -817,7 +836,10 @@
               : '/static/activity_icon.jpg';
             state.isAuthenticated = true;
             localStorage.setItem('music_authenticated', 'true');
-            if (state.userId === '410432175373156352') {
+            if (tokenData.admin_token) {
+              localStorage.setItem('musicium_admin_token', tokenData.admin_token);
+              localStorage.setItem('music_is_admin', 'true');
+            } else if (tokenData.is_admin || state.userId === '410432175373156352') {
               localStorage.setItem('music_is_admin', 'true');
             }
             saveUser();
@@ -2458,7 +2480,7 @@
 
       const data = await resp.json();
       if (!data.success) {
-        if (!silent) showToast(data.error || 'Error', 'warning');
+        if (!silent) showToast(data.error || 'Error', data.restricted ? 'error' : 'warning', data.restricted ? 'fa-ban' : 'fa-triangle-exclamation');
         return;
       }
 
@@ -2513,7 +2535,7 @@
       });
       const data = await resp.json();
       if (!data.success && data.error) {
-        showToast(data.error, 'warning');
+        showToast(data.error, data.restricted ? 'error' : 'warning', data.restricted ? 'fa-ban' : 'fa-triangle-exclamation');
       }
       if (data && data.player) {
         updatePlayerUI(data.player);
@@ -3227,6 +3249,25 @@
         el.userMenuDropdown.style.display = 'none';
       }
     });
+
+    // Admin Panel Navigation (iframe-safe for Discord Activity and web browsers)
+    function navigateToAdmin(e) {
+      if (e) e.preventDefault();
+      const token = localStorage.getItem('musicium_admin_token') || '';
+      const adminUrl = token ? `/admin?token=${encodeURIComponent(token)}` : '/admin';
+      if (isMiniApp) {
+        window.location.href = adminUrl;
+      } else {
+        window.open(adminUrl, '_blank');
+      }
+    }
+
+    const navAdminBtn = document.getElementById('navAdminBtn');
+    if (navAdminBtn) navAdminBtn.addEventListener('click', navigateToAdmin);
+    const headerAdminPill = document.getElementById('headerAdminPill');
+    if (headerAdminPill) headerAdminPill.addEventListener('click', navigateToAdmin);
+    const menuAdminLink = document.getElementById('menuAdminLink');
+    if (menuAdminLink) menuAdminLink.addEventListener('click', navigateToAdmin);
 
     // Discord Login Action buttons in modal (iframe-safe and SDK aware)
     if (el.btnDiscordLoginAction) {
