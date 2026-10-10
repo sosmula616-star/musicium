@@ -254,7 +254,13 @@ async def get_system_stats(bot: discord.Client, player_manager: Any, music_servi
     except Exception as e:
         logger.debug(f"DB stats check: {e}")
 
-    ws_clients_count = len(player_manager.ws_clients) if (player_manager and hasattr(player_manager, "ws_clients")) else 0
+    # AntiCrash stats
+    restricted_count = 0
+    try:
+        import anticrash_service
+        restricted_count = len(anticrash_service.anticrash._restricted_cache)
+    except Exception:
+        pass
 
     return {
         "bot_online": bot.is_ready() if bot else False,
@@ -285,6 +291,7 @@ async def get_system_stats(bot: discord.Client, player_manager: Any, music_servi
         "database": db_stats,
         "ws_clients": ws_clients_count,
         "log_buffer_size": len(admin_log_handler.buffer),
+        "restricted_count": restricted_count,
     }
 
 
@@ -334,7 +341,9 @@ def get_guilds_admin_data(bot: discord.Client, player_manager: Any) -> List[Dict
                 "duration": player.current_track.duration if player.current_track else 0,
                 "current_track": track_dict,
                 "queue_count": len(player.queue),
+                "queue": [t.to_dict() for t in player.queue[:25]],
             }
+
 
         # Available Voice & Stage channels for switching
         all_vcs = []
@@ -440,7 +449,50 @@ async def perform_player_action(player_manager: Any, guild_id: int, action: str,
             new_vol = player.set_volume(vol)
             player_manager.guild_volumes[guild_id] = new_vol
             return True, f"Громкость установлена на {int(new_vol * 100)}%"
+        elif action == "clear_queue":
+            player.clear_queue()
+            return True, "Очередь сервера очищена"
+        elif action == "remove_queue_track":
+            idx = int(value) if value is not None else -1
+            removed = player.remove_from_queue(idx)
+            if removed:
+                return True, f"Трек «{removed.title}» удален из очереди"
+            return False, "Некорректный индекс трека"
         else:
             return False, f"Неизвестное действие '{action}'"
     except Exception as e:
         return False, f"Ошибка выполнения действия: {str(e)}"
+
+
+async def play_url_on_guild(bot: discord.Client, player_manager: Any, music_service: Any, guild_id: int, query: str) -> Tuple[bool, str]:
+    guild = bot.get_guild(guild_id)
+    if not guild:
+        return False, f"Сервер с ID {guild_id} не найден."
+
+    tracks = await music_service.search(query, source="all", limit=1)
+    if not tracks:
+        return False, f"Ничего не найдено по запросу: {query}"
+
+    track = tracks[0]
+    track.requester_name = "Администратор"
+
+    player = player_manager.get_or_create_player(guild)
+    if not player.is_connected:
+        # Find first channel with members or any voice channel
+        all_vcs = list(getattr(guild, "voice_channels", [])) + list(getattr(guild, "stage_channels", []))
+        target_vc = None
+        for vc in all_vcs:
+            if any(not m.bot for m in vc.members):
+                target_vc = vc
+                break
+        if not target_vc and all_vcs:
+            target_vc = all_vcs[0]
+        if target_vc:
+            await player.connect_to_channel(target_vc, force=True)
+        else:
+            return False, "На сервере нет доступных голосовых комнат."
+
+    res = await player.enqueue(track, play_now=True)
+    logger.info(f"[ADMIN ACTION] Admin enqueued '{track.title}' on guild '{guild.name}'.")
+    return True, f"Трек «{track.title}» успешно включен!"
+
