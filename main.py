@@ -178,34 +178,30 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
                 player._explicit_stop = True
                 player._cancel_idle_watchdog()
                 player.voice_client = None
-                if player._process:
-                    try:
-                        player._process.kill()
-                    except Exception:
-                        pass
-                    player._process = None
                 player.current_track = None
-                player.is_playing = False
                 player.is_paused = False
-                player.state_generation += 1
+                player._play_generation += 1
                 await player._notify_change()
+            return
         elif before.channel is not None and after.channel is not None and before.channel.id != after.channel.id:
             # Bot was moved to another channel on the server: smoothly update voice client and notify UI
             logger.info(f"Bot moved from '{before.channel.name}' to '{after.channel.name}' in guild '{member.guild.name}'.")
             if not player:
                 player = player_manager.get_or_create_player(member.guild)
-            player._allow_move = False
             player.voice_client = member.guild.voice_client
             await player._notify_change()
-        else:
+            return
+        elif before.channel is None and after.channel is not None:
             logger.info(f"Bot connected to room '{after.channel.name}' in guild '{member.guild.name}'")
             if not player:
                 player = player_manager.get_or_create_player(member.guild)
             player.voice_client = member.guild.voice_client
             # If idle watchdog was running or needs to start if empty
-            if not player.current_track and not player.queue:
+            if not player.current_track and len(player.queue) == 0:
                 player._start_idle_watchdog("Очередь воспроизведения пуста")
             await player._notify_change()
+            return
+        return
 
     # 2. If users joined or left the bot's room, notify WebSocket listeners and check listeners
     guild_vc = getattr(member.guild, "voice_client", None)
