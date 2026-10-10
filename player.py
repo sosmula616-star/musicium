@@ -132,12 +132,15 @@ class GuildPlayer:
         self._idle_task: Optional[asyncio.Task] = None
         self._lock = asyncio.Lock()
 
-    def _start_idle_watchdog(self):
-        """Starts 3-minute idle watchdog if nothing is playing and queue is empty."""
+    def _start_idle_watchdog(self, reason: str = ""):
+        """Starts 3-minute idle watchdog if nothing is playing and queue is empty or room is empty."""
         self._cancel_idle_watchdog()
-        if self.is_connected and not self.is_playing and len(self.queue) == 0:
-            logger.info(f"[IDLE WATCHDOG] Started 3-minute timer for '{self.guild.name}'.")
-            self._idle_task = asyncio.create_task(self._idle_timeout_coro())
+        if self.is_connected:
+            msg = f"[IDLE WATCHDOG] Started 3-minute timer for '{self.guild.name}'"
+            if reason:
+                msg += f" (причина: {reason})"
+            logger.info(msg)
+            self._idle_task = asyncio.create_task(self._idle_timeout_coro(reason))
 
     def _cancel_idle_watchdog(self):
         """Cancels any pending idle timer."""
@@ -145,11 +148,20 @@ class GuildPlayer:
             self._idle_task.cancel()
         self._idle_task = None
 
-    async def _idle_timeout_coro(self):
+    async def _idle_timeout_coro(self, reason: str = ""):
         try:
             await asyncio.sleep(IDLE_TIMEOUT_SECONDS)
-            if self.is_connected and not self.is_playing and len(self.queue) == 0:
-                logger.info(f"[IDLE TIMEOUT] 3 minutes of inactivity reached in guild '{self.guild.name}'. Auto-disconnecting bot...")
+            if self.is_connected:
+                if reason == "room_empty" or "вышли" in reason:
+                    ch = self.voice_client.channel if self.voice_client else None
+                    if ch:
+                        humans = [m for m in ch.members if not m.bot]
+                        if len(humans) > 0:
+                            return  # Users returned!
+                elif self.is_playing or len(self.queue) > 0:
+                    return  # Music playing or queued!
+
+                logger.info(f"[IDLE TIMEOUT] 3 minutes reached in guild '{self.guild.name}'. Auto-disconnecting bot...")
                 self._explicit_stop = True
                 await self.stop()
         except asyncio.CancelledError:
