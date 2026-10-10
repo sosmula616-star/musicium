@@ -90,9 +90,11 @@ class WebServer:
         self.app.router.add_get("/api/feed/discovery", self.handle_feed_discovery)
         self.app.router.add_get("/api/feed/soundcloud", self.handle_feed_soundcloud)
 
-        # Admin / Diagnostics (Discord OAuth2 and Master Key authenticated)
+        # Admin / Diagnostics (Discord OAuth2, Bot Code and Master Key authenticated)
         self.app.router.add_get("/admin", self.handle_admin)
         self.app.router.add_get("/api/admin/auth/status", self.handle_admin_auth_status)
+        self.app.router.add_post("/api/admin/auth/request-code", self.handle_admin_auth_request_code)
+        self.app.router.add_post("/api/admin/auth/verify-code", self.handle_admin_auth_verify_code)
         self.app.router.add_post("/api/admin/auth/login-key", self.handle_admin_auth_login_key)
         self.app.router.add_post("/api/admin/auth/logout", self.handle_admin_auth_logout)
         self.app.router.add_get("/api/admin/stats", self.handle_admin_stats)
@@ -1524,6 +1526,135 @@ class WebServer:
             "login_url": "/api/auth/discord?redirect=/admin",
         })
 
+    async def handle_admin_auth_request_code(self, request: web.Request) -> web.Response:
+        """Generates a 6-digit login PIN code and sends it via Discord DM to the authorized admin user."""
+        try:
+            data = await request.json()
+        except Exception:
+            data = {}
+
+        raw_uid = str(data.get("user_id") or "").strip()
+        uid = raw_uid if raw_uid else admin_service.PRIMARY_ADMIN_ID
+
+        if not admin_service.is_admin_id(uid):
+            return web.json_response({
+                "ok": False,
+                "error": "⛔ Доступ запрещен. Панель доступна только главному администратору бота (ID: 410432175373156352)."
+            }, status=403)
+
+        code = admin_service.create_admin_login_code(uid, ttl_seconds=900)
+        if not code:
+            return web.json_response({"ok": False, "error": "Не удалось сгенерировать проверочный код"}, status=500)
+
+        # Attempt to DM the admin user
+        dm_sent = False
+        target_name = "Администратор"
+        try:
+            target_user = self.bot.get_user(int(uid))
+            if not target_user:
+                target_user = await self.bot.fetch_user(int(uid))
+
+            if target_user:
+                target_name = target_user.name
+                token = admin_service.generate_admin_token(
+                    uid,
+                    name=target_user.display_name,
+                    avatar=target_user.display_avatar.url if hasattr(target_user, "display_avatar") else ""
+                )
+                from main import PUBLIC_URL
+                login_url = f"{PUBLIC_URL}/admin?token={token}"
+
+                embed = discord.Embed(
+                    title="🔐 Вход в Админ-панель Musicium",
+                    description=(
+                        f"Здравствуйте, **{target_user.display_name}**!\n"
+                        f"Был выполнен запрос на авторизацию в панели управления по вашему Discord ID: `{uid}`.\n\n"
+                        f"🔑 **Ваш одноразовый 6-значный код для входа:**\n"
+                        f"# `{code}`\n\n"
+                        f"*(Код действителен в течение 15 минут)*\n\n"
+                        f"Или войдите сразу в 1 клик:\n"
+                        f"👉 **[Открыть панель управления]({login_url})**"
+                    ),
+                    color=0x00F2FE
+                )
+                embed.set_footer(text="Никому не сообщайте этот код!")
+                view = discord.ui.View()
+                view.add_item(discord.ui.Button(
+                    label="🚀 Войти в админ-панель",
+                    style=discord.ButtonStyle.link,
+                    url=login_url
+                ))
+                await target_user.send(embed=embed, view=view)
+                dm_sent = True
+                logger.info(f"[ADMIN AUTH] Successfully sent login PIN code to Discord DM for user {uid}")
+        except Exception as dm_err:
+            logger.warning(f"[ADMIN AUTH] Could not send DM to {uid}: {dm_err}")
+
+        if dm_sent:
+            return web.json_response({
+                "ok": True,
+                "dm_sent": True,
+                "message": f"6-значный код отправлен в личные сообщения Discord пользователю {target_name}!"
+            })
+        else:
+            return web.json_response({
+                "ok": True,
+                "dm_sent": False,
+                "message": (
+                    "Код успешно сгенерирован! Если у вас закрыты ЛС от бота, "
+                    "используйте команду /admin прямо в Discord на сервере бота."
+                )
+            })
+
+    async def handle_admin_auth_verify_code(self, request: web.Request) -> web.Response:
+        """Verifies a 6-digit login PIN code and signs the admin user in."""
+        try:
+            data = await request.json()
+        except Exception:
+            return web.json_response({"ok": False, "error": "Неверный формат запроса"}, status=400)
+
+        raw_uid = str(data.get("user_id") or "").strip()
+        uid = raw_uid if raw_uid else admin_service.PRIMARY_ADMIN_ID
+        code = str(data.get("code") or "").strip()
+
+        if not code:
+            return web.json_response({"ok": False, "error": "Введите 6-значный проверочный код"}, status=400)
+
+        if not admin_service.is_admin_id(uid):
+            return web.json_response({
+                "ok": False,
+                "error": "⛔ Доступ запрещен. Панель доступна только главному администратору бота."
+            }, status=403)
+
+        if not admin_service.verify_admin_login_code(uid, code):
+            return web.json_response({
+                "ok": False,
+                "error": "Неверный или просроченный проверочный код. Запросите новый код через бота."
+            }, status=401)
+
+        name = "Admin"
+        avatar = "/static/activity_icon.jpg"
+        try:
+            discord_user = self.bot.get_user(int(uid))
+            if not discord_user:
+                discord_user = await self.bot.fetch_user(int(uid))
+            if discord_user:
+                name = discord_user.display_name
+                avatar = discord_user.display_avatar.url if hasattr(discord_user, "display_avatar") else avatar
+        except Exception:
+            pass
+
+        token = admin_service.generate_admin_token(uid, name=name, avatar=avatar)
+        resp = web.json_response({
+            "ok": True,
+            "token": token,
+            "user_id": uid,
+            "user_name": name,
+            "user_avatar": avatar
+        })
+        resp.set_cookie("musicium_admin_token", token, max_age=7*86400, path="/")
+        return resp
+
     async def handle_admin_auth_login_key(self, request: web.Request) -> web.Response:
         """Authenticates admin via master password, secret key or existing admin token."""
         try:
@@ -1905,12 +2036,15 @@ class WebServer:
             return web.json_response({"error": "Unauthorized"}, status=401)
         try:
             cleared_entries = 0
-            if hasattr(self.music_service, "cache") and isinstance(self.music_service.cache, dict):
-                cleared_entries += len(self.music_service.cache)
-                self.music_service.cache.clear()
-            if hasattr(self.music_service, "stream_cache") and isinstance(self.music_service.stream_cache, dict):
-                cleared_entries += len(self.music_service.stream_cache)
-                self.music_service.stream_cache.clear()
+            if hasattr(self.music_service, "clear_caches"):
+                cleared_entries = self.music_service.clear_caches()
+            else:
+                if hasattr(self.music_service, "_stream_cache") and isinstance(self.music_service._stream_cache, dict):
+                    cleared_entries += len(self.music_service._stream_cache)
+                    self.music_service._stream_cache.clear()
+                if hasattr(self.music_service, "_sc_trending_cache") and isinstance(self.music_service._sc_trending_cache, dict):
+                    cleared_entries += len(self.music_service._sc_trending_cache)
+                    self.music_service._sc_trending_cache.clear()
             return web.json_response({"ok": True, "message": f"Кэш плеера очищен (удалено {cleared_entries} записей)"})
         except Exception as e:
             return web.json_response({"ok": False, "error": str(e)}, status=500)

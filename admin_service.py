@@ -102,6 +102,47 @@ def is_admin_id(user_id: Any) -> bool:
         return False
     return str(user_id).strip() in get_admin_ids()
 
+# In-memory storage for 6-digit one-time login PIN codes
+_admin_login_codes: Dict[str, Dict[str, Any]] = {}
+
+def create_admin_login_code(user_id: str, ttl_seconds: int = 900) -> Optional[str]:
+    """Generates a secure 6-digit PIN code for an authorized admin user."""
+    import secrets
+    uid = str(user_id).strip()
+    if not is_admin_id(uid):
+        return None
+    code = f"{secrets.randbelow(900000) + 100000:06d}"
+    _admin_login_codes[uid] = {
+        "code": code,
+        "expires_at": time.time() + ttl_seconds,
+        "attempts": 0,
+    }
+    logger.info(f"[ADMIN AUTH] Generated one-time login PIN code for admin user {uid} (expires in {ttl_seconds}s)")
+    return code
+
+def verify_admin_login_code(user_id: str, input_code: str) -> bool:
+    """Verifies a 6-digit PIN code with anti-brute force and expiration checks."""
+    uid = str(user_id).strip()
+    if not is_admin_id(uid):
+        return False
+    entry = _admin_login_codes.get(uid)
+    if not entry:
+        return False
+    if time.time() > entry.get("expires_at", 0):
+        _admin_login_codes.pop(uid, None)
+        logger.info(f"[ADMIN AUTH] Code for {uid} expired")
+        return False
+    entry["attempts"] = entry.get("attempts", 0) + 1
+    if entry["attempts"] > 5:
+        _admin_login_codes.pop(uid, None)
+        logger.warning(f"[ADMIN AUTH] Too many invalid attempts for {uid}, PIN invalidated")
+        return False
+    if hmac.compare_digest(str(entry.get("code", "")), str(input_code).strip()):
+        _admin_login_codes.pop(uid, None)
+        logger.info(f"[ADMIN AUTH] Login PIN verified successfully for admin {uid}")
+        return True
+    return False
+
 def generate_admin_token(user_id: str, name: str = "", avatar: str = "", max_age_days: int = 7) -> str:
     user_id = user_id.strip()
     exp = int(time.time()) + (max_age_days * 86400)

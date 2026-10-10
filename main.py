@@ -91,6 +91,7 @@ from music_service import MusicService
 from player_manager import PlayerManager
 from dm_controller import DMController
 from web_server import WebServer
+import admin_service
 import anticrash_service
 from anticrash_service import anticrash
 
@@ -414,6 +415,92 @@ async def slash_miniapp(interaction: discord.Interaction):
         logger.info(f"Direct launch_activity in /miniapp fallback ({e})")
         if not interaction.response.is_done():
             await slash_player.callback(interaction)
+
+
+@bot.tree.command(name="admin", description="Панель управления Musicium (только для владельца бота)")
+async def slash_admin(interaction: discord.Interaction):
+    if not admin_service.is_admin_id(interaction.user.id):
+        await interaction.response.send_message(
+            f"⛔ **Доступ запрещен!**\nПанель управления доступна только владельцу бота (ID: `{admin_service.PRIMARY_ADMIN_ID}`).",
+            ephemeral=True
+        )
+        return
+
+    uid_str = str(interaction.user.id)
+    token = admin_service.generate_admin_token(
+        user_id=uid_str,
+        name=interaction.user.display_name,
+        avatar=interaction.user.display_avatar.url if hasattr(interaction.user, "display_avatar") else ""
+    )
+    code = admin_service.create_admin_login_code(uid_str, ttl_seconds=900)
+    login_url = f"{PUBLIC_URL}/admin?token={token}"
+
+    embed = discord.Embed(
+        title="🔐 Панель управления Musicium • Авторизация",
+        description=(
+            f"Здравствуйте, **{interaction.user.display_name}**!\n"
+            f"Доступ подтвержден для вашего Discord ID: `{uid_str}`.\n\n"
+            f"🔑 **Одноразовый проверочный код:**\n"
+            f"# `{code}`\n"
+            f"*(действует 15 минут, можно ввести на странице /admin)*\n\n"
+            f"🚀 **Вход в панель в 1 клик:**\n"
+            f"Нажмите кнопку ниже или перейдите по ссылке:\n"
+            f"[👉 Открыть админ-панель]({login_url})"
+        ),
+        color=0x00F2FE
+    )
+    embed.set_thumbnail(url=f"{PUBLIC_URL}/static/activity_icon.jpg")
+    embed.set_footer(text="Никому не сообщайте этот код или ссылку!")
+
+    view = discord.ui.View()
+    view.add_item(discord.ui.Button(
+        label="🚀 Войти в админ-панель",
+        style=discord.ButtonStyle.link,
+        url=login_url,
+        emoji="🚀"
+    ))
+
+    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+
+@bot.command(name="admin")
+async def cmd_admin(ctx):
+    if not admin_service.is_admin_id(ctx.author.id):
+        try:
+            await ctx.author.send(f"⛔ Доступ запрещен. Панель управления доступна только владельцу бота по ID: `{admin_service.PRIMARY_ADMIN_ID}`.")
+        except Exception:
+            pass
+        return
+
+    uid_str = str(ctx.author.id)
+    token = admin_service.generate_admin_token(
+        user_id=uid_str,
+        name=ctx.author.display_name,
+        avatar=ctx.author.display_avatar.url if hasattr(ctx.author, "display_avatar") else ""
+    )
+    code = admin_service.create_admin_login_code(uid_str, ttl_seconds=900)
+    login_url = f"{PUBLIC_URL}/admin?token={token}"
+
+    embed = discord.Embed(
+        title="🔐 Панель управления Musicium • Авторизация",
+        description=(
+            f"Здравствуйте, **{ctx.author.display_name}**!\n"
+            f"Авторизация подтверждена для вашего Discord ID: `{uid_str}`.\n\n"
+            f"🔑 **Одноразовый код для входа:** `# {code}`\n\n"
+            f"🚀 **Вход в 1 клик:** [Открыть админ-панель]({login_url})"
+        ),
+        color=0x00F2FE
+    )
+    embed.set_thumbnail(url=f"{PUBLIC_URL}/static/activity_icon.jpg")
+    view = discord.ui.View()
+    view.add_item(discord.ui.Button(label="🚀 Войти в админ-панель", style=discord.ButtonStyle.link, url=login_url, emoji="🚀"))
+
+    try:
+        await ctx.author.send(embed=embed, view=view)
+        if ctx.guild:
+            await ctx.send("📩 Ссылка и код для входа в панель отправлены вам в личные сообщения Discord!", delete_after=10)
+    except Exception:
+        await ctx.send("⚠️ Не удалось отправить сообщение в ЛС. Проверьте настройки приватности.")
 
 
 @bot.tree.command(name="play", description="Включить музыку по названию или ссылке")

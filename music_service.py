@@ -246,6 +246,14 @@ class MusicService:
             logger.warning(f"Could not load streaming settings from disk: {e}")
         self._apply_streaming_settings()
 
+    def clear_caches(self) -> int:
+        """Clears all in-memory stream and trending caches, returning count of removed entries."""
+        count = len(self._stream_cache) + len(self._sc_trending_cache)
+        self._stream_cache.clear()
+        self._sc_trending_cache.clear()
+        logger.info(f"Cleared {count} cached streaming and feed items.")
+        return count
+
     def _save_streaming_settings(self):
         try:
             with open(STREAMING_SETTINGS_FILE, "w", encoding="utf-8") as f:
