@@ -548,6 +548,31 @@ class GuildPlayer:
             await self.pause()
             return True
 
+    def clear_queue(self):
+        """Clears the playback queue."""
+        self.queue.clear()
+        if not self.is_playing:
+            self._start_idle_watchdog("Очередь воспроизведения очищена")
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                asyncio.create_task(self._notify_change())
+        except Exception:
+            pass
+
+    def remove_from_queue(self, index: int) -> Optional[Track]:
+        """Removes a track at specific index (0-based) from the queue."""
+        if 0 <= index < len(self.queue):
+            removed = self.queue.pop(index)
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.create_task(self._notify_change())
+            except Exception:
+                pass
+            return removed
+        return None
+
     async def skip(self, forced: bool = False, user_id: Optional[int] = None) -> Dict[str, Any]:
         if not self.current_track:
             return {"skipped": False, "message": "Сейчас ничего не играет"}
