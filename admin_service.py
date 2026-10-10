@@ -108,7 +108,7 @@ _admin_login_codes: Dict[str, Dict[str, Any]] = {}
 def create_admin_login_code(user_id: str, ttl_seconds: int = 900) -> Optional[str]:
     """Generates a secure 6-digit PIN code for an authorized admin user."""
     import secrets
-    uid = str(user_id).strip()
+    uid = user_id.strip()
     if not is_admin_id(uid):
         return None
     code = f"{secrets.randbelow(900000) + 100000:06d}"
@@ -122,7 +122,7 @@ def create_admin_login_code(user_id: str, ttl_seconds: int = 900) -> Optional[st
 
 def verify_admin_login_code(user_id: str, input_code: str) -> bool:
     """Verifies a 6-digit PIN code with anti-brute force and expiration checks."""
-    uid = str(user_id).strip()
+    uid = user_id.strip()
     if not is_admin_id(uid):
         return False
     entry = _admin_login_codes.get(uid)
@@ -137,7 +137,7 @@ def verify_admin_login_code(user_id: str, input_code: str) -> bool:
         _admin_login_codes.pop(uid, None)
         logger.warning(f"[ADMIN AUTH] Too many invalid attempts for {uid}, PIN invalidated")
         return False
-    if hmac.compare_digest(str(entry.get("code", "")), str(input_code).strip()):
+    if hmac.compare_digest(str(entry.get("code", "")), input_code.strip()):
         _admin_login_codes.pop(uid, None)
         logger.info(f"[ADMIN AUTH] Login PIN verified successfully for admin {uid}")
         return True
