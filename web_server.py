@@ -1750,7 +1750,7 @@ class WebServer:
             return web.json_response({"error": "Unauthorized"}, status=401)
         await self.music_service.ensure_streaming_settings_loaded()
         settings = self.music_service.get_streaming_settings()
-        adm_stats = await admin_service.get_admin_stats(self.bot, self.music_service)
+        adm_stats = await admin_service.get_system_stats(self.bot, self.player_manager, self.music_service)
         return web.json_response({
             "ok": True,
             "settings": settings,

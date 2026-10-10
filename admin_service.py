@@ -78,19 +78,23 @@ def get_admin_ids() -> Set[str]:
     return ids
 
 _SECRET_SALT = os.getenv("DISCORD_CLIENT_SECRET") or "musicium_super_secure_admin_salt_2026"
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "musicium2026")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "").strip()
 
 def verify_admin_password(password: Optional[str]) -> bool:
     if not password:
         return False
     pwd = password.strip()
-    valid_passwords = {ADMIN_PASSWORD.strip(), "musicium2026", "admin", PRIMARY_ADMIN_ID}
+    valid_passwords = set()
+    if ADMIN_PASSWORD:
+        valid_passwords.add(ADMIN_PASSWORD)
     discord_token = os.getenv("DISCORD_TOKEN", "").strip()
     if discord_token:
         valid_passwords.add(discord_token)
     client_secret = os.getenv("DISCORD_CLIENT_SECRET", "").strip()
     if client_secret:
         valid_passwords.add(client_secret)
+    if not valid_passwords:
+        return False
     return pwd in valid_passwords
 
 def is_admin_id(user_id: Any) -> bool:
@@ -311,6 +315,13 @@ async def get_system_stats(bot: discord.Client, player_manager: Any, music_servi
         "log_buffer_size": len(admin_log_handler.buffer),
         "restricted_count": restricted_count,
     }
+
+
+async def get_admin_stats(bot: discord.Client, player_manager_or_music: Any = None, music_service: Any = None) -> Dict[str, Any]:
+    """Flexible compatibility alias for get_system_stats."""
+    if music_service is None and hasattr(player_manager_or_music, "get_streaming_settings"):
+        return await get_system_stats(bot, None, player_manager_or_music)
+    return await get_system_stats(bot, player_manager_or_music, music_service)
 
 
 # --- Guilds & Voice Channels Management ---
