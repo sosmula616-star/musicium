@@ -80,6 +80,19 @@ async def init_db() -> Optional[asyncpg.Pool]:
                     played_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                 );
                 CREATE INDEX IF NOT EXISTS idx_history_user ON user_history(user_id);
+
+                CREATE TABLE IF NOT EXISTS bot_restricted_users (
+                    user_id VARCHAR(64) PRIMARY KEY,
+                    user_name TEXT NOT NULL,
+                    user_avatar TEXT,
+                    guild_id VARCHAR(64),
+                    guild_name TEXT,
+                    reason TEXT,
+                    requests_count INTEGER DEFAULT 1,
+                    restricted_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                    is_active BOOLEAN DEFAULT TRUE
+                );
+                CREATE INDEX IF NOT EXISTS idx_restricted_active ON bot_restricted_users(is_active);
             """)
         logger.info("PostgreSQL database initialized successfully.")
         return _pool
@@ -601,3 +614,121 @@ async def get_global_recent_history(limit: int = 20) -> List[Dict[str, Any]]:
     except Exception as e:
         logger.error(f"Error fetching global recent history: {e}")
         return []
+
+# --- Anti-Crash & Restricted Users ---
+
+async def get_restricted_users() -> List[Dict[str, Any]]:
+    global _pool
+    if not _pool:
+        await init_db()
+    if not _pool:
+        return []
+    try:
+        async with _pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT user_id, user_name, user_avatar, guild_id, guild_name, reason, requests_count, restricted_at, is_active
+                FROM bot_restricted_users
+                WHERE is_active = TRUE
+                ORDER BY restricted_at DESC;
+                """
+            )
+            return [
+                {
+                    "user_id": r["user_id"],
+                    "user_name": r["user_name"],
+                    "user_avatar": r["user_avatar"] or "/static/activity_icon.jpg",
+                    "guild_id": r["guild_id"] or "",
+                    "guild_name": r["guild_name"] or "Неизвестный сервер",
+                    "reason": r["reason"] or "Спам запросами",
+                    "requests_count": r["requests_count"] or 1,
+                    "restricted_at": r["restricted_at"].strftime("%Y-%m-%d %H:%M:%S") if r["restricted_at"] else "",
+                    "is_active": r["is_active"]
+                }
+                for r in rows
+            ]
+    except Exception as e:
+        logger.error(f"Error fetching restricted users: {e}")
+        return []
+
+async def add_restricted_user(
+    user_id: str,
+    user_name: str,
+    user_avatar: Optional[str] = None,
+    guild_id: Optional[str] = None,
+    guild_name: Optional[str] = None,
+    reason: Optional[str] = None,
+    requests_count: int = 1
+) -> bool:
+    global _pool
+    if not _pool:
+        await init_db()
+    if not _pool or not user_id:
+        return False
+    try:
+        async with _pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO bot_restricted_users (user_id, user_name, user_avatar, guild_id, guild_name, reason, requests_count, restricted_at, is_active)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, TRUE)
+                ON CONFLICT (user_id) DO UPDATE SET
+                    user_name = EXCLUDED.user_name,
+                    user_avatar = COALESCE(EXCLUDED.user_avatar, bot_restricted_users.user_avatar),
+                    guild_id = COALESCE(EXCLUDED.guild_id, bot_restricted_users.guild_id),
+                    guild_name = COALESCE(EXCLUDED.guild_name, bot_restricted_users.guild_name),
+                    reason = EXCLUDED.reason,
+                    requests_count = bot_restricted_users.requests_count + EXCLUDED.requests_count,
+                    restricted_at = CURRENT_TIMESTAMP,
+                    is_active = TRUE;
+                """,
+                str(user_id),
+                user_name or "Пользователь",
+                user_avatar or "/static/activity_icon.jpg",
+                str(guild_id) if guild_id else "",
+                guild_name or "Сервер Discord",
+                reason or "Спам запросами музыки",
+                requests_count
+            )
+            return True
+    except Exception as e:
+        logger.error(f"Error adding restricted user {user_id}: {e}")
+        return False
+
+async def remove_restricted_user(user_id: str) -> bool:
+    global _pool
+    if not _pool:
+        await init_db()
+    if not _pool or not user_id:
+        return False
+    try:
+        async with _pool.acquire() as conn:
+            await conn.execute(
+                """
+                DELETE FROM bot_restricted_users
+                WHERE user_id = $1;
+                """,
+                str(user_id)
+            )
+            return True
+    except Exception as e:
+        logger.error(f"Error removing restricted user {user_id}: {e}")
+        return False
+
+async def is_user_restricted(user_id: str) -> bool:
+    global _pool
+    if not _pool or not user_id:
+        return False
+    try:
+        async with _pool.acquire() as conn:
+            val = await conn.fetchval(
+                """
+                SELECT is_active FROM bot_restricted_users
+                WHERE user_id = $1 AND is_active = TRUE;
+                """,
+                str(user_id)
+            )
+            return bool(val)
+    except Exception as e:
+        logger.debug(f"is_user_restricted check: {e}")
+        return False
+
