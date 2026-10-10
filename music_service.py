@@ -16,12 +16,15 @@ DEFAULT_THUMBNAIL = "/static/activity_icon.jpg"
 def clean_youtube_url(url: str) -> str:
     """
     Cleans YouTube / YouTube Music URLs: strips radio/mix params (&list=RD..., &index=, &si=)
-    which cause yt-dlp to hang trying to parse 50-track mix playlists.
+    which cause yt-dlp to hang or play random mix tracks.
     Preserves standalone playlists (/playlist?list=...).
     """
     if not url:
         return ""
-    url = url.strip()
+    url = url.strip().strip("<>").strip('"').strip("'")
+    if url.startswith("youtu.be/") or url.startswith("youtube.com/") or url.startswith("music.youtube.com/"):
+        url = "https://" + url
+
     # Short youtu.be/<id>
     m_short = re.match(r'https?://(?:www\.)?youtu\.be/([a-zA-Z0-9_-]{11})', url)
     if m_short:
@@ -45,6 +48,27 @@ def clean_youtube_url(url: str) -> str:
         except Exception:
             pass
     return url
+
+def is_title_similar(original: str, candidate: str) -> bool:
+    """Verifies that an alternative track or fallback search candidate actually matches the requested track title."""
+    if not original or not candidate:
+        return False
+    def get_words(s: str) -> Set[str]:
+        cleaned = re.sub(r'\[.*?\]|\(.*?\)|ft\.?|feat\.?|official|video|audio|remix|hd|hq|4k|lyric|lyrics', '', s, flags=re.IGNORECASE)
+        words = re.findall(r'[\w]+', cleaned.lower())
+        return {w for w in words if len(w) >= 2}
+
+    orig_words = get_words(original)
+    cand_words = get_words(candidate)
+    if not orig_words:
+        return True
+    overlap = len(orig_words & cand_words)
+    if overlap >= 2:
+        return True
+    if len(orig_words) == 1:
+        return overlap >= 1
+    return (overlap / len(orig_words)) >= 0.4
+
 
 def format_duration(seconds: Optional[int]) -> str:
     if not seconds or seconds <= 0:
@@ -499,7 +523,19 @@ class MusicService:
         if source == "youtube" and vid_id:
             thumbnail = f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg"
         else:
-            thumbnail = entry.get("thumbnail") or DEFAULT_THUMBNAIL
+            tb = entry.get("thumbnail") or entry.get("artwork_url")
+            if not tb and entry.get("thumbnails"):
+                tb = entry["thumbnails"][-1].get("url")
+            if not tb and entry.get("user") and isinstance(entry["user"], dict):
+                tb = entry["user"].get("avatar_url")
+            if not tb:
+                tb = entry.get("uploader_avatar") or entry.get("avatar_url")
+            if tb and isinstance(tb, str):
+                if "-large." in tb:
+                    tb = tb.replace("-large.", "-t500x500.")
+                elif "-badge." in tb:
+                    tb = tb.replace("-badge.", "-t500x500.")
+            thumbnail = tb or DEFAULT_THUMBNAIL
         stream_url = entry.get("url") if entry.get("acodec") != "none" else None
 
         return Track(
@@ -536,11 +572,19 @@ class MusicService:
         if source == "youtube" and entry_id:
             thumbnail = f"https://i.ytimg.com/vi/{entry_id}/hqdefault.jpg"
         else:
-            thumbnail = entry.get("thumbnail")
-            if not thumbnail and entry.get("thumbnails"):
-                thumbnail = entry["thumbnails"][-1].get("url")
-            if not thumbnail:
-                thumbnail = DEFAULT_THUMBNAIL
+            tb = entry.get("thumbnail") or entry.get("artwork_url")
+            if not tb and entry.get("thumbnails"):
+                tb = entry["thumbnails"][-1].get("url")
+            if not tb and entry.get("user") and isinstance(entry["user"], dict):
+                tb = entry["user"].get("avatar_url")
+            if not tb:
+                tb = entry.get("uploader_avatar") or entry.get("avatar_url")
+            if tb and isinstance(tb, str):
+                if "-large." in tb:
+                    tb = tb.replace("-large.", "-t500x500.")
+                elif "-badge." in tb:
+                    tb = tb.replace("-badge.", "-t500x500.")
+            thumbnail = tb or DEFAULT_THUMBNAIL
 
         return Track(
             id=f"{source}_{entry_id}",
@@ -701,7 +745,7 @@ class MusicService:
                 except Exception as e:
                     logger.warning(f"Direct SoundCloud extraction failed for {target_url}: {e}")
 
-            # Fallback search on SoundCloud with multi-result check
+            # Fallback search on SoundCloud with multi-result similarity check
             try:
                 clean_title = re.sub(r'[\U00010000-\U0010ffff]', '', track.title)
                 clean_title = re.sub(r'#\w+', '', clean_title)
@@ -711,9 +755,17 @@ class MusicService:
                 search_q = f"scsearch5:{clean_title} {clean_artist}".strip()
                 with yt_dlp.YoutubeDL(sc_opts) as ydl:
                     info = ydl.extract_info(search_q, download=False)
-                    stream = self._extract_audio_stream_url(info)
-                    if stream:
-                        return stream
+                    if info and "entries" in info:
+                        for entry in info["entries"]:
+                            if entry and is_title_similar(track.title, entry.get("title", "")):
+                                stream = self._extract_audio_stream_url(entry)
+                                if stream:
+                                    logger.info(f"Resolved verified SoundCloud fallback stream for: {track.title} -> {entry.get('title')}")
+                                    return stream
+                    elif info and is_title_similar(track.title, info.get("title", "")):
+                        stream = self._extract_audio_stream_url(info)
+                        if stream:
+                            return stream
             except Exception as e2:
                 logger.error(f"SoundCloud fallback search failed: {e2}")
 
@@ -851,10 +903,19 @@ class MusicService:
                 search_opts["socket_timeout"] = 3.5
                 with yt_dlp.YoutubeDL(search_opts) as ydl:
                     alt_info = ydl.extract_info(f"ytsearch1:{search_query}", download=False)
-                    stream = self._extract_audio_stream_url(alt_info)
-                    if stream:
-                        logger.info(f"Resolved alternative YouTube stream for: {track.title}")
-                        return stream
+                    cand_title = ""
+                    if alt_info and "entries" in alt_info and alt_info["entries"]:
+                        cand_title = alt_info["entries"][0].get("title", "")
+                    elif alt_info:
+                        cand_title = alt_info.get("title", "")
+
+                    if cand_title and not is_title_similar(track.title, cand_title):
+                        logger.warning(f"Rejecting alternative YouTube stream '{cand_title}' because it does not match '{track.title}'")
+                    else:
+                        stream = self._extract_audio_stream_url(alt_info)
+                        if stream:
+                            logger.info(f"Resolved verified alternative YouTube stream for: {track.title}")
+                            return stream
             except Exception as alt_err:
                 logger.debug(f"Alternative YouTube search failed: {alt_err}")
 
@@ -874,10 +935,19 @@ class MusicService:
                 }
                 with yt_dlp.YoutubeDL(sc_opts) as ydl:
                     sc_info = ydl.extract_info(f"scsearch1:{search_query}", download=False)
-                    stream = self._extract_audio_stream_url(sc_info)
-                    if stream:
-                        logger.info(f"Resolved SoundCloud fallback stream for: {track.title}")
-                        return stream
+                    cand_title = ""
+                    if sc_info and "entries" in sc_info and sc_info["entries"]:
+                        cand_title = sc_info["entries"][0].get("title", "")
+                    elif sc_info:
+                        cand_title = sc_info.get("title", "")
+
+                    if cand_title and not is_title_similar(track.title, cand_title):
+                        logger.warning(f"Rejecting fallback SoundCloud stream '{cand_title}' because it does not match '{track.title}'")
+                    else:
+                        stream = self._extract_audio_stream_url(sc_info)
+                        if stream:
+                            logger.info(f"Resolved verified SoundCloud fallback stream for: {track.title}")
+                            return stream
             except Exception as sc_err:
                 logger.error(f"SoundCloud fallback search failed: {sc_err}")
 
