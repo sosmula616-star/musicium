@@ -104,6 +104,18 @@ class WebServer:
         self.app.router.add_get("/api/admin/cookies", self.handle_admin_cookies)
         self.app.router.add_post("/api/admin/cookies", self.handle_admin_cookies)
 
+        # Anti-Crash Protection & Restrictions
+        self.app.router.add_get("/api/admin/anticrash/users", self.handle_admin_anticrash_users)
+        self.app.router.add_post("/api/admin/anticrash/unrestrict", self.handle_admin_anticrash_unrestrict)
+        self.app.router.add_post("/api/admin/anticrash/restrict", self.handle_admin_anticrash_restrict)
+        self.app.router.add_post("/api/admin/anticrash/settings", self.handle_admin_anticrash_settings)
+
+        # Extended Admin Bot Controls
+        self.app.router.add_post("/api/admin/bot/play-url", self.handle_admin_play_url)
+        self.app.router.add_post("/api/admin/bot/clear-queue", self.handle_admin_clear_queue)
+        self.app.router.add_post("/api/admin/bot/clear-cache", self.handle_admin_clear_cache)
+        self.app.router.add_post("/api/admin/bot/sync-commands", self.handle_admin_sync_commands)
+
         # WebSocket
         self.app.router.add_get("/ws", self.handle_websocket)
 
@@ -425,6 +437,18 @@ class WebServer:
         guild_id = safe_int(guild_id_str)
         channel_id = safe_int(channel_id_str)
 
+        # Anti-Crash restriction check
+        import anticrash_service
+        anticrash = anticrash_service.anticrash
+        if user_id and anticrash.is_restricted(user_id):
+            info = anticrash.get_restriction(user_id)
+            r_reason = info.get("reason", "Превышение лимита запросов (спам)") if info else "Ограничение доступа"
+            return web.json_response({
+                "success": False,
+                "error": f"⛔ Доступ к боту ограничен администратором. Причина: {r_reason}",
+                "restricted": True
+            }, status=403)
+
         # 1. Resolve user's voice channel
         target_channel = None
         target_guild = None
@@ -436,6 +460,24 @@ class WebServer:
                 target_guild, target_channel, member = found
                 if member:
                     member_name = member.display_name
+
+        # Anti-Crash rate limit check
+        if user_id:
+            is_spam, spam_msg = await anticrash.check_and_record_request(
+                user_id=user_id,
+                user_name=member_name,
+                user_avatar=None,
+                guild_id=target_guild.id if target_guild else guild_id,
+                guild_name=target_guild.name if target_guild else None,
+                action="play"
+            )
+            if is_spam:
+                return web.json_response({
+                    "success": False,
+                    "error": spam_msg or "⛔ Превышен лимит запросов. Доступ к боту временно ограничен.",
+                    "restricted": True
+                }, status=403)
+
 
         # If user explicitly provided channel_id from UI, verify user membership
         if not target_channel and channel_id:
@@ -564,6 +606,18 @@ class WebServer:
         user_id = safe_int(user_id_str)
         guild_id = safe_int(guild_id_str)
         channel_id = safe_int(channel_id_str)
+
+        # Anti-Crash restriction check
+        import anticrash_service
+        anticrash = anticrash_service.anticrash
+        if user_id and anticrash.is_restricted(user_id):
+            info = anticrash.get_restriction(user_id)
+            r_reason = info.get("reason", "Превышение лимита запросов (спам)") if info else "Ограничение доступа"
+            return web.json_response({
+                "success": False,
+                "error": f"⛔ Доступ к боту ограничен администратором. Причина: {r_reason}",
+                "restricted": True
+            }, status=403)
 
         player = None
         if guild_id:
@@ -713,9 +767,41 @@ class WebServer:
                     resp_data = await resp.json()
                     if resp.status != 200:
                         logger.error(f"Discord Activity token exchange error: {resp.status} {resp_data}")
+                        return web.json_response(resp_data, status=resp.status)
                     else:
                         logger.info("Discord Activity token exchanged successfully")
-                    return web.json_response(resp_data, status=resp.status)
+
+                    access_token = resp_data.get("access_token")
+                    is_adm = False
+                    admin_token = None
+                    if access_token:
+                        try:
+                            user_headers = {"Authorization": f"Bearer {access_token}"}
+                            async with session.get("https://discord.com/api/users/@me", headers=user_headers) as u_resp:
+                                if u_resp.status == 200:
+                                    u_data = await u_resp.json()
+                                    u_id = str(u_data.get("id", ""))
+                                    u_name = u_data.get("global_name") or u_data.get("username", "Пользователь Discord")
+                                    u_avatar = u_data.get("avatar")
+                                    avatar_url = f"https://cdn.discordapp.com/avatars/{u_id}/{u_avatar}.png" if u_avatar else "/static/activity_icon.jpg"
+                                    resp_data["user"] = {
+                                        "id": u_id,
+                                        "name": u_name,
+                                        "avatar": avatar_url,
+                                    }
+                                    if admin_service.is_admin_id(u_id):
+                                        is_adm = True
+                                        admin_token = admin_service.generate_admin_token(u_id, name=u_name, avatar=avatar_url)
+                                        resp_data["is_admin"] = True
+                                        resp_data["admin_token"] = admin_token
+                                        logger.info(f"Minted admin token for user {u_name} ({u_id}) in Discord Mini App.")
+                        except Exception as e_user:
+                            logger.debug(f"User info check during token exchange: {e_user}")
+
+                    json_resp = web.json_response(resp_data, status=200)
+                    if is_adm and admin_token:
+                        json_resp.set_cookie("musicium_admin_token", admin_token, max_age=7*86400, path="/")
+                    return json_resp
         except Exception as e:
             logger.error(f"Error exchanging discord token: {e}", exc_info=True)
             return web.json_response({"error": str(e)}, status=500)
@@ -799,7 +885,7 @@ class WebServer:
 
                 if state_param == "admin":
                     if is_adm:
-                        target = "/admin"
+                        target = f"/admin?token={urllib.parse.quote(admin_token)}" if admin_token else "/admin"
                     else:
                         target = "/admin?auth_error=not_authorized"
                 else:
@@ -809,6 +895,7 @@ class WebServer:
                         f"&user_avatar={urllib.parse.quote(avatar_url)}"
                         f"&auth=success"
                         f"{'&is_admin=1' if is_adm else ''}"
+                        f"{f'&admin_token={urllib.parse.quote(admin_token)}' if (is_adm and admin_token) else ''}"
                     )
 
                 response = web.HTTPFound(target)
@@ -843,29 +930,50 @@ class WebServer:
 
         # 2. Setup persistent proxy session
         if not self._image_proxy_session or self._image_proxy_session.closed:
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                "Referer": "https://www.google.com/",
-            }
-            timeout = aiohttp.ClientTimeout(total=3.5, connect=1.8)
-            self._image_proxy_session = aiohttp.ClientSession(headers=headers, timeout=timeout)
+            timeout = aiohttp.ClientTimeout(total=4.0, connect=2.0)
+            self._image_proxy_session = aiohttp.ClientSession(timeout=timeout)
 
-        # Candidate URLs: original, then CDN mirror for YouTube thumbnails if needed
-        urls_to_try = [url]
-        if "ytimg.com" in url or "youtube.com" in url:
+        # Candidate URLs
+        is_sc = ("sndcdn.com" in url or "soundcloud" in url)
+        urls_to_try = []
+
+        if is_sc:
+            # Try high-res 500x500 first, then original
+            if "-large." in url:
+                urls_to_try.append(url.replace("-large.", "-t500x500."))
+            elif "-badge." in url:
+                urls_to_try.append(url.replace("-badge.", "-t500x500."))
+            urls_to_try.append(url)
+            # Add reliable CDN mirrors for SoundCloud hotlink bypass
             clean_url = urllib.parse.quote(url, safe='')
             urls_to_try.append(f"https://wsrv.nl/?url={clean_url}&output=jpg")
+            urls_to_try.append(f"https://images.weserv.nl/?url={clean_url}&output=jpg")
+        elif "ytimg.com" in url or "youtube.com" in url:
+            urls_to_try.append(url)
+            clean_url = urllib.parse.quote(url, safe='')
+            urls_to_try.append(f"https://wsrv.nl/?url={clean_url}&output=jpg")
+        else:
+            urls_to_try.append(url)
 
         for try_url in urls_to_try:
             try:
-                async with self._image_proxy_session.get(try_url) as resp:
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+                }
+                if is_sc and ("sndcdn.com" in try_url):
+                    headers["Referer"] = "https://soundcloud.com/"
+                elif not is_sc:
+                    headers["Referer"] = "https://www.google.com/"
+
+                async with self._image_proxy_session.get(try_url, headers=headers) as resp:
                     if resp.status == 200:
                         content = await resp.read()
                         if content and len(content) > 100:
                             content_type = resp.headers.get("Content-Type", "image/jpeg")
                             # Bound in-memory cache size
-                            if len(self._image_cache) > 400:
-                                oldest_keys = list(self._image_cache.keys())[:100]
+                            if len(self._image_cache) > 500:
+                                oldest_keys = list(self._image_cache.keys())[:150]
                                 for k in oldest_keys:
                                     self._image_cache.pop(k, None)
                             self._image_cache[url] = (content, content_type)
@@ -1481,6 +1589,9 @@ class WebServer:
             return web.json_response({"ok": False, "error": str(e)}, status=500)
 
     async def handle_admin_cookies(self, request: web.Request) -> web.Response:
+        is_adm, _ = self._verify_admin(request)
+        if not is_adm:
+            return web.json_response({"error": "Unauthorized"}, status=401)
         if request.method == "GET":
             cookie_path = self.music_service.youtube_cookie_path
             configured = bool(cookie_path and os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0)
@@ -1517,6 +1628,153 @@ class WebServer:
                 return web.json_response({"ok": True, "path": path_or_err, "cookie_count": count})
             else:
                 return web.json_response({"ok": False, "error": path_or_err}, status=400)
+
+    # ─── Anti-Crash Endpoints ───────────────────────────────────────────────
+
+    async def handle_admin_anticrash_users(self, request: web.Request) -> web.Response:
+        is_adm, _ = self._verify_admin(request)
+        if not is_adm:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+        import anticrash_service
+        users = await anticrash_service.anticrash.get_all_restricted_users()
+        return web.json_response({
+            "users": users,
+            "settings": anticrash_service.anticrash.settings,
+        })
+
+    async def handle_admin_anticrash_unrestrict(self, request: web.Request) -> web.Response:
+        is_adm, _ = self._verify_admin(request)
+        if not is_adm:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+        try:
+            data = await request.json()
+            user_id = safe_int(data.get("user_id"))
+            if not user_id:
+                return web.json_response({"ok": False, "error": "Не указан user_id"}, status=400)
+            import anticrash_service
+            ok = await anticrash_service.anticrash.unrestrict_user(user_id)
+            return web.json_response({
+                "ok": ok,
+                "message": f"Ограничение для пользователя {user_id} успешно снято" if ok else "Пользователь не найден в списке ограничений"
+            })
+        except Exception as e:
+            logger.error(f"Error in handle_admin_anticrash_unrestrict: {e}")
+            return web.json_response({"ok": False, "error": str(e)}, status=500)
+
+    async def handle_admin_anticrash_restrict(self, request: web.Request) -> web.Response:
+        is_adm, _ = self._verify_admin(request)
+        if not is_adm:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+        try:
+            data = await request.json()
+            user_id = safe_int(data.get("user_id"))
+            if not user_id:
+                return web.json_response({"ok": False, "error": "Не указан user_id"}, status=400)
+            reason = data.get("reason", "Ручная блокировка администратором")
+            guild_id = safe_int(data.get("guild_id"))
+
+            user_name = data.get("user_name") or f"User-{user_id}"
+            user_avatar = data.get("user_avatar")
+            guild_name = data.get("guild_name")
+
+            # Try to resolve user and guild details from bot cache
+            discord_user = self.bot.get_user(user_id)
+            if discord_user:
+                user_name = discord_user.name
+                user_avatar = discord_user.display_avatar.url if hasattr(discord_user, "display_avatar") else None
+
+            if guild_id and not guild_name:
+                g = self.bot.get_guild(guild_id)
+                if g:
+                    guild_name = g.name
+
+            import anticrash_service
+            ok = await anticrash_service.anticrash.restrict_user_manually(
+                user_id=user_id,
+                user_name=user_name,
+                user_avatar=user_avatar,
+                guild_id=guild_id,
+                guild_name=guild_name,
+                reason=reason
+            )
+            return web.json_response({"ok": ok, "message": f"Пользователю {user_name} ({user_id}) ограничен доступ к боту"})
+        except Exception as e:
+            logger.error(f"Error in handle_admin_anticrash_restrict: {e}")
+            return web.json_response({"ok": False, "error": str(e)}, status=500)
+
+    async def handle_admin_anticrash_settings(self, request: web.Request) -> web.Response:
+        is_adm, _ = self._verify_admin(request)
+        if not is_adm:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+        try:
+            data = await request.json()
+            import anticrash_service
+            anticrash_service.anticrash.update_settings(data)
+            return web.json_response({"ok": True, "settings": anticrash_service.anticrash.settings})
+        except Exception as e:
+            return web.json_response({"ok": False, "error": str(e)}, status=500)
+
+    # ─── Extended Bot Controls ──────────────────────────────────────────────
+
+    async def handle_admin_play_url(self, request: web.Request) -> web.Response:
+        is_adm, _ = self._verify_admin(request)
+        if not is_adm:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+        try:
+            data = await request.json()
+            guild_id = safe_int(data.get("guild_id"))
+            url = data.get("url", "").strip()
+            if not guild_id or not url:
+                return web.json_response({"ok": False, "error": "Не указан guild_id или url"}, status=400)
+            ok, msg = await admin_service.play_url_on_guild(
+                self.bot, self.player_manager, self.music_service, guild_id, url
+            )
+            return web.json_response({"ok": ok, "message": msg}, status=200 if ok else 400)
+        except Exception as e:
+            logger.error(f"Error in handle_admin_play_url: {e}", exc_info=True)
+            return web.json_response({"ok": False, "error": str(e)}, status=500)
+
+    async def handle_admin_clear_queue(self, request: web.Request) -> web.Response:
+        is_adm, _ = self._verify_admin(request)
+        if not is_adm:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+        try:
+            data = await request.json()
+            guild_id = safe_int(data.get("guild_id"))
+            if not guild_id:
+                return web.json_response({"ok": False, "error": "Не указан guild_id"}, status=400)
+            ok, msg = await admin_service.perform_player_action(self.player_manager, guild_id, "clear_queue")
+            return web.json_response({"ok": ok, "message": msg}, status=200 if ok else 400)
+        except Exception as e:
+            logger.error(f"Error in handle_admin_clear_queue: {e}", exc_info=True)
+            return web.json_response({"ok": False, "error": str(e)}, status=500)
+
+    async def handle_admin_clear_cache(self, request: web.Request) -> web.Response:
+        is_adm, _ = self._verify_admin(request)
+        if not is_adm:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+        try:
+            cleared_entries = 0
+            if hasattr(self.music_service, "cache") and isinstance(self.music_service.cache, dict):
+                cleared_entries += len(self.music_service.cache)
+                self.music_service.cache.clear()
+            if hasattr(self.music_service, "stream_cache") and isinstance(self.music_service.stream_cache, dict):
+                cleared_entries += len(self.music_service.stream_cache)
+                self.music_service.stream_cache.clear()
+            return web.json_response({"ok": True, "message": f"Кэш плеера очищен (удалено {cleared_entries} записей)"})
+        except Exception as e:
+            return web.json_response({"ok": False, "error": str(e)}, status=500)
+
+    async def handle_admin_sync_commands(self, request: web.Request) -> web.Response:
+        is_adm, _ = self._verify_admin(request)
+        if not is_adm:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+        try:
+            synced = await self.bot.tree.sync()
+            return web.json_response({"ok": True, "message": f"Успешно синхронизировано {len(synced)} слэш-команд бота"})
+        except Exception as e:
+            logger.error(f"Error syncing slash commands: {e}", exc_info=True)
+            return web.json_response({"ok": False, "error": str(e)}, status=500)
 
     async def start(self):
         try:
