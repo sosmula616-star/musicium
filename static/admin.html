@@ -1256,9 +1256,11 @@
     .auth-accord-body {
       display: none;
       margin-top: 14px;
-      display: flex;
       flex-direction: column;
       gap: 12px;
+    }
+    .auth-accord-body.open {
+      display: flex;
     }
 
     @media (max-width: 768px) {
@@ -1389,7 +1391,7 @@
           <span>Резервные способы входа (Пароль / OAuth2)</span>
           <span class="svg-icon" data-icon="chevron-down"></span>
         </div>
-        <div class="auth-accord-body" id="authAccordBody" style="display: none;">
+        <div class="auth-accord-body" id="authAccordBody">
           <div style="margin-top: 10px;">
             <input type="password" id="authPasswordInput" class="setting-input" style="width: 100%; margin-bottom: 8px;" placeholder="Мастер-пароль или токен">
             <button id="authPasswordBtn" class="btn" style="width: 100%; justify-content: center; background: rgba(0, 242, 254, 0.15); border: 1px solid var(--border-accent); color: var(--accent-cyan);">
@@ -2047,8 +2049,7 @@
         authAccordToggle.addEventListener('click', () => {
           const body = document.getElementById('authAccordBody');
           if (body) {
-            const isHidden = body.style.display === 'none';
-            body.style.display = isHidden ? 'flex' : 'none';
+            body.classList.toggle('open');
           }
         });
       }
@@ -2473,8 +2474,13 @@
 
                 <div style="display: flex; gap: 8px; margin-top: 6px;">
                   <input type="text" id="play-url-${g.id}" class="channel-select" placeholder="Вставить ссылку (YouTube, SoundCloud, Яндекс)..." style="font-size: 0.82rem; padding: 7px 10px;">
-                  <button class="btn btn-primary" style="padding: 7px 12px; font-size: 0.8rem; white-space: nowrap;" onclick="window.adminPlayUrl('${g.id}')">
+                  <button id="btn-play-${g.id}" class="btn btn-primary" style="padding: 7px 12px; font-size: 0.8rem; white-space: nowrap;" onclick="window.adminPlayUrl('${g.id}')">
                     <span class="svg-icon" data-icon="play"></span> Включить
+                  </button>
+                </div>
+                <div style="margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 8px; display: flex; justify-content: flex-end;">
+                  <button class="btn btn-danger" style="padding: 4px 10px; font-size: 0.74rem; opacity: 0.7;" onclick="window.adminLeaveGuild('${g.id}', '${escapeHtml(g.name).replace(/'/g, "\\'")}'  )" title="Исключить бота с сервера">
+                    <span class="svg-icon" data-icon="logout"></span> Покинуть сервер
                   </button>
                 </div>
               </div>
@@ -2644,12 +2650,18 @@
 
       window.adminPlayUrl = async function(guildId) {
         const inp = document.getElementById(`play-url-${guildId}`);
+        const playBtn = document.getElementById(`btn-play-${guildId}`);
         const url = inp ? inp.value.trim() : '';
         if (!url) {
           showToast('Вставьте ссылку на трек', 'error');
           return;
         }
-        inp.disabled = true;
+        if (inp) inp.disabled = true;
+        if (playBtn) {
+          playBtn.disabled = true;
+          playBtn.innerHTML = '<span class="svg-icon" data-icon="rotate"></span> Поиск...';
+          renderSvgIcons();
+        }
         try {
           const res = await adminFetch('/api/admin/bot/play-url', {
             method: 'POST',
@@ -2669,6 +2681,32 @@
           showToast('Ошибка связи с сервером', 'error');
         } finally {
           if (inp) inp.disabled = false;
+          if (playBtn) {
+            playBtn.disabled = false;
+            playBtn.innerHTML = '<span class="svg-icon" data-icon="play"></span> Включить';
+            renderSvgIcons();
+          }
+        }
+      };
+
+      window.adminLeaveGuild = async function(guildId, guildName) {
+        if (!confirm(`Вы уверены, что хотите исключить бота с сервера "${guildName}"? Это действие необратимо!`)) return;
+        try {
+          const res = await adminFetch('/api/admin/bot/leave-guild', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ guild_id: guildId })
+          });
+          const d = await res.json();
+          if (d.ok) {
+            showToast(d.message || `Бот покинул сервер ${guildName}`, 'success');
+            await fetchGuilds();
+            await fetchStats();
+          } else {
+            showToast(d.error || 'Ошибка при выходе с сервера', 'error');
+          }
+        } catch (e) {
+          showToast('Ошибка связи с сервером', 'error');
         }
       };
 
@@ -2973,10 +3011,13 @@
         const btn = document.getElementById('saveStreamingModeBtn');
         if (btn) btn.disabled = true;
         try {
+          const potUrl = (document.getElementById('streamingPotUrlInput')?.value || '').trim();
+          // Never send the dead default POT address
+          const safePotUrl = (potUrl && potUrl !== 'http://127.0.0.1:4416') ? potUrl : '';
           const payload = {
             mode: window.selectedStreamingMode || 'cookieless',
             proxy: (document.getElementById('streamingProxyInput')?.value || '').trim(),
-            pot_provider_url: (document.getElementById('streamingPotUrlInput')?.value || '').trim() || 'http://127.0.0.1:4416',
+            pot_provider_url: safePotUrl,
           };
           const res = await adminFetch('/api/admin/streaming/settings', {
             method: 'POST',
@@ -2985,7 +3026,7 @@
           });
           const d = await res.json();
           if (d.ok) {
-            showToast('Режим стриминга успешно применен!', 'success');
+            showToast('✅ Режим стриминга успешно применен!', 'success');
             await window.fetchStreamingSettings();
             await fetchStats();
           } else {
@@ -3119,8 +3160,14 @@
 
       const logClearBtn = document.getElementById('logClearBtn');
       if (logClearBtn) {
-        logClearBtn.addEventListener('click', () => {
-          document.getElementById('logsTerminal').innerHTML = '<div style="color: var(--text-dim); text-align: center; padding: 40px;">Экран очищен</div>';
+        logClearBtn.addEventListener('click', async () => {
+          logClearBtn.disabled = true;
+          try {
+            await adminFetch('/api/admin/logs/clear', { method: 'POST' });
+          } catch (_) {}
+          document.getElementById('logsTerminal').innerHTML = '<div style="color: var(--text-dim); text-align: center; padding: 40px;">Буфер логов очищен ✓</div>';
+          showToast('Буфер логов очищен', 'success');
+          logClearBtn.disabled = false;
         });
       }
 

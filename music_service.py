@@ -279,11 +279,11 @@ class MusicService:
         if mode == "youtube_cookies" and self.youtube_cookie_path and os.path.exists(self.youtube_cookie_path):
             self.ydl_opts["cookiefile"] = self.youtube_cookie_path
             self.fast_yt_opts["cookiefile"] = self.youtube_cookie_path
-            yt_args["player_client"] = ["web", "mweb"]
+            yt_args["player_client"] = ["ios", "android", "mweb", "web"]
         else:
             self.ydl_opts.pop("cookiefile", None)
             self.fast_yt_opts.pop("cookiefile", None)
-            yt_args["player_client"] = ["mweb", "ios", "tv_embedded"]
+            yt_args["player_client"] = ["ios", "android", "mweb", "tv_embedded"]
 
         # Proxy handling
         if proxy:
@@ -1061,6 +1061,8 @@ class MusicService:
 
     async def _get_youtube_stream(self, track: Track) -> Optional[str]:
         def _get():
+            import concurrent.futures
+
             target_url = clean_youtube_url(track.url)
             if not target_url or not target_url.startswith("http"):
                 if track.id and "_" in track.id:
@@ -1081,7 +1083,7 @@ class MusicService:
             clean_artist = track.artist if track.artist and track.artist != "Неизвестный автор" else ""
             search_query = f"{clean_title} {clean_artist}".strip() or track.title
 
-            def build_opts(clients=None, use_cookies=False, timeout=5.0):
+            def build_opts(clients=None, use_cookies=False, timeout=3.5):
                 opts = {
                     "format": "ba[acodec^=opus]/ba[ext=webm]/ba[ext=m4a]/ba/b/bestaudio/best",
                     "quiet": True,
@@ -1094,7 +1096,7 @@ class MusicService:
                     "youtube_include_hls_manifest": False,
                     "lazy_playlist": True,
                     "socket_timeout": timeout,
-                    "retries": 2,
+                    "retries": 1,
                     "source_address": "0.0.0.0",
                 }
                 if use_cookies and cookie_file:
@@ -1109,13 +1111,13 @@ class MusicService:
                     }
                 return opts
 
-            # --- Strategy 1: Primary extraction according to current mode ---
             t0 = time.time()
-            primary_use_cookies = (mode == "youtube_cookies" and bool(cookie_file))
-            primary_clients = ["web", "mweb"] if primary_use_cookies else ["mweb", "ios", "tv_embedded"]
+
+            # --- Strategy 1: Ultra-Fast iOS / Android Innertube extraction (0.8s - 1.2s, bypasses JS n-sig deciphering) ---
             try:
-                opts1 = build_opts(clients=primary_clients, use_cookies=primary_use_cookies, timeout=5.0)
-                with yt_dlp.YoutubeDL(opts1) as ydl:
+                has_cookies = (mode == "youtube_cookies" and bool(cookie_file))
+                fast_opts = build_opts(clients=["ios", "android", "mweb"], use_cookies=has_cookies, timeout=3.5)
+                with yt_dlp.YoutubeDL(fast_opts) as ydl:
                     info = ydl.extract_info(target_url, download=False)
                     if info and not track.duration and info.get("duration"):
                         track.duration = int(info["duration"])
@@ -1123,59 +1125,70 @@ class MusicService:
                     stream = self._extract_audio_stream_url(info)
                     if stream:
                         elapsed = time.time() - t0
-                        logger.info(f"Resolved YouTube stream (Strategy 1, {'cookies' if primary_use_cookies else 'cookieless'}, {elapsed:.2f}s) for: {track.title}")
+                        logger.info(f"Resolved YouTube stream (Strategy 1 Fast-Client, {elapsed:.2f}s) for: {track.title}")
                         return stream
             except Exception as e1:
-                logger.debug(f"Strategy 1 YouTube extraction failed for {track.title}: {e1}")
+                logger.debug(f"Strategy 1 YouTube fast extraction failed for {track.title}: {e1}")
 
-            # --- Strategy 2: Inverse Cookies / Mobile Web Fallback ---
+            # --- Strategy 2 & 3: Concurrent Fallback (Web / TV clients + Alternative Search) ---
+            def try_strategy_web():
+                try:
+                    opts_web = build_opts(clients=["web", "mweb"], use_cookies=bool(cookie_file), timeout=4.0)
+                    with yt_dlp.YoutubeDL(opts_web) as ydl:
+                        info = ydl.extract_info(target_url, download=False)
+                        return self._extract_audio_stream_url(info)
+                except Exception as ex:
+                    logger.debug(f"Fallback web client failed: {ex}")
+                    return None
+
+            def try_strategy_tv():
+                try:
+                    opts_tv = build_opts(clients=["tv_embedded", "mweb"], use_cookies=False, timeout=4.0)
+                    with yt_dlp.YoutubeDL(opts_tv) as ydl:
+                        info = ydl.extract_info(target_url, download=False)
+                        return self._extract_audio_stream_url(info)
+                except Exception as ex:
+                    logger.debug(f"Fallback tv client failed: {ex}")
+                    return None
+
+            def try_strategy_ytsearch():
+                try:
+                    opts_s = build_opts(clients=["ios", "mweb"], use_cookies=bool(cookie_file), timeout=3.5)
+                    search_target = f"ytsearch3:{search_query}"
+                    with yt_dlp.YoutubeDL(opts_s) as ydl:
+                        alt_info = ydl.extract_info(search_target, download=False)
+                        entries = list(alt_info.get("entries") or []) if alt_info else []
+                        for cand in entries:
+                            if not cand:
+                                continue
+                            if is_title_similar(track.title, cand.get("title", "")):
+                                stream = self._extract_audio_stream_url(cand)
+                                if stream:
+                                    return stream
+                    return None
+                except Exception as ex:
+                    logger.debug(f"Fallback ytsearch failed: {ex}")
+                    return None
+
             try:
-                secondary_use_cookies = (not primary_use_cookies) and bool(cookie_file)
-                secondary_clients = ["web", "mweb"] if secondary_use_cookies else ["mweb", "ios", "tv_embedded"]
-                opts2 = build_opts(clients=secondary_clients, use_cookies=secondary_use_cookies, timeout=4.5)
-                with yt_dlp.YoutubeDL(opts2) as ydl:
-                    info = ydl.extract_info(target_url, download=False)
-                    stream = self._extract_audio_stream_url(info)
-                    if stream:
-                        logger.info(f"Resolved YouTube stream (Strategy 2 fallback, {'cookies' if secondary_use_cookies else 'cookieless'}) for: {track.title}")
-                        return stream
-            except Exception as e2:
-                logger.debug(f"Strategy 2 YouTube extraction failed for {track.title}: {e2}")
+                with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+                    futures = {
+                        executor.submit(try_strategy_web): "web",
+                        executor.submit(try_strategy_tv): "tv",
+                        executor.submit(try_strategy_ytsearch): "ytsearch"
+                    }
+                    for fut in concurrent.futures.as_completed(futures, timeout=5.0):
+                        res = fut.result()
+                        if res:
+                            elapsed = time.time() - t0
+                            name = futures[fut]
+                            logger.info(f"Resolved YouTube stream (Concurrent Fallback {name}, {elapsed:.2f}s) for: {track.title}")
+                            return res
+            except Exception as conc_err:
+                logger.debug(f"Concurrent fallback execution error: {conc_err}")
 
-            # --- Strategy 3: Standard yt-dlp Auto-Extraction (no player_client overrides) ---
-            try:
-                opts3 = build_opts(clients=None, use_cookies=bool(cookie_file), timeout=5.0)
-                opts3["format"] = "ba/b/bestaudio/best"
-                with yt_dlp.YoutubeDL(opts3) as ydl:
-                    info = ydl.extract_info(target_url, download=False)
-                    stream = self._extract_audio_stream_url(info)
-                    if stream:
-                        logger.info(f"Resolved YouTube stream (Strategy 3 yt-dlp standard) for: {track.title}")
-                        return stream
-            except Exception as e3:
-                logger.debug(f"Strategy 3 yt-dlp standard failed for {track.title}: {e3}")
-
-            # --- Strategy 4: Alternative YouTube search query ---
-            try:
-                opts4 = build_opts(clients=["mweb", "tv_embedded"], use_cookies=bool(cookie_file), timeout=4.0)
-                search_target = f"ytsearch3:{search_query}"
-                with yt_dlp.YoutubeDL(opts4) as ydl:
-                    alt_info = ydl.extract_info(search_target, download=False)
-                    entries = list(alt_info.get("entries") or []) if alt_info else []
-                    for cand in entries:
-                        if not cand:
-                            continue
-                        cand_title = cand.get("title", "")
-                        if is_title_similar(track.title, cand_title):
-                            stream = self._extract_audio_stream_url(cand)
-                            if stream:
-                                logger.info(f"Resolved alternative YouTube stream for: {track.title} -> {cand_title}")
-                                return stream
-            except Exception as e4:
-                logger.debug(f"Strategy 4 alternative YouTube search failed: {e4}")
-
-            # --- Strategy 5: Seamless SoundCloud Fallback (Never fail playback) ---
-            logger.warning(f"All YouTube direct extractions failed for '{track.title}', activating seamless SoundCloud fallback...")
+            # --- Strategy 4: Seamless SoundCloud Fallback (Never fail playback) ---
+            logger.warning(f"All YouTube extractions failed for '{track.title}', activating seamless SoundCloud fallback...")
             try:
                 sc_opts: Dict[str, Any] = {
                     "format": "bestaudio/best",
@@ -1184,7 +1197,7 @@ class MusicService:
                     "extract_flat": False,
                     "noplaylist": True,
                     "ignoreerrors": True,
-                    "socket_timeout": 4.0,
+                    "socket_timeout": 3.5,
                     "retries": 1,
                     "source_address": "0.0.0.0",
                 }
