@@ -262,9 +262,6 @@ class MusicService:
         mode = self.streaming_settings.get("mode", "youtube_cookies")
         proxy = self.streaming_settings.get("proxy", "").strip()
         pot_url = self.streaming_settings.get("pot_provider_url", "").strip()
-        if pot_url == "http://127.0.0.1:4416":
-            pot_url = ""
-            self.streaming_settings["pot_provider_url"] = ""
         pot_token = self.streaming_settings.get("pot_token", "").strip()
 
         # Always ensure cookies are loaded if present on disk
@@ -298,11 +295,11 @@ class MusicService:
                 self.ydl_opts.pop("proxy", None)
                 self.fast_yt_opts.pop("proxy", None)
 
-        # POT provider handling - ONLY set if non-empty and valid
+        # POT provider handling - set if non-empty
         if pot_token:
             yt_args["po_token"] = [pot_token]
             yt_args.pop("po_token_server", None)
-        elif pot_url and pot_url != "http://127.0.0.1:4416":
+        elif pot_url:
             yt_args["po_token_server"] = [pot_url]
             yt_args.pop("po_token", None)
         else:
@@ -315,11 +312,6 @@ class MusicService:
             if db_val:
                 data = json.loads(db_val)
                 if isinstance(data, dict):
-                    if data.get("pot_provider_url") == "http://127.0.0.1:4416":
-                        data["pot_provider_url"] = ""
-                    # If DB has cookieless but cookies exist on disk, default to youtube_cookies
-                    if data.get("mode") == "cookieless" and self.youtube_cookie_path and os.path.exists(self.youtube_cookie_path):
-                        data["mode"] = "youtube_cookies"
                     self.streaming_settings.update(data)
                     self._save_streaming_settings()
                     self._apply_streaming_settings()

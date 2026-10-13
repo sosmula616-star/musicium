@@ -930,6 +930,114 @@
       box-shadow: 0 0 14px rgba(0, 242, 254, 0.15);
     }
 
+    .input-quick-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .quick-tag {
+      font-size: 0.73rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 3px 8px;
+      color: var(--text-muted);
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.15s ease;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .quick-tag:hover {
+      background: rgba(0, 242, 254, 0.12);
+      border-color: var(--accent-cyan);
+      color: #fff;
+    }
+
+    .quick-tag.tag-clear:hover {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: var(--accent-red);
+      color: #fca5a5;
+    }
+
+    /* Preset Combinations Grid */
+    .preset-combinations-wrapper {
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+
+    .preset-header {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 10px;
+    }
+
+    .preset-chip {
+      background: var(--bg-card);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      position: relative;
+    }
+
+    .preset-chip:hover {
+      border-color: var(--accent-cyan);
+      background: rgba(0, 242, 254, 0.06);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+    }
+
+    .preset-chip.active-preset {
+      border-color: var(--accent-cyan);
+      background: linear-gradient(145deg, rgba(0, 242, 254, 0.1), var(--bg-card));
+      box-shadow: 0 0 16px rgba(0, 242, 254, 0.2);
+    }
+
+    .preset-chip-title {
+      font-size: 0.84rem;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .preset-chip-badge {
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-dim);
+    }
+
+    .preset-chip-desc {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      line-height: 1.35;
+    }
+
     .cookies-textarea {
       width: 100%;
       height: 140px;
@@ -1701,12 +1809,12 @@
               <div class="mode-title">
                 <span class="svg-icon" data-icon="bolt" style="color: var(--accent-cyan);"></span> Cookieless
               </div>
-              <input type="radio" name="streamingMode" value="cookieless" id="modeRadioCookieless" checked style="accent-color: var(--accent-cyan);">
+              <input type="radio" name="streamingMode" value="cookieless" id="modeRadioCookieless" checked style="accent-color: var(--accent-cyan); pointer-events: none;">
             </div>
             <div class="mode-desc">
-              Использует мульти-клиент InnerTube (Android/iOS/Embedded) и Proof-of-Origin токены. Не требует cookies аккаунта.
+              Использует мульти-клиент InnerTube (iOS/Android/mweb). Без JS n-sig задержек и без cookies аккаунта.
             </div>
-            <span class="mode-status-tag" style="background: rgba(0, 242, 254, 0.15); color: var(--accent-cyan);">Рекомендуемый</span>
+            <span class="mode-status-tag" style="background: rgba(0, 242, 254, 0.15); color: var(--accent-cyan);">⚡ Рекомендуемый (Самый быстрый)</span>
           </div>
 
           <div class="streaming-mode-card" id="modeCardCookies" onclick="window.selectStreamingMode('youtube_cookies')">
@@ -1714,12 +1822,12 @@
               <div class="mode-title">
                 <span class="svg-icon" data-icon="cookie" style="color: #fbbf24;"></span> YouTube Cookies
               </div>
-              <input type="radio" name="streamingMode" value="youtube_cookies" id="modeRadioCookies" style="accent-color: #fbbf24;">
+              <input type="radio" name="streamingMode" value="youtube_cookies" id="modeRadioCookies" style="accent-color: #fbbf24; pointer-events: none;">
             </div>
             <div class="mode-desc">
               Использует авторизованный Netscape cookies.txt. Максимальная надежность для возрастных и региональных ограничений.
             </div>
-            <span class="mode-status-tag" style="background: rgba(251, 191, 36, 0.15); color: #fbbf24;">С cookies.txt</span>
+            <span class="mode-status-tag" style="background: rgba(251, 191, 36, 0.15); color: #fbbf24;">🍪 С cookies.txt</span>
           </div>
 
           <div class="streaming-mode-card" id="modeCardSoundcloud" onclick="window.selectStreamingMode('soundcloud_first')">
@@ -1727,27 +1835,88 @@
               <div class="mode-title">
                 <span class="svg-icon" data-icon="headphones" style="color: #ff5500;"></span> SoundCloud First
               </div>
-              <input type="radio" name="streamingMode" value="soundcloud_first" id="modeRadioSoundcloud" style="accent-color: #ff5500;">
+              <input type="radio" name="streamingMode" value="soundcloud_first" id="modeRadioSoundcloud" style="accent-color: #ff5500; pointer-events: none;">
             </div>
             <div class="mode-desc">
               Приоритетное воспроизведение через SoundCloud. Идеально для хостингов с полным блоком YouTube IP.
             </div>
-            <span class="mode-status-tag" style="background: rgba(255, 85, 0, 0.15); color: #ff5500;">Обход YT</span>
+            <span class="mode-status-tag" style="background: rgba(255, 85, 0, 0.15); color: #ff5500;">☁️ 100% Обход YT</span>
           </div>
         </div>
 
+        <!-- Inputs: Proxy and POT Provider -->
         <div class="settings-group">
           <div class="setting-item">
             <label class="setting-label">Прокси yt-dlp (HTTP / HTTPS / SOCKS5, опционально)</label>
             <input type="text" id="streamingProxyInput" class="setting-input" placeholder="http://user:pass@host:port или socks5://host:port">
+            <div class="input-quick-tags">
+              <span class="quick-tag" onclick="window.setProxyValue('socks5://127.0.0.1:1080')">+ socks5://127.0.0.1:1080</span>
+              <span class="quick-tag" onclick="window.setProxyValue('http://127.0.0.1:8080')">+ http://127.0.0.1:8080</span>
+              <span class="quick-tag tag-clear" onclick="window.setProxyValue('')">✕ Очистить</span>
+            </div>
           </div>
           <div class="setting-item">
             <label class="setting-label">POT Provider URL (сервер PO-токенов bgutil)</label>
-            <input type="text" id="streamingPotUrlInput" class="setting-input" value="http://127.0.0.1:4416" placeholder="http://127.0.0.1:4416">
+            <input type="text" id="streamingPotUrlInput" class="setting-input" placeholder="http://127.0.0.1:4416 (по умолчанию пусто)">
+            <div class="input-quick-tags">
+              <span class="quick-tag" onclick="window.setPotUrlValue('http://127.0.0.1:4416')">+ http://127.0.0.1:4416 (bgutil)</span>
+              <span class="quick-tag" onclick="window.setPotUrlValue('http://localhost:4416')">+ localhost:4416</span>
+              <span class="quick-tag tag-clear" onclick="window.setPotUrlValue('')">✕ Очистить (без POT)</span>
+            </div>
           </div>
         </div>
 
-        <div style="display: flex; justify-content: flex-end;">
+        <!-- Suggested Combinations Grid -->
+        <div class="preset-combinations-wrapper">
+          <div class="preset-header">
+            <span class="svg-icon" data-icon="bolt" style="color: var(--accent-cyan);"></span>
+            <span>Предложенные комбинации обхода блокировок (нажмите для выбора):</span>
+          </div>
+          <div class="preset-grid">
+            <div class="preset-chip" id="presetChipPure" onclick="window.applyStreamingPreset('pure_cookieless')">
+              <div class="preset-chip-title">
+                <span>⚡ Чистый Cookieless</span>
+                <span class="preset-chip-badge" style="color: var(--accent-cyan);">ТОП СКОРОСТЬ</span>
+              </div>
+              <div class="preset-chip-desc">Режим Cookieless без прокси и без POT. Быстрый прямой запуск через iOS/Android Innertube за ~1 сек.</div>
+            </div>
+
+            <div class="preset-chip" id="presetChipPot" onclick="window.applyStreamingPreset('pot_bgutil')">
+              <div class="preset-chip-title">
+                <span>🛡️ bgutil POT Server</span>
+                <span class="preset-chip-badge" style="color: #60a5fa;">ОБХОД БОТОВ</span>
+              </div>
+              <div class="preset-chip-desc">Режим Cookieless + POT: http://127.0.0.1:4416. Для хостов с запросом Proof-of-Origin токенов.</div>
+            </div>
+
+            <div class="preset-chip" id="presetChipProxy" onclick="window.applyStreamingPreset('proxy_bypass')">
+              <div class="preset-chip-title">
+                <span>🌐 Зарубежный Прокси</span>
+                <span class="preset-chip-badge" style="color: #a78bfa;">ОБХОД РКН/ДЦ</span>
+              </div>
+              <div class="preset-chip-desc">Шаблон SOCKS5 прокси для обхода блокировок YouTube в РФ или в датацентрах.</div>
+            </div>
+
+            <div class="preset-chip" id="presetChipCookies" onclick="window.applyStreamingPreset('cookies_only')">
+              <div class="preset-chip-title">
+                <span>🍪 YouTube Cookies</span>
+                <span class="preset-chip-badge" style="color: #fbbf24;">АВТОРИЗАЦИЯ</span>
+              </div>
+              <div class="preset-chip-desc">Режим YouTube Cookies для снятия 18+ и авторских ограничений через ваш cookies.txt.</div>
+            </div>
+
+            <div class="preset-chip" id="presetChipSc" onclick="window.applyStreamingPreset('soundcloud_fallback')">
+              <div class="preset-chip-title">
+                <span>☁️ SoundCloud First</span>
+                <span class="preset-chip-badge" style="color: #ff5500;">БЕЗ YOUTUBE</span>
+              </div>
+              <div class="preset-chip-desc">100% стабильность: музыка берется напрямую из SoundCloud в обход любых блокировок YT.</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 12px; align-items: center;">
+          <span id="streamingStatusHint" style="font-size: 0.82rem; color: var(--text-muted);"></span>
           <button id="saveStreamingModeBtn" class="btn btn-primary" onclick="window.saveStreamingSettings()">
             <span class="svg-icon" data-icon="check"></span> Сохранить и применить режим
           </button>
@@ -2962,6 +3131,11 @@
           'youtube_cookies': 'modeCardCookies',
           'soundcloud_first': 'modeCardSoundcloud'
         };
+        const titles = {
+          'cookieless': 'Cookieless (Быстрый Innertube)',
+          'youtube_cookies': 'YouTube Cookies (Netscape)',
+          'soundcloud_first': 'SoundCloud First (Обход YT)'
+        };
         Object.entries(radios).forEach(([m, id]) => {
           const r = document.getElementById(id);
           if (r) r.checked = (m === mode);
@@ -2973,6 +3147,72 @@
             if (m === mode) card.classList.add(`active-${mode}`);
           }
         });
+        const hint = document.getElementById('streamingStatusHint');
+        if (hint) {
+          hint.textContent = `Выбран режим: ${titles[mode] || mode}`;
+        }
+      };
+
+      // Quick Tag Helpers for Proxy and POT URL
+      window.setProxyValue = function(val) {
+        const inp = document.getElementById('streamingProxyInput');
+        if (inp) {
+          inp.value = val;
+          inp.focus();
+        }
+        showToast(val ? `Вставлен прокси: ${val}` : 'Прокси очищен', 'info');
+      };
+
+      window.setPotUrlValue = function(val) {
+        const inp = document.getElementById('streamingPotUrlInput');
+        if (inp) {
+          inp.value = val;
+          inp.focus();
+        }
+        showToast(val ? `Установлен POT URL: ${val}` : 'POT URL очищен (без сервера токенов)', 'info');
+      };
+
+      // 1-Click Preset Combinations
+      window.applyStreamingPreset = function(presetKey) {
+        document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active-preset'));
+
+        if (presetKey === 'pure_cookieless') {
+          window.selectStreamingMode('cookieless');
+          window.setProxyValue('');
+          window.setPotUrlValue('');
+          const chip = document.getElementById('presetChipPure');
+          if (chip) chip.classList.add('active-preset');
+          showToast('⚡ Выбрана комбинация: "Чистый Cookieless". Нажмите "Сохранить и применить"!', 'success');
+        } else if (presetKey === 'pot_bgutil') {
+          window.selectStreamingMode('cookieless');
+          window.setProxyValue('');
+          window.setPotUrlValue('http://127.0.0.1:4416');
+          const chip = document.getElementById('presetChipPot');
+          if (chip) chip.classList.add('active-preset');
+          showToast('🛡️ Выбрана комбинация: "Cookieless + bgutil POT". Нажмите "Сохранить и применить"!', 'success');
+        } else if (presetKey === 'proxy_bypass') {
+          window.selectStreamingMode('cookieless');
+          const pInp = document.getElementById('streamingProxyInput');
+          if (pInp && !pInp.value.trim()) pInp.value = 'socks5://127.0.0.1:1080';
+          window.setPotUrlValue('');
+          const chip = document.getElementById('presetChipProxy');
+          if (chip) chip.classList.add('active-preset');
+          showToast('🌐 Выбрана комбинация: "Зарубежный Прокси". Укажите ваши данные прокси и сохраните!', 'info');
+        } else if (presetKey === 'cookies_only') {
+          window.selectStreamingMode('youtube_cookies');
+          window.setProxyValue('');
+          window.setPotUrlValue('');
+          const chip = document.getElementById('presetChipCookies');
+          if (chip) chip.classList.add('active-preset');
+          showToast('🍪 Выбрана комбинация: "YouTube Cookies". Нажмите "Сохранить и применить"!', 'success');
+        } else if (presetKey === 'soundcloud_fallback') {
+          window.selectStreamingMode('soundcloud_first');
+          window.setProxyValue('');
+          window.setPotUrlValue('');
+          const chip = document.getElementById('presetChipSc');
+          if (chip) chip.classList.add('active-preset');
+          showToast('☁️ Выбрана комбинация: "SoundCloud First". Нажмите "Сохранить и применить"!', 'success');
+        }
       };
 
       window.fetchStreamingSettings = async function() {
@@ -3012,12 +3252,11 @@
         if (btn) btn.disabled = true;
         try {
           const potUrl = (document.getElementById('streamingPotUrlInput')?.value || '').trim();
-          // Never send the dead default POT address
-          const safePotUrl = (potUrl && potUrl !== 'http://127.0.0.1:4416') ? potUrl : '';
+          const proxyVal = (document.getElementById('streamingProxyInput')?.value || '').trim();
           const payload = {
             mode: window.selectedStreamingMode || 'cookieless',
-            proxy: (document.getElementById('streamingProxyInput')?.value || '').trim(),
-            pot_provider_url: safePotUrl,
+            proxy: proxyVal,
+            pot_provider_url: potUrl,
           };
           const res = await adminFetch('/api/admin/streaming/settings', {
             method: 'POST',
@@ -3026,7 +3265,7 @@
           });
           const d = await res.json();
           if (d.ok) {
-            showToast('✅ Режим стриминга успешно применен!', 'success');
+            showToast(`✅ Режим "${window.selectedStreamingMode}" успешно применен!`, 'success');
             await window.fetchStreamingSettings();
             await fetchStats();
           } else {
