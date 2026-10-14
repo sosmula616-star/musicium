@@ -964,12 +964,26 @@ class WebServer:
             if (authData.is_admin) localStorage.setItem("music_is_admin", "true");
             if (authData.admin_token) localStorage.setItem("musicium_admin_token", authData.admin_token);
             localStorage.setItem("music_authenticated", "true");
+            localStorage.setItem("musicium_auth_broadcast", JSON.stringify(authData));
+        }} catch(e) {{}}
+        try {{
+            if (typeof BroadcastChannel !== 'undefined') {{
+                const bc = new BroadcastChannel("musicium_auth");
+                bc.postMessage(authData);
+                bc.close();
+            }}
         }} catch(e) {{}}
         if (window.opener && !window.opener.closed) {{
-            window.opener.postMessage(authData, "*");
+            try {{ window.opener.postMessage(authData, "*"); }} catch(e) {{}}
             setTimeout(() => window.close(), 350);
         }} else {{
-            window.location.replace("{target}");
+            // Attempt to close if popup, otherwise replace location
+            setTimeout(() => {{
+                try {{ window.close(); }} catch(e) {{}}
+                setTimeout(() => {{
+                    window.location.replace("{target}");
+                }}, 400);
+            }}, 250);
         }}
     </script>
 </body>

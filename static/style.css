@@ -1126,12 +1126,6 @@ html:not([data-lang="en"]) .lang-en { display: none !important; }
 
 .ytm-view {
   display: block;
-  animation: fadeInView var(--t-normal) var(--ease);
-}
-
-@keyframes fadeInView {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* ============================================================

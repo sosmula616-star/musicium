@@ -49,6 +49,9 @@
       localStorage.setItem('music_is_admin', 'true');
     }
     localStorage.setItem('music_authenticated', 'true');
+  }
+
+  if (queryUserId || queryAdminToken || urlParams.has('auth') || urlParams.has('auth_error') || urlParams.has('admin_logout')) {
     try {
       const cleanUrl = window.location.pathname + (initialGuildId ? `?guild_id=${initialGuildId}${initialChannelId ? `&channel_id=${initialChannelId}` : ''}` : '');
       window.history.replaceState({}, document.title, cleanUrl);
@@ -498,11 +501,11 @@
     if (state.lastTracks && state.lastTracks.length > 0) {
       renderTracks(state.lastTracks);
     }
-    renderHomeView();
-    renderSidebarPlaylists();
-    updateUserUI();
 
     if (showNotification) {
+      renderHomeView(true);
+      renderSidebarPlaylists();
+      updateUserUI();
       showToast(t('toast.langSwitched'), 'info', 'fa-globe');
     }
   }
@@ -1030,14 +1033,20 @@
   async function fetchGuilds() {}
   function renderVoiceRooms() {}
 
+  let lastVoiceMembersHash = '';
   function renderVoiceMembers(members) {
     if (!el.voiceMembersList) return;
-    if (!members || members.length === 0) {
+    const memList = members || [];
+    const hash = JSON.stringify(memList.map(m => ({ id: m.id, name: m.name || m.display_name, bot: m.bot })));
+    if (hash === lastVoiceMembersHash && el.voiceMembersList.children.length > 0) return;
+    lastVoiceMembersHash = hash;
+
+    if (memList.length === 0) {
       el.voiceMembersList.innerHTML = `<div class="dropdown-empty-state"><p>${t('voice.dropdownEmpty')}</p></div>`;
       return;
     }
     el.voiceMembersList.innerHTML = '';
-    members.forEach(m => {
+    memList.forEach(m => {
       const isBot = Boolean(m.bot);
       const isMe = String(m.id) === String(state.userId);
       const row = document.createElement('div');
@@ -1067,6 +1076,9 @@
 
   // Switch View Router
   function switchView(viewName, playlistId = null) {
+    if (state.currentView === viewName && (viewName !== 'playlist' || String(state.selectedPlaylistId) === String(playlistId))) {
+      return; // Already on this view, prevent redundant DOM toggling and re-rendering
+    }
     if (state.currentView !== viewName && state.currentView !== 'queue') {
       state.previousView = state.currentView;
     }
@@ -1119,16 +1131,29 @@
   // Live on other servers & Global Recent Tracks
   let liveFeedCache = [];
   let recentFeedCache = [];
+  let lastLiveFeedHash = '';
+  let lastRecentFeedHash = '';
 
   async function fetchFeedDiscovery() {
     try {
       const resp = await fetch('/api/feed/discovery');
       const data = await resp.json();
       if (data) {
-        liveFeedCache = Array.isArray(data.live_now) ? data.live_now : [];
-        renderLiveServers();
-        recentFeedCache = Array.isArray(data.recent_history) ? data.recent_history : [];
-        renderGlobalRecent();
+        const newLive = Array.isArray(data.live_now) ? data.live_now : [];
+        const liveHash = JSON.stringify(newLive.map(i => ({ g: i.guild_id, c: i.channel_id, t: i.track?.title, u: i.track?.url })));
+        if (liveHash !== lastLiveFeedHash || (el.liveServersRow && el.liveServersRow.children.length === 0)) {
+          lastLiveFeedHash = liveHash;
+          liveFeedCache = newLive;
+          renderLiveServers();
+        }
+
+        const newRecent = Array.isArray(data.recent_history) ? data.recent_history : [];
+        const recentHash = JSON.stringify(newRecent.map(t => t.url || t.title));
+        if (recentHash !== lastRecentFeedHash || (el.globalRecentRow && el.globalRecentRow.children.length === 0)) {
+          lastRecentFeedHash = recentHash;
+          recentFeedCache = newRecent;
+          renderGlobalRecent();
+        }
       }
     } catch (e) {
       console.warn('Could not fetch /api/feed/discovery:', e);
@@ -1137,7 +1162,6 @@
 
   function renderLiveServers() {
     if (!el.liveServersRow) return;
-    el.liveServersRow.innerHTML = '';
 
     if (!liveFeedCache || liveFeedCache.length === 0) {
       el.liveServersRow.innerHTML = `
@@ -1149,6 +1173,7 @@
       return;
     }
     if (el.liveServersShelf) el.liveServersShelf.style.display = 'block';
+    el.liveServersRow.innerHTML = '';
 
     liveFeedCache.forEach(item => {
       const track = item.track || {};
@@ -1200,7 +1225,6 @@
 
   function renderGlobalRecent() {
     if (!el.globalRecentRow) return;
-    el.globalRecentRow.innerHTML = '';
 
     if (!recentFeedCache || recentFeedCache.length === 0) {
       el.globalRecentRow.innerHTML = `
@@ -1212,6 +1236,7 @@
       return;
     }
     if (el.globalRecentShelf) el.globalRecentShelf.style.display = 'block';
+    el.globalRecentRow.innerHTML = '';
 
     recentFeedCache.forEach(track => {
       const card = document.createElement('div');
@@ -1724,13 +1749,33 @@
     el.homePlatformView.appendChild(grid);
   }
 
-  function renderCuratedShelf() {
+  let curatedShelfRendered = false;
+  function updateCuratedLikeStates() {
     if (!el.curatedTracksGrid) return;
+    el.curatedTracksGrid.querySelectorAll('.compact-track-row').forEach(row => {
+      const url = row.dataset.trackUrl;
+      const title = row.dataset.trackTitle;
+      const btn = row.querySelector('.btn-like-track');
+      if (btn) {
+        btn.classList.toggle('liked', isTrackLiked({ url, title }));
+      }
+    });
+  }
+
+  function renderCuratedShelf(force = false) {
+    if (!el.curatedTracksGrid) return;
+    if (curatedShelfRendered && !force && el.curatedTracksGrid.children.length > 0) {
+      updateCuratedLikeStates();
+      return;
+    }
+    curatedShelfRendered = true;
     el.curatedTracksGrid.innerHTML = '';
     CURATED_RECOMMENDED.forEach(track => {
       const isLiked = isTrackLiked(track);
       const row = document.createElement('div');
       row.className = 'compact-track-row';
+      row.dataset.trackUrl = track.url || '';
+      row.dataset.trackTitle = track.title || '';
       row.innerHTML = `
         <div class="compact-thumb-wrap">
           <img src="${getSafeImageUrl(track.thumbnail)}" alt="${escapeHtml(track.title)}" class="compact-thumb" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null; this.src='/static/activity_icon.jpg';">
@@ -1762,7 +1807,7 @@
       row.querySelector('.btn-like-track').addEventListener('click', (e) => {
         e.stopPropagation();
         toggleLikeTrack(track);
-        renderHomeView();
+        updateCuratedLikeStates();
       });
       row.querySelector('.btn-add-pl').addEventListener('click', (e) => {
         e.stopPropagation();
@@ -1773,8 +1818,11 @@
     });
   }
 
-  function renderQuickPicksShelf() {
+  let quickPicksShelfRendered = false;
+  function renderQuickPicksShelf(force = false) {
     if (!el.quickPicksRow) return;
+    if (quickPicksShelfRendered && !force && el.quickPicksRow.children.length > 0) return;
+    quickPicksShelfRendered = true;
     el.quickPicksRow.innerHTML = '';
     CURATED_QUICK_PICKS.forEach(item => {
       const card = document.createElement('div');
@@ -1807,7 +1855,7 @@
   }
 
   // Render Home View (Screenshot 2: Curated 3-column + Square cards + Community Playlists or Platform Charts)
-  function renderHomeView() {
+  function renderHomeView(force = false) {
     const filter = state.activeHomeFilter || 'all';
     const isPlatformView = (filter !== 'all');
 
@@ -1827,11 +1875,10 @@
 
     if (!isPlatformView) {
       el.homePlatformView.style.display = 'none';
-      el.homePlatformView.innerHTML = '';
       renderLiveServers();
       renderGlobalRecent();
-      renderCuratedShelf();
-      renderQuickPicksShelf();
+      renderCuratedShelf(force);
+      renderQuickPicksShelf(force);
       renderCommunityPlaylists();
       return;
     }
@@ -1848,6 +1895,7 @@
 
   // Community Playlists (Shared albums and leaderboard)
   let communityPlaylistsCache = [];
+  let lastCommunityPlaylistsHash = '';
   async function fetchCommunityPlaylists() {
     try {
       const q = state.userId ? `?user_id=${encodeURIComponent(state.userId)}&sort=top` : '?sort=top';
@@ -1866,6 +1914,9 @@
 
   function renderCommunityPlaylists() {
     if (!el.communityPlaylistsRow) return;
+    const hash = JSON.stringify(communityPlaylistsCache.map(p => ({ id: p.id, count: p.tracks?.length, name: p.name || p.title, likes: p.likes_count, is_liked: p.is_liked })));
+    if (hash === lastCommunityPlaylistsHash && el.communityPlaylistsRow.children.length > 0) return;
+    lastCommunityPlaylistsHash = hash;
     el.communityPlaylistsRow.innerHTML = '';
 
     if (el.communityPlaylistsShelf) {
@@ -2004,7 +2055,12 @@
         if (data.soundcloud_charts && data.soundcloud_charts.length) SOUNDCLOUD_CHARTS = data.soundcloud_charts;
         if (data.best_albums && data.best_albums.length) BEST_ALBUMS = data.best_albums;
         recommendationsLoaded = true;
-        if (state.currentView === 'home') renderHomeView();
+        if (state.currentView === 'home' && (!state.activeHomeFilter || state.activeHomeFilter === 'all')) {
+          renderCuratedShelf(true);
+          renderQuickPicksShelf(true);
+        } else if (state.currentView === 'home') {
+          renderHomeView(true);
+        }
       }
     } catch (e) {
       console.warn('Could not fetch /api/recommendations:', e);
@@ -2012,8 +2068,10 @@
   }
 
   // Load User Data from PostgreSQL Database
+  let isLoadingUserData = false;
   async function loadUserDataFromDB() {
-    if (!state.userId) return;
+    if (!state.userId || isLoadingUserData) return;
+    isLoadingUserData = true;
     try {
       // 1. Liked Tracks
       const likedResp = await fetch(`/api/user/liked?user_id=${encodeURIComponent(state.userId)}`);
@@ -2034,6 +2092,7 @@
         }
         if (state.currentView === 'liked') renderLikedView();
         updateDockLikeBtn();
+        updateCuratedLikeStates();
       }
 
       // 2. Playlists
@@ -2062,6 +2121,8 @@
       }
     } catch (err) {
       console.warn('Could not sync user data from PostgreSQL:', err);
+    } finally {
+      isLoadingUserData = false;
     }
   }
 
@@ -2510,8 +2571,6 @@
         } else {
           el.emptyState.style.display = 'flex';
         }
-      } else {
-        switchView('home');
       }
       return;
     }
@@ -3474,30 +3533,52 @@
     const menuAdminLink = document.getElementById('menuAdminLink');
     if (menuAdminLink) menuAdminLink.addEventListener('click', navigateToAdmin);
 
+    function applyAuthData(d) {
+      if (!d || !d.user_id) return;
+      if (state.userId === String(d.user_id) && state.isAuthenticated) return;
+      state.userId = String(d.user_id);
+      state.userName = d.user_name || 'Пользователь Discord';
+      state.userAvatar = d.user_avatar || '/static/activity_icon.jpg';
+      state.isAuthenticated = true;
+      localStorage.setItem('music_user_id', state.userId);
+      localStorage.setItem('music_user_name', state.userName);
+      localStorage.setItem('music_user_avatar', state.userAvatar);
+      localStorage.setItem('music_authenticated', 'true');
+      if (d.is_admin || d.admin_token || state.userId === '410432175373156352') {
+        localStorage.setItem('music_is_admin', 'true');
+      }
+      if (d.admin_token) {
+        localStorage.setItem('musicium_admin_token', d.admin_token);
+      }
+      saveUser();
+      if (el.authDiscordModal) el.authDiscordModal.style.display = 'none';
+      showToast(`Вы авторизованы как ${state.userName}!`, 'success', 'fa-user-check');
+      checkUserVoice();
+    }
+
     // Listen for OAuth success messages from external login popups
     window.addEventListener('message', (event) => {
       if (event.data && event.data.type === 'musicium_auth_success') {
-        const d = event.data;
-        if (d.user_id) {
-          state.userId = String(d.user_id);
-          state.userName = d.user_name || 'Пользователь Discord';
-          state.userAvatar = d.user_avatar || '/static/activity_icon.jpg';
-          state.isAuthenticated = true;
-          localStorage.setItem('music_user_id', state.userId);
-          localStorage.setItem('music_user_name', state.userName);
-          localStorage.setItem('music_user_avatar', state.userAvatar);
-          localStorage.setItem('music_authenticated', 'true');
-          if (d.is_admin || d.admin_token || state.userId === '410432175373156352') {
-            localStorage.setItem('music_is_admin', 'true');
+        applyAuthData(event.data);
+      }
+    });
+
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        const bc = new BroadcastChannel('musicium_auth');
+        bc.onmessage = (event) => {
+          if (event.data && (event.data.user_id || event.data.type === 'musicium_auth_success')) {
+            applyAuthData(event.data);
           }
-          if (d.admin_token) {
-            localStorage.setItem('musicium_admin_token', d.admin_token);
-          }
-          saveUser();
-          if (el.authDiscordModal) el.authDiscordModal.style.display = 'none';
-          showToast(`Вы авторизованы как ${state.userName}!`, 'success', 'fa-user-check');
-          checkUserVoice();
-        }
+        };
+      }
+    } catch (_) {}
+
+    window.addEventListener('storage', (event) => {
+      if (event.key === 'musicium_auth_broadcast' && event.newValue) {
+        try {
+          applyAuthData(JSON.parse(event.newValue));
+        } catch (_) {}
       }
     });
 
