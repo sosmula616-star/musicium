@@ -49,151 +49,28 @@
       }
     }
   </script>
-  <link rel="stylesheet" href="/static/style.css?v=15.0">
+  <link rel="stylesheet" href="/static/style.css?v=visionos-2.0">
   <style>
-    /* Language switching rules - critical guarantee, immune to cache */
+    /* Language switching rules */
     html[data-lang="ru"] .lang-en,
     html:not([data-lang="en"]) .lang-en {
       display: none !important;
     }
-
     html[data-lang="en"] .lang-ru {
-      display: none !important;
-    }
-
-    /* Header right layout */
-    .header-right-group {
-      display: flex !important;
-      align-items: center !important;
-      gap: 8px !important;
-      flex-shrink: 0 !important;
-    }
-
-    /* Language switcher */
-    .lang-switch {
-      display: inline-flex !important;
-      align-items: center !important;
-      background: #141414 !important;
-      border: 1px solid rgba(255, 255, 255, 0.06) !important;
-      border-radius: 9999px !important;
-      padding: 3px !important;
-      gap: 2px !important;
-    }
-
-    .lang-switch:hover {
-      border-color: rgba(255, 255, 255, 0.12) !important;
-    }
-
-    .lang-toggle-btn {
-      background: transparent !important;
-      border: none !important;
-      outline: none !important;
-      color: #555555 !important;
-      font-family: 'Inter', 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif !important;
-      font-size: 10.5px !important;
-      font-weight: 700 !important;
-      letter-spacing: 0.5px !important;
-      padding: 4px 10px !important;
-      border-radius: 9999px !important;
-      cursor: pointer !important;
-      display: inline-flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1) !important;
-      user-select: none !important;
-      line-height: 1 !important;
-    }
-
-    .lang-toggle-btn:hover:not(.active) {
-      color: #f5f5f5 !important;
-      background: rgba(255, 255, 255, 0.06) !important;
-    }
-
-    .lang-toggle-btn.active {
-      background: #e53e3e !important;
-      color: #ffffff !important;
-      box-shadow: 0 1px 6px rgba(229, 62, 62, 0.4) !important;
-    }
-
-    /* Square dock artwork — no vinyl spin */
-    .vinyl-wrapper {
-      width: 50px !important;
-      height: 50px !important;
-      min-width: 50px !important;
-      max-width: 50px !important;
-      min-height: 50px !important;
-      max-height: 50px !important;
-      flex-shrink: 0 !important;
-      overflow: hidden !important;
-      border-radius: 6px !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      background: #1a1a1a !important;
-      border: 1px solid rgba(255, 255, 255, 0.06) !important;
-      filter: none !important;
-    }
-
-    .vinyl-disc {
-      width: 50px !important;
-      height: 50px !important;
-      min-width: 50px !important;
-      max-width: 50px !important;
-      min-height: 50px !important;
-      max-height: 50px !important;
-      border-radius: 6px !important;
-      overflow: hidden !important;
-      flex-shrink: 0 !important;
-      background: transparent !important;
-      box-shadow: none !important;
-      animation: none !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      position: relative !important;
-    }
-
-    .vinyl-disc::before { display: none !important; }
-
-    .vinyl-label {
-      width: 50px !important;
-      height: 50px !important;
-      min-width: 50px !important;
-      max-width: 50px !important;
-      min-height: 50px !important;
-      max-height: 50px !important;
-      border-radius: 6px !important;
-      overflow: hidden !important;
-      flex-shrink: 0 !important;
-      box-shadow: none !important;
-      position: absolute !important;
-      top: 0 !important;
-      left: 0 !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-    }
-
-    .dock-art {
-      width: 50px !important;
-      height: 50px !important;
-      max-width: 50px !important;
-      max-height: 50px !important;
-      object-fit: cover !important;
-      border-radius: 6px !important;
-      display: block !important;
-    }
-
-    .vinyl-spindle-hole,
-    .vinyl-groove-rings {
       display: none !important;
     }
   </style>
 </head>
 
 <body>
-  <!-- Ambient glow backdrop -->
-  <div class="ambient-glow" id="ambientGlow"></div>
+  <!-- visionOS Liquid Glass Dynamic Ambient Backdrop -->
+  <div class="vision-ambient-container" id="visionAmbientContainer">
+    <div class="vision-artwork-blur" id="visionArtworkBlur"></div>
+    <div class="vision-orb vision-orb-1" id="visionOrb1"></div>
+    <div class="vision-orb vision-orb-2" id="visionOrb2"></div>
+    <div class="vision-noise-overlay"></div>
+    <div class="vision-vignette"></div>
+  </div>
 
   <div class="ytm-layout-root">
     <!-- Left YouTube Music Sidebar (Area 3) -->
@@ -352,6 +229,22 @@
             <button type="button" class="lang-toggle-btn" data-lang="en" id="langBtnEn" title="English">
               <span>EN</span>
             </button>
+          </div>
+
+          <!-- visionOS Liquid Glass Theme Switcher -->
+          <div class="theme-switch-wrap" id="themeSwitchWrap" title="Тема оформления visionOS">
+            <button type="button" class="theme-switch-btn" id="themeSwitchBtn">
+              <span id="themeBtnEmoji">🪄</span>
+              <span id="themeBtnName" class="theme-btn-label">Auto</span>
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+            </button>
+            <div class="theme-dropdown" id="themeDropdown">
+              <div class="theme-dropdown-item active" data-theme="auto">🪄 <span>Adaptive (По обложке)</span></div>
+              <div class="theme-dropdown-item" data-theme="aurora">🌌 <span>Aurora Borealis</span></div>
+              <div class="theme-dropdown-item" data-theme="sunset">🌅 <span>Sunset Glow</span></div>
+              <div class="theme-dropdown-item" data-theme="midnight">🌑 <span>Midnight visionOS</span></div>
+              <div class="theme-dropdown-item" data-theme="frost">❄️ <span>Crystal Frost</span></div>
+            </div>
           </div>
 
           <!-- Admin Panel Quick Link for Admin -->
@@ -719,7 +612,15 @@
       <!-- Left: Track Cover Artwork, Meta & Like Button -->
       <div class="dock-track-info">
         <div class="dock-art-container" id="dockArtContainer">
-          <img src="/static/activity_icon.jpg" alt="Cover" id="dockArt" class="dock-art" width="52" height="52">
+          <div class="vinyl-record-wrap" id="vinylRecordWrap">
+            <div class="vinyl-disc" id="vinylDisc">
+              <div class="vinyl-groove-rings"></div>
+              <div class="vinyl-label">
+                <img src="/static/activity_icon.jpg" alt="Cover" id="dockArt" class="dock-art" width="56" height="56">
+              </div>
+              <div class="vinyl-spindle-hole"></div>
+            </div>
+          </div>
         </div>
         <div class="dock-meta">
           <div class="dock-title-marquee">
@@ -1322,7 +1223,7 @@
   <!-- Toast Notification Container -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="/static/app.js?v=16.0"></script>
+  <script src="/static/app.js?v=visionos-2.0"></script>
 </body>
 
 </html>

@@ -2884,6 +2884,11 @@
       state.elapsed = 0;
       stopProgressTicker();
 
+      const vinylWrap = document.getElementById('vinylRecordWrap');
+      if (vinylWrap) vinylWrap.classList.remove('playing');
+      const visionBlur = document.getElementById('visionArtworkBlur');
+      if (visionBlur) visionBlur.style.backgroundImage = 'none';
+
       if (el.dockArt) el.dockArt.src = '/static/activity_icon.jpg';
       if (el.dockTitle) {
         el.dockTitle.textContent = t('player.noTrack');
@@ -2951,6 +2956,18 @@
         el.dockSourceBadge.textContent = (track.source || 'YT').toUpperCase();
         el.dockSourceBadge.className = `dock-source-badge ${track.source || 'youtube'}`;
       }
+
+      // visionOS Vinyl and Dynamic Ambient Backdrop updates
+      const vinylWrap = document.getElementById('vinylRecordWrap');
+      if (vinylWrap) {
+        if (state.isPlaying) vinylWrap.classList.add('playing');
+        else vinylWrap.classList.remove('playing');
+      }
+      const visionBlur = document.getElementById('visionArtworkBlur');
+      if (visionBlur && track.thumbnail) {
+        visionBlur.style.backgroundImage = `url(${getSafeImageUrl(track.thumbnail)})`;
+      }
+      applyAdaptiveColorsFromArtwork();
     }
 
     if (el.playIconSvg) {
@@ -3954,9 +3971,121 @@
     });
   }
 
+  // ============================================================
+  // visionOS Liquid Glass Dynamic Theme Manager
+  // ============================================================
+  const THEMES = {
+    auto:     { name: 'Adaptive', emoji: '🪄' },
+    aurora:   { name: 'Aurora',   emoji: '🌌' },
+    sunset:   { name: 'Sunset',   emoji: '🌅' },
+    midnight: { name: 'Midnight', emoji: '🌑' },
+    frost:    { name: 'Frost',    emoji: '❄️' },
+  };
+
+  function applyTheme(themeKey) {
+    if (!THEMES[themeKey]) themeKey = 'auto';
+    state.currentTheme = themeKey;
+    document.documentElement.dataset.theme = themeKey;
+    try {
+      localStorage.setItem('musicium_theme', themeKey);
+    } catch (_) {}
+
+    const btnEmoji = document.getElementById('themeBtnEmoji');
+    const btnName  = document.getElementById('themeBtnName');
+    if (btnEmoji) btnEmoji.textContent = THEMES[themeKey].emoji;
+    if (btnName) btnName.textContent = THEMES[themeKey].name;
+
+    const items = document.querySelectorAll('.theme-dropdown-item');
+    items.forEach(item => {
+      if (item.dataset.theme === themeKey) item.classList.add('active');
+      else item.classList.remove('active');
+    });
+
+    if (themeKey === 'auto') {
+      applyAdaptiveColorsFromArtwork();
+    } else {
+      document.documentElement.style.removeProperty('--accent');
+      document.documentElement.style.removeProperty('--accent-glow');
+      document.documentElement.style.removeProperty('--glass-border-top');
+    }
+  }
+
+  function applyAdaptiveColorsFromArtwork() {
+    if (state.currentTheme !== 'auto') return;
+    const dockArt = document.getElementById('dockArt');
+    if (!dockArt || !dockArt.src || dockArt.src.includes('activity_icon')) return;
+
+    try {
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.onload = () => {
+        try {
+          const cvs = document.createElement('canvas');
+          const ctx = cvs.getContext('2d');
+          cvs.width = 32;
+          cvs.height = 32;
+          ctx.drawImage(img, 0, 0, 32, 32);
+          const data = ctx.getImageData(0, 0, 32, 32).data;
+          let r = 0, g = 0, b = 0, count = 0;
+          for (let i = 0; i < data.length; i += 16) {
+            const cr = data[i], cg = data[i+1], cb = data[i+2];
+            const lum = 0.299 * cr + 0.587 * cg + 0.114 * cb;
+            if (lum > 25 && lum < 225) {
+              r += cr; g += cg; b += cb; count++;
+            }
+          }
+          if (count > 0) {
+            r = Math.round(r / count);
+            g = Math.round(g / count);
+            b = Math.round(b / count);
+            const hex = '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+            document.documentElement.style.setProperty('--accent', hex);
+            document.documentElement.style.setProperty('--accent-glow', `rgba(${r}, ${g}, ${b}, 0.35)`);
+            document.documentElement.style.setProperty('--glass-border-top', `rgba(${r}, ${g}, ${b}, 0.45)`);
+          }
+        } catch (_) {}
+      };
+      img.src = dockArt.src;
+    } catch (_) {}
+  }
+
+  function setupThemeSwitcher() {
+    const themeWrap = document.getElementById('themeSwitchWrap');
+    const themeBtn = document.getElementById('themeSwitchBtn');
+    const dropdown = document.getElementById('themeDropdown');
+    if (!themeBtn || !dropdown) return;
+
+    themeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dropdown.classList.toggle('open');
+    });
+
+    dropdown.querySelectorAll('.theme-dropdown-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const theme = item.dataset.theme;
+        applyTheme(theme);
+        dropdown.classList.remove('open');
+      });
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!themeWrap || !themeWrap.contains(e.target)) {
+        dropdown.classList.remove('open');
+      }
+    });
+
+    let saved = 'auto';
+    try {
+      saved = localStorage.getItem('musicium_theme') || 'auto';
+    } catch (_) {}
+    applyTheme(saved);
+  }
+
   // Boot
   async function init() {
     setLanguage(state.lang, false);
+    setupThemeSwitcher();
 
     // Restore saved volume preference if exists
     if (state.userExplicitVolume !== null) {
