@@ -329,32 +329,30 @@ class WebServer:
                     }
                     break
 
-        if not user_id:
-            return web.json_response({
-                "in_voice": False,
-                "is_guest": True,
-                "bot_voice": bot_voice,
-                "message": "Гостевой сеанс или не указан ID",
-            })
-
         # If channel_id was provided (e.g. from Discord Activity SDK), check it directly
         if channel_id:
             try:
                 channel = self.bot.get_channel(channel_id)
+                if not channel and hasattr(self.bot, "fetch_channel"):
+                    try:
+                        channel = await self.bot.fetch_channel(channel_id)
+                    except Exception:
+                        pass
                 if channel and isinstance(channel, (discord.VoiceChannel, getattr(discord, "StageChannel", ()))):
                     guild = channel.guild
                     user_member = None
-                    for m in channel.members:
-                        if m.id == user_id:
-                            user_member = m
-                            break
-                    if not user_member:
-                        user_member = guild.get_member(user_id)
+                    if user_id:
+                        for m in channel.members:
+                            if m.id == user_id:
+                                user_member = m
+                                break
+                        if not user_member:
+                            user_member = guild.get_member(user_id)
 
                     player = self.player_manager.get_player_by_guild_id(guild.id)
                     return web.json_response({
                         "in_voice": True,
-                        "user_id": str(user_id),
+                        "user_id": str(user_id) if user_id else "",
                         "user_name": user_member.display_name if user_member else "Пользователь Discord",
                         "avatar": user_member.display_avatar.url if (user_member and hasattr(user_member, 'display_avatar')) else None,
                         "guild_id": str(guild.id),
@@ -367,6 +365,14 @@ class WebServer:
                     })
             except Exception as e:
                 logger.debug(f"Error checking channel_id {channel_id_str}: {e}")
+
+        if not user_id:
+            return web.json_response({
+                "in_voice": False,
+                "is_guest": True,
+                "bot_voice": bot_voice,
+                "message": "Гостевой сеанс или не указан ID",
+            })
 
         found = self.player_manager.find_user_voice(user_id, guild_id=guild_id)
         if not found:
@@ -493,25 +499,31 @@ class WebServer:
                 }, status=403)
 
 
-        # If user explicitly provided channel_id from UI, verify user membership
+        # If user explicitly provided channel_id from UI / Discord Mini App
         if not target_channel and channel_id:
             try:
                 ch = self.bot.get_channel(channel_id)
-                if not ch:
+                if not ch and hasattr(self.bot, "fetch_channel"):
                     try:
                         ch = await self.bot.fetch_channel(channel_id)
                     except Exception:
                         pass
                 if ch and isinstance(ch, (discord.VoiceChannel, getattr(discord, "StageChannel", ()))):
-                    if not guild_id or guild_id == ch.guild.id:
-                        is_member = False
-                        if user_id:
-                            is_member = bool(ch.guild.get_member(user_id))
-                        if is_member:
-                            target_channel = ch
-                            target_guild = ch.guild
+                    target_channel = ch
+                    target_guild = ch.guild
+                    if user_id and not member:
+                        member = ch.guild.get_member(user_id)
+                        if member:
+                            member_name = member.display_name
             except Exception as e:
                 logger.warning(f"Could not resolve explicit channel_id {channel_id}: {e}")
+
+        # If still not resolved, check if guild's bot player is already in a channel
+        if not target_channel and guild_id:
+            p = self.player_manager.get_player_by_guild_id(guild_id)
+            if p and p.voice_client and p.voice_client.channel:
+                target_channel = p.voice_client.channel
+                target_guild = p.guild
 
         # Strictly reject if user has not joined any voice room! Never fall back to arbitrary rooms/servers!
         if not target_channel or not target_guild:
@@ -634,8 +646,16 @@ class WebServer:
         player = None
         if guild_id:
             player = self.player_manager.get_player_by_guild_id(guild_id)
-        elif user_id:
+        if not player and channel_id:
+            ch = self.bot.get_channel(channel_id)
+            if ch and hasattr(ch, "guild"):
+                player = self.player_manager.get_player_by_guild_id(ch.guild.id)
+        if not player and user_id:
             player = self.player_manager.find_active_player_for_user(user_id)
+        if not player:
+            active_players = [p for p in self.player_manager.players.values() if p.voice_client and p.voice_client.is_connected()]
+            if len(active_players) == 1:
+                player = active_players[0]
 
         if action == "join":
             if channel_id:
@@ -1523,18 +1543,18 @@ class WebServer:
         return ws
 
     def _verify_admin(self, request: web.Request) -> Tuple[bool, Optional[Dict[str, Any]]]:
-        # 1. Cryptographically verified cookie
-        cookie_token = request.cookies.get("musicium_admin_token")
-        if cookie_token:
-            valid, user_data = admin_service.verify_admin_token(cookie_token)
-            if valid:
-                return True, user_data
-
-        # 2. Authorization Header (Bearer <token>)
+        # 1. Authorization Header (Bearer <token>) takes priority
         auth_hdr = request.headers.get("Authorization", "")
         if auth_hdr.startswith("Bearer "):
             token = auth_hdr.split(" ", 1)[1].strip()
             valid, user_data = admin_service.verify_admin_token(token)
+            if valid:
+                return True, user_data
+
+        # 2. Cryptographically verified cookie
+        cookie_token = request.cookies.get("musicium_admin_token")
+        if cookie_token:
+            valid, user_data = admin_service.verify_admin_token(cookie_token)
             if valid:
                 return True, user_data
 
@@ -1562,11 +1582,43 @@ class WebServer:
     async def handle_admin_auth_status(self, request: web.Request) -> web.Response:
         is_adm, user_data = self._verify_admin(request)
         if is_adm and user_data:
+            uid = str(user_data.get("uid") or "").strip()
+            name = user_data.get("name")
+            avatar = user_data.get("avatar")
+
+            # Dynamically resolve live Discord account details if generic name / avatar
+            needs_resolve = (
+                uid and uid.isdigit() and
+                (not name or name in ("Admin", "Admin (Master)", "Администратор") or not avatar or "/static/activity_icon.jpg" in str(avatar))
+            )
+            if needs_resolve:
+                try:
+                    target_id = int(uid)
+                    discord_user = self.bot.get_user(target_id)
+                    if not discord_user and hasattr(self.bot, "fetch_user"):
+                        discord_user = await self.bot.fetch_user(target_id)
+                    if discord_user:
+                        name = discord_user.display_name or discord_user.name
+                        avatar = discord_user.display_avatar.url if hasattr(discord_user, "display_avatar") else avatar
+                        refreshed_token = admin_service.generate_admin_token(uid, name=name, avatar=avatar)
+                        resp = web.json_response({
+                            "authenticated": True,
+                            "user_id": uid,
+                            "user_name": name,
+                            "user_avatar": avatar,
+                            "token": refreshed_token,
+                            "primary_admin": admin_service.PRIMARY_ADMIN_ID,
+                        })
+                        resp.set_cookie("musicium_admin_token", refreshed_token, max_age=7*86400, path="/")
+                        return resp
+                except Exception as e_user:
+                    logger.debug(f"Failed to resolve discord profile for {uid}: {e_user}")
+
             return web.json_response({
                 "authenticated": True,
-                "user_id": user_data.get("uid"),
-                "user_name": user_data.get("name"),
-                "user_avatar": user_data.get("avatar"),
+                "user_id": uid,
+                "user_name": name,
+                "user_avatar": avatar,
                 "primary_admin": admin_service.PRIMARY_ADMIN_ID,
             })
         return web.json_response({
@@ -1649,8 +1701,7 @@ class WebServer:
                 "ok": True,
                 "dm_sent": False,
                 "message": (
-                    "Код успешно сгенерирован! Если у вас закрыты ЛС от бота, "
-                    "используйте команду /admin прямо в Discord на сервере бота."
+                    "Код успешно сгенерирован! Откройте личные сообщения от бота или используйте мастер-пароль."
                 )
             })
 
@@ -1723,9 +1774,27 @@ class WebServer:
             uid = u_data.get("uid", admin_service.PRIMARY_ADMIN_ID)
         # 2. Check master admin password / secret
         elif admin_service.verify_admin_password(key):
-            uid = admin_service.PRIMARY_ADMIN_ID
-            name = "Admin (Master)"
+            raw_uid = str(data.get("user_id") or "").strip()
+            if raw_uid and raw_uid.isdigit():
+                uid = raw_uid
+                admin_service.add_admin_id(uid)
+            else:
+                uid = admin_service.PRIMARY_ADMIN_ID
+
+            name = "Admin"
             avatar = "/static/activity_icon.jpg"
+            try:
+                target_id = int(uid)
+                discord_user = self.bot.get_user(target_id)
+                if not discord_user and hasattr(self.bot, "fetch_user"):
+                    discord_user = await self.bot.fetch_user(target_id)
+                if discord_user:
+                    name = discord_user.display_name or discord_user.name
+                    avatar = discord_user.display_avatar.url if hasattr(discord_user, "display_avatar") else avatar
+            except Exception as e_user:
+                logger.debug(f"Could not fetch discord user for master login {uid}: {e_user}")
+                name = f"Admin ({uid[-4:]})" if len(uid) >= 4 else "Admin"
+
             token = admin_service.generate_admin_token(uid, name=name, avatar=avatar)
         else:
             return web.json_response({"ok": False, "error": "Неверный пароль администратора"}, status=401)

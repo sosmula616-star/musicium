@@ -1479,7 +1479,7 @@
 
         <div>
           <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 6px;">
-            6-значный код из Discord (ЛС или команды <code style="color: var(--accent-cyan);">/admin</code>):
+            6-значный проверочный код из ЛС Discord:
           </label>
           <input type="text" id="authPinInput" class="auth-pin-input" maxlength="6" placeholder="______" autocomplete="off" inputmode="numeric">
         </div>
@@ -1487,10 +1487,6 @@
         <button id="authVerifyPinBtn" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 13px; font-size: 0.98rem;">
           <span class="svg-icon" data-icon="check"></span> Войти в панель управления
         </button>
-
-        <div style="font-size: 0.78rem; color: var(--text-dim); text-align: center; line-height: 1.4; margin-top: 2px;">
-          💡 Быстрый вход: напишите боту в Discord слэш-команду <strong style="color: var(--accent-cyan);">/admin</strong> или <strong style="color: var(--accent-cyan);">!admin</strong> для входа в 1 клик!
-        </div>
       </div>
 
       <!-- Alternative Methods Accordion -->
@@ -2169,6 +2165,10 @@
           const res = await adminFetch('/api/admin/auth/status');
           const data = await res.json();
           if (data.authenticated) {
+            if (data.token) {
+              localStorage.setItem('musicium_admin_token', data.token);
+              sessionStorage.setItem('musicium_admin_token', data.token);
+            }
             state.authenticated = true;
             state.adminUser = { id: data.user_id, name: data.user_name || 'Admin', avatar: data.user_avatar || '/static/activity_icon.jpg' };
             document.getElementById('authOverlay').style.display = 'none';
@@ -2319,6 +2319,8 @@
       async function handlePasswordLogin() {
         const inp = document.getElementById('authPasswordInput');
         const pass = (inp ? inp.value : '').trim();
+        const uidInp = document.getElementById('authUserIdInput');
+        const uid = (uidInp ? uidInp.value : '').trim();
         if (!pass) {
           showAuthOverlay('Введите пароль администратора');
           return;
@@ -2330,7 +2332,7 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ password: pass })
+            body: JSON.stringify({ password: pass, user_id: uid })
           });
           const d = await res.json();
           if (d.ok && d.token) {
@@ -2349,11 +2351,28 @@
       const authPasswordBtn = document.getElementById('authPasswordBtn');
       if (authPasswordBtn) authPasswordBtn.addEventListener('click', handlePasswordLogin);
 
-      // Alternative Discord OAuth2
+      // Alternative Discord OAuth2 & Popup communication
+      window.addEventListener('message', async (event) => {
+        if (event.data && (event.data.type === 'musicium_admin_auth_success' || event.data.type === 'musicium_auth_success')) {
+          const token = event.data.token || event.data.admin_token;
+          if (token) {
+            localStorage.setItem('musicium_admin_token', token);
+            sessionStorage.setItem('musicium_admin_token', token);
+            await checkAuth();
+          }
+        }
+      });
+
       const authDiscordBtn = document.getElementById('authDiscordBtn');
       if (authDiscordBtn) {
         authDiscordBtn.addEventListener('click', () => {
-          window.location.href = '/api/auth/discord?redirect=/admin';
+          const w = 520, h = 760;
+          const left = Math.max(0, (window.screen.width - w) / 2);
+          const top = Math.max(0, (window.screen.height - h) / 2);
+          const popup = window.open('/api/auth/discord?redirect=/admin', 'DiscordAuthAdmin', `width=${w},height=${h},top=${top},left=${left}`);
+          if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+            window.location.href = '/api/auth/discord?redirect=/admin';
+          }
         });
       }
 

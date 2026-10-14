@@ -94,6 +94,11 @@ from web_server import WebServer
 import admin_service
 import anticrash_service
 from anticrash_service import anticrash
+from theme import THEMES, get_guild_theme_name, set_guild_theme, get_theme
+from ui.glass_view import GlassPlayerView
+from render.animation import get_animation_engine
+from render.queue_card import get_queue_renderer
+from render.lyrics_card import get_lyrics_renderer
 
 PUBLIC_URL = os.getenv("PUBLIC_URL", "http://localhost:3000")
 
@@ -417,92 +422,6 @@ async def slash_miniapp(interaction: discord.Interaction):
             await slash_player.callback(interaction)
 
 
-@bot.tree.command(name="admin", description="Панель управления Musicium (только для владельца бота)")
-async def slash_admin(interaction: discord.Interaction):
-    if not admin_service.is_admin_id(interaction.user.id):
-        await interaction.response.send_message(
-            f"⛔ **Доступ запрещен!**\nПанель управления доступна только владельцу бота (ID: `{admin_service.PRIMARY_ADMIN_ID}`).",
-            ephemeral=True
-        )
-        return
-
-    uid_str = str(interaction.user.id)
-    token = admin_service.generate_admin_token(
-        user_id=uid_str,
-        name=interaction.user.display_name,
-        avatar=interaction.user.display_avatar.url if hasattr(interaction.user, "display_avatar") else ""
-    )
-    code = admin_service.create_admin_login_code(uid_str, ttl_seconds=900)
-    login_url = f"{PUBLIC_URL}/admin?token={token}"
-
-    embed = discord.Embed(
-        title="🔐 Панель управления Musicium • Авторизация",
-        description=(
-            f"Здравствуйте, **{interaction.user.display_name}**!\n"
-            f"Доступ подтвержден для вашего Discord ID: `{uid_str}`.\n\n"
-            f"🔑 **Одноразовый проверочный код:**\n"
-            f"# `{code}`\n"
-            f"*(действует 15 минут, можно ввести на странице /admin)*\n\n"
-            f"🚀 **Вход в панель в 1 клик:**\n"
-            f"Нажмите кнопку ниже или перейдите по ссылке:\n"
-            f"[👉 Открыть админ-панель]({login_url})"
-        ),
-        color=0x00F2FE
-    )
-    embed.set_thumbnail(url=f"{PUBLIC_URL}/static/activity_icon.jpg")
-    embed.set_footer(text="Никому не сообщайте этот код или ссылку!")
-
-    view = discord.ui.View()
-    view.add_item(discord.ui.Button(
-        label="🚀 Войти в админ-панель",
-        style=discord.ButtonStyle.link,
-        url=login_url,
-        emoji="🚀"
-    ))
-
-    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-
-
-@bot.command(name="admin")
-async def cmd_admin(ctx):
-    if not admin_service.is_admin_id(ctx.author.id):
-        try:
-            await ctx.author.send(f"⛔ Доступ запрещен. Панель управления доступна только владельцу бота по ID: `{admin_service.PRIMARY_ADMIN_ID}`.")
-        except Exception:
-            pass
-        return
-
-    uid_str = str(ctx.author.id)
-    token = admin_service.generate_admin_token(
-        user_id=uid_str,
-        name=ctx.author.display_name,
-        avatar=ctx.author.display_avatar.url if hasattr(ctx.author, "display_avatar") else ""
-    )
-    code = admin_service.create_admin_login_code(uid_str, ttl_seconds=900)
-    login_url = f"{PUBLIC_URL}/admin?token={token}"
-
-    embed = discord.Embed(
-        title="🔐 Панель управления Musicium • Авторизация",
-        description=(
-            f"Здравствуйте, **{ctx.author.display_name}**!\n"
-            f"Авторизация подтверждена для вашего Discord ID: `{uid_str}`.\n\n"
-            f"🔑 **Одноразовый код для входа:** `# {code}`\n\n"
-            f"🚀 **Вход в 1 клик:** [Открыть админ-панель]({login_url})"
-        ),
-        color=0x00F2FE
-    )
-    embed.set_thumbnail(url=f"{PUBLIC_URL}/static/activity_icon.jpg")
-    view = discord.ui.View()
-    view.add_item(discord.ui.Button(label="🚀 Войти в админ-панель", style=discord.ButtonStyle.link, url=login_url, emoji="🚀"))
-
-    try:
-        await ctx.author.send(embed=embed, view=view)
-        if ctx.guild:
-            await ctx.send("📩 Ссылка и код для входа в панель отправлены вам в личные сообщения Discord!", delete_after=10)
-    except Exception:
-        await ctx.send("⚠️ Не удалось отправить сообщение в ЛС. Проверьте настройки приватности.")
-
-
 @bot.tree.command(name="play", description="Включить музыку по названию или ссылке")
 @app_commands.describe(query="Название трека, артист или прямая ссылка (YouTube, SoundCloud, Яндекс)")
 async def slash_play(interaction: discord.Interaction, query: str):
@@ -578,17 +497,31 @@ async def slash_play(interaction: discord.Interaction, query: str):
             await connect_task
         res = await player.enqueue(track, play_now=False)
 
-        embed = discord.Embed(
-            title="🎶 Трек добавлен!" if res.get("action") == "queued" else "▶️ Начинаем воспроизведение через микрофон!",
-            description=f"**[{track.title}]({track.url})**\n👤 {track.artist} • ⏱ {track.duration_str}",
-            color=0x5865F2,
-        )
-        if track.thumbnail:
-            embed.set_thumbnail(url=track.thumbnail)
-        embed.set_footer(text=f"Голосовой канал: {voice_channel.name} • Discord Mini App")
-
-        view = await get_activity_view(guild=guild, voice_channel=voice_channel)
-        await interaction.followup.send(embed=embed, view=view)
+        # VisionOS Liquid Glass interactive card presentation
+        glass_view = GlassPlayerView(bot, player, initial_mode="full")
+        try:
+            card_file = await glass_view.render_current_card()
+            embed = discord.Embed(
+                title="🎶 Трек добавлен в очередь!" if res.get("action") == "queued" else "▶️ Сейчас играет",
+                description=f"**[{track.title}]({track.url})**\n👤 {track.artist} • ⏱ {track.duration_str}",
+                color=0x00F2FE,
+            )
+            embed.set_image(url=f"attachment://{card_file.filename}")
+            embed.set_footer(text=f"🔊 {voice_channel.name} • visionOS Liquid Glass")
+            msg = await interaction.followup.send(embed=embed, file=card_file, view=glass_view)
+            glass_view.message = msg
+        except Exception as card_err:
+            logger.warning(f"Liquid Glass render fallback ({card_err}), sending standard view...")
+            embed = discord.Embed(
+                title="🎶 Трек добавлен!" if res.get("action") == "queued" else "▶️ Начинаем воспроизведение через микрофон!",
+                description=f"**[{track.title}]({track.url})**\n👤 {track.artist} • ⏱ {track.duration_str}",
+                color=0x5865F2,
+            )
+            if track.thumbnail:
+                embed.set_thumbnail(url=track.thumbnail)
+            embed.set_footer(text=f"Голосовой канал: {voice_channel.name} • Discord Mini App")
+            view = await get_activity_view(guild=guild, voice_channel=voice_channel)
+            await interaction.followup.send(embed=embed, view=view)
     except Exception as e:
         logger.error(f"Error in slash_play: {e}", exc_info=True)
         await interaction.followup.send(f"❌ Ошибка воспроизведения: {e}", ephemeral=True)
@@ -679,38 +612,137 @@ async def slash_volume(interaction: discord.Interaction, percent: int):
     await interaction.followup.send(f"🔊 Громкость установлена на **{clamped}%**.")
 
 
-@bot.tree.command(name="queue", description="Показать очередь треков")
+@bot.tree.command(name="nowplaying", description="Визуальная карточка текущего трека в стиле visionOS Liquid Glass")
+async def slash_nowplaying(interaction: discord.Interaction):
+    await interaction.response.defer()
+    try:
+        player = player_manager.get_player_by_guild_id(interaction.guild_id)
+        if not player or not player.current_track:
+            await interaction.followup.send("❌ Сейчас ничего не играет. Включите музыку с помощью `/play`!", ephemeral=True)
+            return
+
+        glass_view = GlassPlayerView(bot, player, initial_mode="full")
+        card_file = await glass_view.render_current_card()
+
+        track = player.current_track
+        embed = discord.Embed(
+            title="▶️ Сейчас играет",
+            description=f"**[{track.title}]({track.url})**\n👤 {track.artist} • ⏱ {track.duration_str}",
+            color=0x00F2FE,
+        )
+        if card_file:
+            embed.set_image(url=f"attachment://{card_file.filename}")
+        embed.set_footer(text=f"visionOS Liquid Glass • Громкость: {int(player.volume * 100)}%")
+
+        msg = await interaction.followup.send(embed=embed, file=card_file, view=glass_view)
+        glass_view.message = msg
+    except Exception as e:
+        logger.error(f"Error in slash_nowplaying: {e}", exc_info=True)
+        await interaction.followup.send(f"❌ Ошибка отображения плеера: {e}", ephemeral=True)
+
+
+@bot.tree.command(name="np", description="Короткая команда для карточки текущего трека")
+async def slash_np(interaction: discord.Interaction):
+    await slash_nowplaying.callback(interaction)
+
+
+@bot.tree.command(name="queue", description="Показать очередь воспроизведения в виде Liquid Glass карточки")
 async def slash_queue(interaction: discord.Interaction):
     await interaction.response.defer()
     try:
         player = player_manager.get_player_by_guild_id(interaction.guild_id)
         if not player or (not player.current_track and not player.queue):
-            await interaction.followup.send("📜 Очередь пуста!", ephemeral=True)
+            await interaction.followup.send("📜 Очередь воспроизведения пуста!", ephemeral=True)
             return
 
-        lines = []
-        if player.current_track:
-            lines.append(f"**Сейчас играет:** [{player.current_track.title}]({player.current_track.url}) (`{player.current_track.duration_str}`)")
-
-        if player.queue:
-            lines.append("\n**Следующие треки:**")
-            for i, t in enumerate(player.queue[:10], 1):
-                lines.append(f"`{i}.` [{t.title}]({t.url}) - `{t.duration_str}` (от {t.requester_name})")
-
-            if len(player.queue) > 10:
-                lines.append(f"\n*...и ещё {len(player.queue) - 10} треков*")
+        glass_view = GlassPlayerView(bot, player, initial_mode="queue")
+        card_file = await glass_view.render_current_card()
 
         embed = discord.Embed(
             title=f"📜 Очередь воспроизведения ({len(player.queue)} в очереди)",
-            description="\n".join(lines),
-            color=0x5865F2,
+            color=0x00F2FE,
         )
-        vc = interaction.user.voice.channel if (interaction.user and interaction.user.voice) else None
-        view = await get_activity_view(guild=interaction.guild, voice_channel=vc)
-        await interaction.followup.send(embed=embed, view=view)
+        if card_file:
+            embed.set_image(url=f"attachment://{card_file.filename}")
+        embed.set_footer(text=f"visionOS Liquid Glass • Musicium")
+
+        msg = await interaction.followup.send(embed=embed, file=card_file, view=glass_view)
+        glass_view.message = msg
     except Exception as e:
         logger.error(f"Error in slash_queue: {e}", exc_info=True)
         await interaction.followup.send(f"❌ Ошибка отображения очереди: {e}", ephemeral=True)
+
+
+@bot.tree.command(name="lyrics", description="Показать караоке-текст текущей песни с подсветкой строки")
+async def slash_lyrics(interaction: discord.Interaction):
+    await interaction.response.defer()
+    try:
+        player = player_manager.get_player_by_guild_id(interaction.guild_id)
+        if not player or not player.current_track:
+            await interaction.followup.send("❌ Сейчас ничего не играет для показа текста.", ephemeral=True)
+            return
+
+        glass_view = GlassPlayerView(bot, player, initial_mode="lyrics")
+        card_file = await glass_view.render_current_card()
+
+        track = player.current_track
+        embed = discord.Embed(
+            title=f"🎤 Текст: {track.title}",
+            description=f"👤 {track.artist}",
+            color=0x00F2FE,
+        )
+        if card_file:
+            embed.set_image(url=f"attachment://{card_file.filename}")
+        embed.set_footer(text=f"visionOS Liquid Glass • Синхронизированный текст")
+
+        msg = await interaction.followup.send(embed=embed, file=card_file, view=glass_view)
+        glass_view.message = msg
+    except Exception as e:
+        logger.error(f"Error in slash_lyrics: {e}", exc_info=True)
+        await interaction.followup.send(f"❌ Ошибка загрузки текста: {e}", ephemeral=True)
+
+
+@bot.tree.command(name="theme", description="Выбрать тему оформления Liquid Glass / visionOS для сервера")
+@app_commands.describe(theme="Название темы оформления (auto, aurora, sunset, midnight, frost)")
+@app_commands.choices(theme=[
+    app_commands.Choice(name="🪄 Adaptive Glass (Подстраивается под обложку трека)", value="auto"),
+    app_commands.Choice(name="🌌 Aurora Borealis (Изумрудно-фиолетовое сияние)", value="aurora"),
+    app_commands.Choice(name="🌅 Sunset Glow (Неоновый коралл и закатная фуксия)", value="sunset"),
+    app_commands.Choice(name="🌑 Midnight visionOS (Космический индиго и обсидиан)", value="midnight"),
+    app_commands.Choice(name="❄️ Crystal Frost (Ледяной кристалл с серебром)", value="frost"),
+])
+async def slash_theme(interaction: discord.Interaction, theme: Optional[app_commands.Choice[str]] = None):
+    await interaction.response.defer()
+    guild_id = interaction.guild_id or 0
+
+    if theme:
+        set_guild_theme(guild_id, theme.value)
+        th = THEMES.get(theme.value, THEMES["auto"])
+        embed = discord.Embed(
+            title=f"{th.emoji} Тема оформления обновлена: {th.display_name}",
+            description=f"**{th.description}**\n\nАкцентный цвет: `{th.accent_hex}` • Вторичный цвет: `{th.secondary_hex}`",
+            color=int(th.accent_hex.replace("#", ""), 16),
+        )
+        embed.set_footer(text="Все карточки и контроллеры на этом сервере теперь используют эту тему.")
+        await interaction.followup.send(embed=embed)
+    else:
+        current_name = get_guild_theme_name(guild_id)
+        current_th = THEMES.get(current_name, THEMES["auto"])
+        embed = discord.Embed(
+            title="🎨 Темы оформления Liquid Glass / visionOS",
+            description=(
+                f"Текущая активная тема: **{current_th.emoji} {current_th.display_name}**\n\n"
+                "Доступные темы:\n"
+                "• 🪄 **auto** — Adaptive Glass (адаптируется к обложке)\n"
+                "• 🌌 **aurora** — Aurora Borealis (полярное сияние)\n"
+                "• 🌅 **sunset** — Sunset Glow (закатный горизонт)\n"
+                "• 🌑 **midnight** — Midnight visionOS (космический индиго)\n"
+                "• ❄️ **frost** — Crystal Frost (ледяное стекло)\n\n"
+                "Используйте `/theme <название>` для переключения!"
+            ),
+            color=int(current_th.accent_hex.replace("#", ""), 16),
+        )
+        await interaction.followup.send(embed=embed)
 
 
 @bot.tree.command(name="stop", description="Остановить плеер и отключить бота от голосового канала")

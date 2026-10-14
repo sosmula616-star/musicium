@@ -1338,3 +1338,85 @@ class MusicService:
             {"rank": 24, "id": "soundcloud_sc24", "title": "Satisfaction", "artist": "Benny Benassi", "duration_str": "3:11", "duration": 191, "thumbnail": "https://i1.sndcdn.com/artworks-000008546102-k1e87u-t500x500.jpg", "source": "soundcloud", "url": "https://soundcloud.com/benny-benassi/satisfaction", "plays": "61M"}
         ]
         return base_charts
+
+    async def fetch_lyrics(self, title: str, artist: str, duration: Optional[int] = None) -> Dict[str, Any]:
+        """
+        Fetches synchronized or plain lyrics using LRCLIB (free open lyrics provider).
+        Returns: {
+            "found": bool,
+            "synced": bool,
+            "lyrics": str,
+            "title": str,
+            "artist": str
+        }
+        """
+        # Clean title & artist from typical YouTube clutter
+        clean_title = re.sub(r'\[.*?\]|\(.*?\)|official|video|audio|remix|hd|hq|4k|feat\.?|ft\.?', '', title, flags=re.IGNORECASE).strip()
+        clean_artist = re.sub(r'\[.*?\]|\(.*?\)|- Topic|VEVO', '', artist, flags=re.IGNORECASE).strip()
+
+        params = {
+            "track_name": clean_title or title,
+            "artist_name": clean_artist or artist,
+        }
+        if duration and duration > 0:
+            params["duration"] = str(duration)
+
+        headers = {
+            "User-Agent": "MusiciumDiscordBot/2.0 (LiquidGlass visionOS; https://gostingmusicium.bothost.tech)"
+        }
+
+        try:
+            import aiohttp
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=4.5), headers=headers) as sess:
+                # 1. Try exact match
+                url = f"https://lrclib.net/api/get?{urllib.parse.urlencode(params)}"
+                async with sess.get(url) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        synced = data.get("syncedLyrics")
+                        plain = data.get("plainLyrics")
+                        if synced:
+                            return {
+                                "found": True,
+                                "synced": True,
+                                "lyrics": synced,
+                                "title": data.get("trackName", title),
+                                "artist": data.get("artistName", artist),
+                            }
+                        elif plain:
+                            return {
+                                "found": True,
+                                "synced": False,
+                                "lyrics": plain,
+                                "title": data.get("trackName", title),
+                                "artist": data.get("artistName", artist),
+                            }
+
+                # 2. Fallback to search query
+                q = f"{clean_title} {clean_artist}".strip()
+                search_url = f"https://lrclib.net/api/search?q={urllib.parse.quote(q)}"
+                async with sess.get(search_url) as s_resp:
+                    if s_resp.status == 200:
+                        results = await s_resp.json()
+                        if results and isinstance(results, list):
+                            first = results[0]
+                            synced = first.get("syncedLyrics")
+                            plain = first.get("plainLyrics")
+                            if synced or plain:
+                                return {
+                                    "found": True,
+                                    "synced": bool(synced),
+                                    "lyrics": synced or plain,
+                                    "title": first.get("trackName", title),
+                                    "artist": first.get("artistName", artist),
+                                }
+        except Exception as e:
+            logger.debug(f"Error fetching lyrics for '{title}': {e}")
+
+        return {
+            "found": False,
+            "synced": False,
+            "lyrics": f"Текст песни для '{title}' не найден в базе данных.",
+            "title": title,
+            "artist": artist,
+        }

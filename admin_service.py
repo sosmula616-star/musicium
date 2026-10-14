@@ -69,13 +69,25 @@ logger = logging.getLogger("admin_service")
 
 # --- Admin Authentication & Session Management ---
 
-PRIMARY_ADMIN_ID = "410432175373156352"
+PRIMARY_ADMIN_ID = (
+    os.getenv("PRIMARY_ADMIN_ID")
+    or (os.getenv("ADMIN_IDS", "410432175373156352").replace(";", ",").split(",")[0].strip())
+    or "410432175373156352"
+)
+_extra_admin_ids: Set[str] = set()
 
 def get_admin_ids() -> Set[str]:
     raw = os.getenv("ADMIN_IDS", PRIMARY_ADMIN_ID)
     ids = {x.strip() for x in raw.replace(";", ",").split(",") if x.strip()}
     ids.add(PRIMARY_ADMIN_ID)
+    ids.update(_extra_admin_ids)
     return ids
+
+def add_admin_id(uid: Any) -> None:
+    if uid:
+        u_str = str(uid).strip()
+        if u_str.isdigit():
+            _extra_admin_ids.add(u_str)
 
 _SECRET_SALT = os.getenv("DISCORD_CLIENT_SECRET") or "musicium_super_secure_admin_salt_2026"
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "").strip()

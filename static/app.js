@@ -831,18 +831,65 @@
     return false;
   }
 
+  // Ensure Discord Embedded App SDK module is fully loaded
+  async function ensureDiscordSdkLoaded() {
+    if (window.DiscordSDK?.DiscordSDK || typeof window.DiscordSDK === 'function') {
+      return window.DiscordSDK?.DiscordSDK || window.DiscordSDK;
+    }
+    return new Promise(async (resolve) => {
+      let settled = false;
+      const finish = (val) => {
+        if (!settled) {
+          settled = true;
+          resolve(val);
+        }
+      };
+
+      window.addEventListener('discord-sdk-loaded', () => {
+        finish(window.DiscordSDK?.DiscordSDK || window.DiscordSDK || null);
+      }, { once: true });
+
+      // Direct dynamic imports
+      try {
+        const mod = await import('https://esm.sh/@discord/embedded-app-sdk@1.1.0');
+        const Sdk = mod.DiscordSDK || mod.default?.DiscordSDK || mod.default;
+        if (Sdk && !settled) {
+          window.DiscordSDK = Sdk;
+          return finish(Sdk);
+        }
+      } catch (_) {}
+
+      try {
+        const mod2 = await import('https://cdn.jsdelivr.net/npm/@discord/embedded-app-sdk@1.1.0/output/index.mjs');
+        const Sdk2 = mod2.DiscordSDK || mod2.default?.DiscordSDK || mod2.default;
+        if (Sdk2 && !settled) {
+          window.DiscordSDK = Sdk2;
+          return finish(Sdk2);
+        }
+      } catch (_) {}
+
+      setTimeout(() => {
+        finish(window.DiscordSDK?.DiscordSDK || window.DiscordSDK || null);
+      }, 3500);
+    });
+  }
+
   // Discord Embedded App SDK Init & OAuth Authorization
   async function initDiscordSdk(forceConsent = false) {
-    const SdkClass = window.DiscordSDK?.DiscordSDK || window.DiscordSDK;
+    const SdkClass = await ensureDiscordSdkLoaded();
     if (typeof SdkClass === 'function') {
       try {
         const discordSdk = new SdkClass('1555020109507199066');
+        window.discordSdkInstance = discordSdk;
         const readyPromise = discordSdk.ready();
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Discord SDK ready timeout')), 3500));
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Discord SDK ready timeout')), 5000));
         await Promise.race([readyPromise, timeoutPromise]);
 
-        if (discordSdk.guildId) state.guildId = discordSdk.guildId;
-        if (discordSdk.channelId) state.channelId = discordSdk.channelId;
+        if (discordSdk.guildId) state.guildId = String(discordSdk.guildId);
+        if (discordSdk.channelId) {
+          state.channelId = String(discordSdk.channelId);
+          state.inVoice = true;
+        }
 
         // Valid Embedded App scopes are strictly identify and guilds
         const { code } = await discordSdk.commands.authorize({
@@ -886,6 +933,11 @@
             saveUser();
             if (el.authDiscordModal) el.authDiscordModal.style.display = 'none';
             showToast(`Вы авторизованы как ${state.userName}`, 'success', 'fa-user-check');
+
+            // Synchronize voice state & player instantly
+            await checkUserVoice();
+            sendWsSubscribe();
+            await fetchCurrentPlayer();
             return true;
           }
         }
@@ -2697,8 +2749,15 @@
     lastTrackRequestTime = now;
 
     if (!state.inVoice && !state.channelId) {
+      if (window.discordSdkInstance?.channelId) {
+        state.channelId = String(window.discordSdkInstance.channelId);
+        state.inVoice = true;
+      }
+      if (!state.guildId && window.discordSdkInstance?.guildId) {
+        state.guildId = String(window.discordSdkInstance.guildId);
+      }
       await checkUserVoice();
-      if (!state.inVoice && !state.channelId) {
+      if (!state.inVoice && !state.channelId && !isMiniApp) {
         if (el.voiceWidgetContainer) {
           el.voiceWidgetContainer.classList.add('dropdown-open');
         }
@@ -3000,41 +3059,70 @@
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws`;
 
-    state.ws = new WebSocket(wsUrl);
+    try {
+      state.ws = new WebSocket(wsUrl);
 
-    state.ws.onopen = () => {
-      sendWsSubscribe();
-    };
+      state.ws.onopen = () => {
+        sendWsSubscribe();
+        fetchCurrentPlayer();
+      };
 
-    state.ws.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data);
-        if (msg.event === 'player_update') {
-          if (state.guildId && msg.data && msg.data.guild_id && String(msg.data.guild_id) !== String(state.guildId)) {
-            return;
+      state.ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.event === 'player_update') {
+            if (state.guildId && msg.data && msg.data.guild_id && String(msg.data.guild_id) !== String(state.guildId)) {
+              return;
+            }
+            updatePlayerUI(msg.data);
           }
-          updatePlayerUI(msg.data);
+        } catch (e) {
+          console.error('WS parse error:', e);
         }
-      } catch (e) {
-        console.error('WS parse error:', e);
-      }
-    };
+      };
 
-    state.ws.onclose = () => {
-      setTimeout(setupWebSocket, 3000);
-    };
+      state.ws.onerror = () => {};
+
+      state.ws.onclose = () => {
+        setTimeout(setupWebSocket, 3500);
+      };
+    } catch (_) {}
   }
+
+  // Active sync loop: polling fallback ensures player status, queue, progress,
+  // and volume are perfectly synchronized in Discord Mini App even if WebSocket fails or disconnects!
+  let lastSyncFetchTime = 0;
+  setInterval(async () => {
+    const now = Date.now();
+    if (now - lastSyncFetchTime < 1400) return;
+    lastSyncFetchTime = now;
+
+    const wsOpen = (state.ws && state.ws.readyState === WebSocket.OPEN);
+    if (!wsOpen || isMiniApp) {
+      await fetchCurrentPlayer();
+    }
+  }, 1800);
 
   async function fetchCurrentPlayer() {
     try {
-      const q = state.guildId ? `guild_id=${encodeURIComponent(state.guildId)}` : `user_id=${encodeURIComponent(state.userId)}`;
-      const resp = await fetch(`/api/player?${q}`);
+      let q = '';
+      if (state.guildId) {
+        q = `guild_id=${encodeURIComponent(state.guildId)}`;
+      } else if (state.userId && !state.userId.startsWith('user_')) {
+        q = `user_id=${encodeURIComponent(state.userId)}`;
+      }
+      const resp = await fetch(`/api/player${q ? '?' + q : ''}`);
+      if (!resp.ok) return;
       const data = await resp.json();
-      if (data.player) {
+      if (data && data.player) {
+        if (!state.guildId && data.player.guild_id) {
+          state.guildId = String(data.player.guild_id);
+          sendWsSubscribe();
+        }
         updatePlayerUI(data.player);
       }
     } catch (e) {
-      console.error('Error fetching player:', e);
+      // ignore network blips
     }
   }
 
@@ -3885,8 +3973,13 @@
     fetchRecommendations();
     fetchCommunityPlaylists();
     fetchFeedDiscovery();
-    await checkExistingSession();
-    await initDiscordSdk();
+    if (isMiniApp) {
+      await initDiscordSdk();
+      await checkExistingSession();
+    } else {
+      await checkExistingSession();
+      await initDiscordSdk();
+    }
     loadUserDataFromDB();
     await checkSystemStatus();
     await checkUserVoice();
