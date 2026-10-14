@@ -86,6 +86,8 @@
     savedVolume: 100,
     userExplicitVolume: loadJson('musicium_volume', null),
     searchTimeout: null,
+    searchAbortController: null,
+    previousView: 'home',
     isScrubbing: false,
     isAdjustingVolume: false,
     lastUserVolumeChange: 0,
@@ -902,12 +904,13 @@
       el.menuUserAvatar.onerror = function() { this.src = '/static/activity_icon.jpg'; };
     }
 
-    const isAdmin = (state.userId === '410432175373156352') || localStorage.getItem('music_is_admin') === 'true';
+    const hasAdminToken = Boolean(localStorage.getItem('musicium_admin_token'));
+    const isAdmin = (state.userId === '410432175373156352') || localStorage.getItem('music_is_admin') === 'true' || hasAdminToken;
     const navAdmin = document.getElementById('navAdminBtn');
     if (navAdmin) navAdmin.style.display = isAdmin ? 'flex' : 'none';
     const headerAdmin = document.getElementById('headerAdminPill');
     if (headerAdmin) headerAdmin.style.display = isAdmin ? 'inline-flex' : 'none';
-    if (el.menuAdminLink) el.menuAdminLink.style.display = isAdmin ? 'flex' : 'none';
+    if (el.menuAdminLink) el.menuAdminLink.style.display = 'flex';
   }
 
   // Voice Channel Check & Channel Members Rendering
@@ -1024,6 +1027,9 @@
 
   // Switch View Router
   function switchView(viewName, playlistId = null) {
+    if (state.currentView !== viewName && state.currentView !== 'queue') {
+      state.previousView = state.currentView;
+    }
     state.currentView = viewName;
     state.selectedPlaylistId = playlistId;
 
@@ -2453,20 +2459,36 @@
 
   // Search tracks (only searches and renders results, never automatically plays)
   async function performSearch(query = null) {
-    const q = query !== null ? query : el.searchInput.value.trim();
+    const q = query !== null ? query : (el.searchInput ? el.searchInput.value.trim() : '');
     if (!q) {
-      switchView('home');
+      if (state.currentView === 'search') {
+        el.loadingState.style.display = 'none';
+        el.resultsCount.textContent = t('results.found', { count: 0 });
+        el.resultsHeading.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="#ff0000" style="display:inline-block;vertical-align:middle;margin-right:6px;"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg><span>${t('nav.search')}</span>`;
+        if (state.lastTracks && state.lastTracks.length > 0) {
+          renderTracks(state.lastTracks);
+        } else {
+          el.emptyState.style.display = 'flex';
+        }
+      } else {
+        switchView('home');
+      }
       return;
     }
+
+    if (state.searchAbortController) {
+      state.searchAbortController.abort();
+    }
+    state.searchAbortController = new AbortController();
+    const signal = state.searchAbortController.signal;
 
     switchView('search');
     el.loadingState.style.display = 'flex';
     el.emptyState.style.display = 'none';
-    el.tracksGrid.innerHTML = '';
     el.resultsHeading.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="#ff0000" style="display:inline-block;vertical-align:middle;margin-right:6px;"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg><span>${t('results.query', { query: escapeHtml(q) })}</span>`;
 
     try {
-      const resp = await fetch(`/api/search?q=${encodeURIComponent(q)}&source=${state.currentSource}&limit=35`);
+      const resp = await fetch(`/api/search?q=${encodeURIComponent(q)}&source=${state.currentSource}&limit=35`, { signal });
       const data = await resp.json();
       el.loadingState.style.display = 'none';
 
@@ -2475,13 +2497,16 @@
       }
 
       if (!data.tracks || data.tracks.length === 0) {
+        el.tracksGrid.innerHTML = '';
         el.emptyState.style.display = 'flex';
         el.resultsCount.textContent = t('results.found', { count: 0 });
       } else {
+        el.emptyState.style.display = 'none';
         el.resultsCount.textContent = t('results.found', { count: data.tracks.length });
         renderTracks(data.tracks);
       }
     } catch (err) {
+      if (err.name === 'AbortError') return;
       el.loadingState.style.display = 'none';
       el.emptyState.style.display = 'flex';
       showToast(t('toast.searchError'), 'error');
@@ -2932,7 +2957,7 @@
     if (el.navLiked) el.navLiked.addEventListener('click', () => switchView('liked'));
     if (el.navHistory) el.navHistory.addEventListener('click', () => switchView('history'));
     if (el.btnToggleQueue) el.btnToggleQueue.addEventListener('click', () => {
-      if (state.currentView === 'queue') switchView('home');
+      if (state.currentView === 'queue') switchView(state.previousView || 'home');
       else switchView('queue');
     });
 
@@ -3194,15 +3219,16 @@
       });
     }
 
-    // Search input
+    // Search input with smooth debounce
     el.searchInput.addEventListener('input', () => {
       el.searchClearBtn.style.display = el.searchInput.value ? 'block' : 'none';
       clearTimeout(state.searchTimeout);
-      state.searchTimeout = setTimeout(() => {
-        if (el.searchInput.value.trim().length >= 3) {
+      const val = el.searchInput.value.trim();
+      if (val.length >= 3) {
+        state.searchTimeout = setTimeout(() => {
           performSearch();
-        }
-      }, 500);
+        }, 700);
+      }
     });
 
     el.searchInput.addEventListener('keydown', (e) => {
@@ -3213,16 +3239,21 @@
     });
 
     el.searchSubmitBtn.addEventListener('click', () => {
+      clearTimeout(state.searchTimeout);
       performSearch();
     });
 
     el.searchClearBtn.addEventListener('click', () => {
       el.searchInput.value = '';
       el.searchClearBtn.style.display = 'none';
-      switchView('home');
+      el.searchInput.focus();
+      // Keep search view open with previous or empty search state
+      if (state.currentView === 'search') {
+        performSearch('');
+      }
     });
 
-    // Source chips (Screenshot 1: All / YouTube Music / SoundCloud / Albums)
+    // Source chips (All / YouTube Music / SoundCloud / Albums)
     if (el.sourceChips) {
       el.sourceChips.forEach(chip => {
         chip.addEventListener('click', () => {
@@ -3232,10 +3263,12 @@
           state.currentSource = src;
           state.activeHomeFilter = src;
 
-          if (state.currentView === 'search' && el.searchInput && el.searchInput.value.trim()) {
-            performSearch();
+          if (state.currentView === 'search') {
+            const currentQ = el.searchInput ? el.searchInput.value.trim() : '';
+            if (currentQ) {
+              performSearch(currentQ);
+            }
           } else {
-            switchView('home');
             renderHomeView();
           }
         });
@@ -3381,7 +3414,12 @@
     function navigateToAdmin(e) {
       if (e) e.preventDefault();
       const token = localStorage.getItem('musicium_admin_token') || '';
-      const adminUrl = token ? `/admin?token=${encodeURIComponent(token)}` : '/admin';
+      const params = new URLSearchParams(window.location.search);
+      if (token && !params.has('token')) {
+        params.set('token', token);
+      }
+      const qs = params.toString() ? `?${params.toString()}` : '';
+      const adminUrl = `/admin${qs}`;
       if (isMiniApp) {
         window.location.href = adminUrl;
       } else {

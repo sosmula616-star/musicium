@@ -3119,7 +3119,7 @@
       // 9. Streaming Modes & Cookies
       window.selectedStreamingMode = 'cookieless';
 
-      window.selectStreamingMode = function(mode) {
+      window.selectStreamingMode = function(mode, shouldAutoSave = true) {
         window.selectedStreamingMode = mode;
         const radios = {
           'cookieless': 'modeRadioCookieless',
@@ -3151,6 +3151,11 @@
         if (hint) {
           hint.textContent = `Выбран режим: ${titles[mode] || mode}`;
         }
+
+        // Proactively auto-save immediately on click so user choice is never lost
+        if (shouldAutoSave && state.authenticated) {
+          window.saveStreamingSettings(false);
+        }
       };
 
       // Quick Tag Helpers for Proxy and POT URL
@@ -3172,46 +3177,51 @@
         showToast(val ? `Установлен POT URL: ${val}` : 'POT URL очищен (без сервера токенов)', 'info');
       };
 
-      // 1-Click Preset Combinations
-      window.applyStreamingPreset = function(presetKey) {
+      // 1-Click Preset Combinations with Auto-Apply and Save
+      window.applyStreamingPreset = async function(presetKey) {
         document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active-preset'));
 
         if (presetKey === 'pure_cookieless') {
-          window.selectStreamingMode('cookieless');
+          window.selectStreamingMode('cookieless', false);
           window.setProxyValue('');
           window.setPotUrlValue('');
           const chip = document.getElementById('presetChipPure');
           if (chip) chip.classList.add('active-preset');
-          showToast('⚡ Выбрана комбинация: "Чистый Cookieless". Нажмите "Сохранить и применить"!', 'success');
+          await window.saveStreamingSettings(false);
+          showToast('⚡ Активирована комбинация: "Чистый Cookieless"!', 'success');
         } else if (presetKey === 'pot_bgutil') {
-          window.selectStreamingMode('cookieless');
+          window.selectStreamingMode('cookieless', false);
           window.setProxyValue('');
           window.setPotUrlValue('http://127.0.0.1:4416');
           const chip = document.getElementById('presetChipPot');
           if (chip) chip.classList.add('active-preset');
-          showToast('🛡️ Выбрана комбинация: "Cookieless + bgutil POT". Нажмите "Сохранить и применить"!', 'success');
+          await window.saveStreamingSettings(false);
+          showToast('🛡️ Активирована комбинация: "Cookieless + bgutil POT"!', 'success');
         } else if (presetKey === 'proxy_bypass') {
-          window.selectStreamingMode('cookieless');
+          window.selectStreamingMode('cookieless', false);
           const pInp = document.getElementById('streamingProxyInput');
           if (pInp && !pInp.value.trim()) pInp.value = 'socks5://127.0.0.1:1080';
           window.setPotUrlValue('');
           const chip = document.getElementById('presetChipProxy');
           if (chip) chip.classList.add('active-preset');
-          showToast('🌐 Выбрана комбинация: "Зарубежный Прокси". Укажите ваши данные прокси и сохраните!', 'info');
+          await window.saveStreamingSettings(false);
+          showToast('🌐 Комбинация "Прокси" применена! Проверьте данные прокси и сохраните.', 'info');
         } else if (presetKey === 'cookies_only') {
-          window.selectStreamingMode('youtube_cookies');
+          window.selectStreamingMode('youtube_cookies', false);
           window.setProxyValue('');
           window.setPotUrlValue('');
           const chip = document.getElementById('presetChipCookies');
           if (chip) chip.classList.add('active-preset');
-          showToast('🍪 Выбрана комбинация: "YouTube Cookies". Нажмите "Сохранить и применить"!', 'success');
+          await window.saveStreamingSettings(false);
+          showToast('🍪 Активирована комбинация: "YouTube Cookies"!', 'success');
         } else if (presetKey === 'soundcloud_fallback') {
-          window.selectStreamingMode('soundcloud_first');
+          window.selectStreamingMode('soundcloud_first', false);
           window.setProxyValue('');
           window.setPotUrlValue('');
           const chip = document.getElementById('presetChipSc');
           if (chip) chip.classList.add('active-preset');
-          showToast('☁️ Выбрана комбинация: "SoundCloud First". Нажмите "Сохранить и применить"!', 'success');
+          await window.saveStreamingSettings(false);
+          showToast('☁️ Активирована комбинация: "SoundCloud First"!', 'success');
         }
       };
 
@@ -3222,11 +3232,16 @@
           if (res.status === 401) return;
           const d = await res.json();
           if (d.ok && d.settings) {
-            window.selectStreamingMode(d.settings.mode || 'cookieless');
+            // Pass false for shouldAutoSave so fetching doesn't cause save loops
+            window.selectStreamingMode(d.settings.mode || 'cookieless', false);
             const proxyInp = document.getElementById('streamingProxyInput');
-            if (proxyInp && d.settings.proxy !== undefined) proxyInp.value = d.settings.proxy;
+            if (proxyInp && d.settings.proxy !== undefined && document.activeElement !== proxyInp) {
+              proxyInp.value = d.settings.proxy;
+            }
             const potInp = document.getElementById('streamingPotUrlInput');
-            if (potInp && d.settings.pot_provider_url !== undefined) potInp.value = d.settings.pot_provider_url;
+            if (potInp && d.settings.pot_provider_url !== undefined && document.activeElement !== potInp) {
+              potInp.value = d.settings.pot_provider_url;
+            }
           }
           if (d.cookies) {
             const c = d.cookies;
@@ -3247,14 +3262,19 @@
         }
       };
 
-      window.saveStreamingSettings = async function() {
+      window.saveStreamingSettings = async function(isSilent = false) {
         const btn = document.getElementById('saveStreamingModeBtn');
-        if (btn) btn.disabled = true;
+        if (btn) {
+          btn.disabled = true;
+          btn.innerHTML = '<span class="svg-icon" data-icon="rotate"></span> Применение...';
+          renderSvgIcons();
+        }
         try {
           const potUrl = (document.getElementById('streamingPotUrlInput')?.value || '').trim();
           const proxyVal = (document.getElementById('streamingProxyInput')?.value || '').trim();
+          const currentMode = window.selectedStreamingMode || 'cookieless';
           const payload = {
-            mode: window.selectedStreamingMode || 'cookieless',
+            mode: currentMode,
             proxy: proxyVal,
             pot_provider_url: potUrl,
           };
@@ -3265,16 +3285,34 @@
           });
           const d = await res.json();
           if (d.ok) {
-            showToast(`✅ Режим "${window.selectedStreamingMode}" успешно применен!`, 'success');
-            await window.fetchStreamingSettings();
-            await fetchStats();
+            const modeTitles = {
+              'cookieless': 'Cookieless (Innertube)',
+              'youtube_cookies': 'YouTube Cookies',
+              'soundcloud_first': 'SoundCloud First'
+            };
+            const label = modeTitles[currentMode] || currentMode;
+            if (!isSilent) {
+              showToast(`✅ Режим "${label}" успешно применен и сохранен!`, 'success');
+            }
+            const hint = document.getElementById('streamingStatusHint');
+            if (hint) {
+              hint.textContent = `Активен: ${label}`;
+            }
+            const diagMode = document.getElementById('diagStreamingMode');
+            if (diagMode) {
+              diagMode.textContent = label;
+            }
           } else {
             showToast(d.error || 'Ошибка сохранения режима', 'error');
           }
         } catch (e) {
           showToast('Ошибка связи с сервером', 'error');
         } finally {
-          if (btn) btn.disabled = false;
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<span class="svg-icon" data-icon="check"></span> Сохранить и применить';
+            renderSvgIcons();
+          }
         }
       };
 
@@ -3472,6 +3510,26 @@
         state.guildsInterval = setInterval(() => {
           if (state.activeTab === 'tab-guilds') fetchGuilds();
         }, 4000);
+      }
+
+      // Preserve Discord Activity parameters in session for seamless back-navigation
+      const currentQuery = window.location.search;
+      if (currentQuery && (currentQuery.includes('guild_id') || currentQuery.includes('frame_id') || currentQuery.includes('channel_id'))) {
+        try { sessionStorage.setItem('musicium_activity_query', currentQuery); } catch (_) {}
+      }
+
+      const backBtn = document.getElementById('backToPlayerBtn');
+      if (backBtn) {
+        backBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          const savedQuery = sessionStorage.getItem('musicium_activity_query') || window.location.search || '';
+          const params = new URLSearchParams(savedQuery);
+          params.delete('token');
+          params.delete('logged_out');
+          params.delete('logout');
+          const qs = params.toString() ? `?${params.toString()}` : '';
+          window.location.href = `/${qs}`;
+        });
       }
 
       // Proactively render vector SVGs

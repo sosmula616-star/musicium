@@ -308,6 +308,13 @@ class MusicService:
 
     async def ensure_streaming_settings_loaded(self):
         try:
+            # If disk settings file exists, prioritize it and sync to DB
+            if os.path.exists(STREAMING_SETTINGS_FILE):
+                self._load_streaming_settings()
+                await db.set_bot_setting("streaming_settings", json.dumps(self.streaming_settings))
+                return
+
+            # Otherwise, fall back to DB if disk file is missing
             db_val = await db.get_bot_setting("streaming_settings")
             if db_val:
                 data = json.loads(db_val)
@@ -315,7 +322,6 @@ class MusicService:
                     self.streaming_settings.update(data)
                     self._save_streaming_settings()
                     self._apply_streaming_settings()
-                    await db.set_bot_setting("streaming_settings", json.dumps(self.streaming_settings))
             else:
                 await db.set_bot_setting("streaming_settings", json.dumps(self.streaming_settings))
         except Exception as e:
@@ -595,7 +601,7 @@ class MusicService:
         tasks = []
         fetch_limit = max(limit, 8)
 
-        if source == "yt_albums":
+        if source in ("yt_albums", "albums"):
             tasks.append(self._search_youtube_albums(query, limit=fetch_limit))
         elif source == "youtube":
             tasks.append(self._search_youtube(query, limit=fetch_limit))
