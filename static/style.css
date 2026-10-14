@@ -2084,70 +2084,92 @@ html:not([data-lang="en"]) .lang-en { display: none !important; }
   gap: 14px;
 }
 
-/* Track Card */
+/* Track Card (visionOS Liquid Glass) */
 .track-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--r-md);
-  padding: 11px;
+  background: var(--glass-bg, rgba(255, 255, 255, 0.045)) !important;
+  backdrop-filter: blur(28px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.12)) !important;
+  border-top: 1px solid var(--glass-border-top, rgba(255, 255, 255, 0.32)) !important;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+  border-radius: 20px !important;
+  padding: 13px !important;
   display: flex;
   flex-direction: column;
-  gap: 9px;
-  transition: all var(--t-normal) var(--ease);
+  gap: 10px;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease, border-color 0.3s ease, background 0.3s ease !important;
   position: relative;
   overflow: hidden;
+  cursor: pointer;
+}
+
+.track-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 45%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, transparent 100%);
+  pointer-events: none;
+  border-radius: 20px 20px 0 0;
 }
 
 .track-card:hover {
-  background: var(--bg-elevated);
-  border-color: var(--border-light);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-card);
+  background: var(--glass-bg-hover, rgba(255, 255, 255, 0.08)) !important;
+  border-color: rgba(0, 242, 254, 0.5) !important;
+  border-top-color: rgba(255, 255, 255, 0.75) !important;
+  transform: translateY(-6px) scale(1.02) !important;
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.6), 0 0 28px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
 }
 
-.card-top { display: flex; gap: 11px; }
+.card-top { display: flex; gap: 12px; align-items: center; }
 
 .card-thumb-wrapper {
   position: relative;
-  width: 64px;
-  height: 64px;
-  border-radius: var(--r-sm);
+  width: 68px;
+  height: 68px;
+  border-radius: 14px !important;
   overflow: hidden;
   flex-shrink: 0;
-  background: var(--bg-surface-2);
+  background: #141414;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
 }
 
-.card-thumb { width: 100%; height: 100%; object-fit: cover; transition: transform var(--t-slow) var(--ease); }
-.track-card:hover .card-thumb { transform: scale(1.06); }
+.card-thumb { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+.track-card:hover .card-thumb { transform: scale(1.08); }
 
 .card-play-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: opacity var(--t-fast);
+  transition: opacity 0.2s ease;
   cursor: pointer;
 }
 .track-card:hover .card-play-overlay { opacity: 1; }
 
 .card-play-overlay svg {
-  background: rgba(0,0,0,0.6);
-  border: 1.5px solid rgba(255,255,255,0.25);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-secondary) 100%) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.45) !important;
+  box-shadow: 0 6px 20px var(--accent-glow) !important;
   border-radius: 50%;
-  padding: 7px;
-  width: 36px;
-  height: 36px;
+  padding: 8px;
+  width: 38px;
+  height: 38px;
   color: #fff;
-  transition: transform var(--t-fast) var(--ease), background var(--t-fast);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
 }
 
 .card-play-overlay:hover svg {
-  transform: scale(1.1);
-  background: var(--accent);
-  border-color: var(--accent);
+  transform: scale(1.15);
+  box-shadow: 0 8px 26px var(--accent-glow), 0 0 16px #fff !important;
 }
 
 .card-details {
@@ -2156,6 +2178,7 @@ html:not([data-lang="en"]) .lang-en { display: none !important; }
   display: flex;
   flex-direction: column;
   justify-content: center;
+  gap: 2px;
 }
 
 .card-title {
@@ -2167,6 +2190,7 @@ html:not([data-lang="en"]) .lang-en { display: none !important; }
   text-overflow: ellipsis;
   text-decoration: none;
   line-height: 1.3;
+  transition: color 0.2s ease;
 }
 
 .card-title:hover { color: var(--accent); }
@@ -2177,62 +2201,79 @@ html:not([data-lang="en"]) .lang-en { display: none !important; }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-top: 3px;
 }
 
 .card-meta-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 5px;
+  margin-top: 4px;
 }
 
 .source-tag {
   font-size: 9.5px;
   font-weight: 700;
   text-transform: uppercase;
-  padding: 2px 6px;
-  border-radius: var(--r-xs);
-  letter-spacing: 0.3px;
+  padding: 2.5px 8px;
+  border-radius: 9999px;
+  letter-spacing: 0.4px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.source-tag.youtube { background: rgba(255,0,0,0.12); color: #f87171; }
-.source-tag.soundcloud { background: rgba(255,85,0,0.12); color: #fb923c; }
-.source-tag.yandex { background: rgba(255,204,0,0.12); color: #fbbf24; }
+.source-tag.youtube { background: rgba(239, 68, 68, 0.18); color: #f87171; border-color: rgba(239, 68, 68, 0.3); }
+.source-tag.soundcloud { background: rgba(249, 115, 22, 0.18); color: #fb923c; border-color: rgba(249, 115, 22, 0.3); }
+.source-tag.yandex { background: rgba(245, 158, 11, 0.18); color: #fbbf24; border-color: rgba(245, 158, 11, 0.3); }
 
 .card-duration { font-size: 11px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
 
 .card-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 7px;
-  padding-top: 8px;
-  border-top: 1px solid var(--border-subtle);
+  gap: 8px;
+  padding-top: 9px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .btn-card-action {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  padding: 7px 9px;
-  border-radius: var(--r-full);
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 9999px !important;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  border: none;
-  transition: all var(--t-fast) var(--ease);
+  border: 1px solid transparent;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.btn-play-now { background: var(--accent); color: #fff; }
-.btn-play-now:hover { background: var(--accent-hover); transform: translateY(-1px); }
+.btn-play-now {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-secondary) 100%) !important;
+  color: #fff !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  box-shadow: 0 4px 14px var(--accent-glow) !important;
+}
+
+.btn-play-now:hover {
+  transform: translateY(-2px) scale(1.04) !important;
+  box-shadow: 0 8px 22px var(--accent-glow), 0 0 12px var(--accent) !important;
+}
 
 .btn-add-queue {
-  background: rgba(255,255,255,0.06);
-  color: var(--text-primary);
-  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  backdrop-filter: blur(12px) !important;
 }
-.btn-add-queue:hover { background: rgba(255,255,255,0.12); border-color: var(--border-light); }
+
+.btn-add-queue:hover {
+  background: rgba(255, 255, 255, 0.14) !important;
+  border-color: rgba(255, 255, 255, 0.28) !important;
+  transform: translateY(-2px) !important;
+  color: #fff !important;
+}
 
 /* ============================================================
    HERO BANNERS (Liked / Playlist / History / Queue views)
@@ -2526,8 +2567,9 @@ html:not([data-lang="en"]) .lang-en { display: none !important; }
   backdrop-filter: blur(48px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(48px) saturate(180%) !important;
   border: 1px solid var(--glass-border) !important;
+  border-top: 1px solid var(--glass-border-top, rgba(255, 255, 255, 0.35)) !important;
   box-shadow: var(--glass-rim-light), 0 24px 64px rgba(0, 0, 0, 0.75), 0 0 32px var(--accent-glow) !important;
-  border-radius: 28px !important;
+  border-radius: 9999px !important;
   padding: 0 24px;
   z-index: 200;
   box-sizing: border-box;
@@ -4463,13 +4505,17 @@ html:not([data-lang="en"]) .lang-en { display: none !important; }
 }
 
 .album-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: var(--r-md);
-  padding: 12px;
+  background: var(--glass-bg, rgba(255, 255, 255, 0.045)) !important;
+  backdrop-filter: blur(28px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.12)) !important;
+  border-top: 1px solid var(--glass-border-top, rgba(255, 255, 255, 0.3)) !important;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+  border-radius: 20px !important;
+  padding: 13px !important;
   display: flex;
   flex-direction: column;
-  transition: all 0.22s var(--ease);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease, border-color 0.3s ease, background 0.3s ease !important;
   position: relative;
   overflow: hidden;
   cursor: pointer;
@@ -4477,20 +4523,22 @@ html:not([data-lang="en"]) .lang-en { display: none !important; }
 }
 
 .album-card:hover {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.18);
-  transform: translateY(-4px);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+  background: var(--glass-bg-hover, rgba(255, 255, 255, 0.08)) !important;
+  border-color: rgba(0, 242, 254, 0.45) !important;
+  border-top-color: rgba(255, 255, 255, 0.7) !important;
+  transform: translateY(-6px) scale(1.02) !important;
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.55), 0 0 28px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
 }
 
 .album-thumb-wrap {
   width: 100%;
   aspect-ratio: 1 / 1;
-  border-radius: var(--r-sm);
+  border-radius: 14px !important;
   overflow: hidden;
   position: relative;
   background: #141414;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
   flex-shrink: 0;
 }
 

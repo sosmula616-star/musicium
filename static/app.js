@@ -2878,7 +2878,8 @@
       state.savedVolume = vol;
     }
 
-    if (!playerState || !playerState.is_playing) {
+    const hasTrack = Boolean(playerState && (playerState.current_track || playerState.is_playing || playerState.is_paused));
+    if (!playerState || !hasTrack) {
       state.isPlaying = false;
       state.duration = 0;
       state.elapsed = 0;
@@ -2909,7 +2910,7 @@
     }
 
     const track = playerState.current_track;
-    state.isPlaying = !playerState.is_paused;
+    state.isPlaying = Boolean(playerState.is_playing && !playerState.is_paused);
     
     // Resolve total duration from track, state, or duration_str
     let dur = 0;
