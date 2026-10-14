@@ -1184,4 +1184,12 @@ async def main():
             await bot.close()
 
 if __name__ == "__main__":
+    if sys.platform != "win32":
+        try:
+            import uvloop
+            uvloop.install()
+            logger.info("⚡ uvloop fast event loop engine enabled.")
+        except ImportError:
+            pass
     asyncio.run(main())
+
