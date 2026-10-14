@@ -69,6 +69,7 @@ class WebServer:
         self.app.router.add_get("/api/auth/callback", self.handle_auth_callback)
         self.app.router.add_get("/api/proxy-image", self.handle_proxy_image)
         self.app.router.add_get("/api/recommendations", self.handle_recommendations)
+        self.app.router.add_get("/api/lyrics", self.handle_lyrics)
 
         # User Database routes (PostgreSQL)
         self.app.router.add_get("/api/user/liked", self.handle_get_liked)
@@ -432,6 +433,45 @@ class WebServer:
             return web.json_response({"player": None})
 
         return web.json_response({"player": player.get_state()})
+
+    async def handle_lyrics(self, request: web.Request) -> web.Response:
+        guild_id = safe_int(request.query.get("guild_id"))
+        user_id = safe_int(request.query.get("user_id"))
+
+        player = None
+        if guild_id:
+            player = self.player_manager.get_player_by_guild_id(guild_id)
+        if not player and user_id:
+            player = self.player_manager.find_active_player_for_user(user_id)
+        if not player:
+            active_players = [p for p in self.player_manager.players.values() if p.voice_client and p.voice_client.is_connected()]
+            if len(active_players) == 1:
+                player = active_players[0]
+
+        title = request.query.get("title")
+        artist = request.query.get("artist")
+        duration = safe_int(request.query.get("duration"), default=0)
+
+        if not title and player and player.current_track:
+            track = player.current_track
+            title = track.title
+            artist = track.artist or ""
+            duration = track.duration or 0
+
+        if not title:
+            return web.json_response({
+                "found": False,
+                "synced": False,
+                "lyrics": "Сейчас ничего не воспроизводится.",
+                "title": "",
+                "artist": ""
+            })
+
+        lyrics_data = await self.music_service.fetch_lyrics(title, artist or "", duration)
+        lyrics_data["elapsed_seconds"] = player.get_elapsed_seconds() if player else 0
+        lyrics_data["duration"] = duration
+        return web.json_response(lyrics_data)
+
 
     async def handle_play(self, request: web.Request) -> web.Response:
         try:

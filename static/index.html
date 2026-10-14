@@ -49,7 +49,7 @@
       }
     }
   </script>
-  <link rel="stylesheet" href="/static/style.css?v=visionos-3.5-liquid">
+  <link rel="stylesheet" href="/static/style.css?v=visionos-4.0-lyrics">
   <style>
     /* Language switching rules */
     html[data-lang="ru"] .lang-en,
@@ -646,6 +646,12 @@
             <path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z"/>
           </svg>
         </button>
+        <!-- Karaoke / Lyrics Button in Dock -->
+        <button class="btn-like-dock" id="btnDockLyrics" title="Текст песни и караоке (visionOS)" aria-label="Lyrics">
+          <svg viewBox="0 0 24 24" width="19" height="19" fill="currentColor">
+            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/>
+          </svg>
+        </button>
       </div>
 
       <!-- Center: Playback Controls & Progress Bar -->
@@ -718,6 +724,13 @@
         <button class="btn-icon-subtle" id="btnToggleQueue" title="Открыть очередь" aria-label="Queue">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
             <path d="M4 10h12v2H4zm0-4h12v2H4zm0 8h8v2H4zm10 0v6l5-3z"/>
+          </svg>
+        </button>
+
+        <!-- Karaoke / Lyrics Toggle Button -->
+        <button class="btn-icon-subtle" id="btnDockLyricsExtra" title="Караоке / Текст песни" aria-label="Karaoke">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/>
           </svg>
         </button>
 
@@ -1220,10 +1233,64 @@
     </div>
   </div>
 
+  <!-- visionOS Liquid Glass Karaoke & Lyrics Modal -->
+  <div class="vision-lyrics-modal-overlay" id="visionLyricsModal" style="display: none;">
+    <div class="vision-lyrics-backdrop" id="lyricsBackdropClose"></div>
+    <div class="vision-lyrics-panel">
+      <!-- Top Bar -->
+      <div class="vision-lyrics-header">
+        <div class="lyrics-header-meta">
+          <div class="lyrics-header-thumb-wrap">
+            <img src="/static/activity_icon.jpg" alt="Cover" id="lyricsModalThumb" class="lyrics-header-thumb">
+          </div>
+          <div class="lyrics-header-titles">
+            <div class="lyrics-header-title" id="lyricsTrackTitle">Текст песни</div>
+            <div class="lyrics-header-artist" id="lyricsTrackArtist">—</div>
+          </div>
+        </div>
+        <div class="lyrics-header-right">
+          <div class="lyrics-synced-pill" id="lyricsSyncedBadge" style="display: none;">
+            <span class="live-dot-pulse"></span>
+            <span>КАРАОКЕ</span>
+          </div>
+          <button type="button" class="lyrics-close-btn" id="btnCloseLyricsModal" title="Закрыть">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Lyrics Scrolling Content -->
+      <div class="vision-lyrics-scroll" id="lyricsScrollContainer">
+        <div class="lyrics-state-message" id="lyricsLoadingState" style="display: none;">
+          <div class="lyrics-loading-spinner"></div>
+          <span>Синхронизация текста песни...</span>
+        </div>
+        <div class="lyrics-state-message" id="lyricsEmptyState" style="display: none;">
+          <svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor" style="opacity: 0.3; margin-bottom: 12px;">
+            <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+          </svg>
+          <span id="lyricsEmptyText">Текст для этого трека пока не найден.</span>
+        </div>
+        <div class="lyrics-lines-wrapper" id="lyricsLinesWrapper"></div>
+      </div>
+
+      <!-- Bottom Mini Floating Player inside Lyrics view -->
+      <div class="lyrics-bottom-bar">
+        <span class="lyrics-hint-text">Нажмите на любую строку для мгновенной перемотки</span>
+        <button type="button" class="btn-lyrics-quick-play" id="lyricsQuickPlayBtn">
+          <span id="lyricsQuickPlayIcon">⏸</span>
+          <span id="lyricsQuickPlayLabel">Пауза</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification Container -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="/static/app.js?v=visionos-3.5-liquid"></script>
+  <script src="/static/app.js?v=visionos-4.0-lyrics"></script>
 </body>
 
 </html>

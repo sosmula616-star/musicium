@@ -2974,6 +2974,11 @@
     if (el.playIconSvg) {
       el.playIconSvg.innerHTML = state.isPlaying ? SVG_ICONS.pause : SVG_ICONS.play;
     }
+    const lIcon = document.getElementById('lyricsQuickPlayIcon');
+    const lLabel = document.getElementById('lyricsQuickPlayLabel');
+    if (lIcon) lIcon.textContent = state.isPlaying ? '⏸' : '▶';
+    if (lLabel) lLabel.textContent = state.isPlaying ? 'Пауза' : 'Играть';
+
     if (el.equalizerBars) {
       if (state.isPlaying) el.equalizerBars.classList.add('active');
       else el.equalizerBars.classList.remove('active');
@@ -3028,6 +3033,9 @@
       } else {
         el.progressFill.style.width = '0%';
       }
+    }
+    if (typeof updateLyricsSync === 'function') {
+      updateLyricsSync();
     }
   }
 
@@ -4083,10 +4091,223 @@
     applyTheme(saved);
   }
 
+  // ============================================================
+  // visionOS Liquid Glass Karaoke & Lyrics Manager
+  // ============================================================
+  const lyricsState = {
+    isOpen: false,
+    trackKey: '',
+    syncedLines: [],
+    activeIdx: -1,
+    isManualScroll: false,
+    manualScrollTimer: null,
+  };
+
+  function parseLrc(lrcText) {
+    const lines = lrcText.split('\n');
+    const result = [];
+    const timeRegex = /\[(\d{2}):(\d{2})(?:\.(\d{2,3}))?\]/g;
+
+    for (const rawLine of lines) {
+      const trimmed = rawLine.trim();
+      if (!trimmed) continue;
+      timeRegex.lastIndex = 0;
+      const matches = [...trimmed.matchAll(timeRegex)];
+      if (!matches.length) continue;
+
+      const text = trimmed.replace(timeRegex, '').trim();
+      if (!text) continue;
+
+      for (const m of matches) {
+        const mins = parseInt(m[1], 10);
+        const secs = parseInt(m[2], 10);
+        const ms = m[3] ? parseInt(m[3].padEnd(3, '0'), 10) : 0;
+        const totalSecs = mins * 60 + secs + ms / 1000;
+        result.push({ time: totalSecs, text: text });
+      }
+    }
+
+    result.sort((a, b) => a.time - b.time);
+    return result;
+  }
+
+  function updateLyricsSync() {
+    if (!lyricsState.isOpen || !lyricsState.syncedLines.length) return;
+
+    const currentSec = state.elapsed || 0;
+    let newActiveIdx = -1;
+
+    for (let i = 0; i < lyricsState.syncedLines.length; i++) {
+      if (currentSec >= lyricsState.syncedLines[i].time) {
+        newActiveIdx = i;
+      } else {
+        break;
+      }
+    }
+
+    if (newActiveIdx !== lyricsState.activeIdx) {
+      if (lyricsState.activeIdx >= 0 && lyricsState.syncedLines[lyricsState.activeIdx]) {
+        lyricsState.syncedLines[lyricsState.activeIdx].el.classList.remove('active');
+      }
+      lyricsState.activeIdx = newActiveIdx;
+      if (newActiveIdx >= 0 && lyricsState.syncedLines[newActiveIdx]) {
+        const activeEl = lyricsState.syncedLines[newActiveIdx].el;
+        activeEl.classList.add('active');
+        if (!lyricsState.isManualScroll) {
+          activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+    }
+  }
+
+  async function openLyricsModal() {
+    const modal = document.getElementById('visionLyricsModal');
+    if (!modal) return;
+    lyricsState.isOpen = true;
+    modal.style.display = 'flex';
+
+    const cur = state.player ? state.player.current_track : null;
+    const titleEl = document.getElementById('lyricsTrackTitle');
+    const artistEl = document.getElementById('lyricsTrackArtist');
+    const thumbEl = document.getElementById('lyricsModalThumb');
+    const syncedBadge = document.getElementById('lyricsSyncedBadge');
+    const loadingState = document.getElementById('lyricsLoadingState');
+    const emptyState = document.getElementById('lyricsEmptyState');
+    const linesWrap = document.getElementById('lyricsLinesWrapper');
+
+    if (titleEl) titleEl.textContent = cur ? cur.title : 'Текст песни';
+    if (artistEl) artistEl.textContent = cur ? (cur.artist || '—') : '—';
+    if (thumbEl && cur && cur.thumbnail) thumbEl.src = getSafeImageUrl(cur.thumbnail);
+
+    const trackKey = cur ? `${cur.title}_${cur.artist}` : '';
+    if (trackKey === lyricsState.trackKey && linesWrap && linesWrap.children.length > 0) {
+      updateLyricsSync();
+      return;
+    }
+
+    lyricsState.trackKey = trackKey;
+    lyricsState.syncedLines = [];
+    lyricsState.activeIdx = -1;
+    if (linesWrap) linesWrap.innerHTML = '';
+    if (syncedBadge) syncedBadge.style.display = 'none';
+    if (emptyState) emptyState.style.display = 'none';
+    if (loadingState) loadingState.style.display = 'flex';
+
+    try {
+      const qParams = new URLSearchParams();
+      if (state.guildId) qParams.set('guild_id', state.guildId);
+      if (state.userId) qParams.set('user_id', state.userId);
+      if (cur) {
+        qParams.set('title', cur.title);
+        if (cur.artist) qParams.set('artist', cur.artist);
+        if (cur.duration) qParams.set('duration', cur.duration);
+      }
+
+      const res = await fetch(`/api/lyrics?${qParams.toString()}`);
+      const data = await res.json();
+      if (loadingState) loadingState.style.display = 'none';
+
+      if (!data.found || !data.lyrics) {
+        if (emptyState) emptyState.style.display = 'flex';
+        return;
+      }
+
+      if (data.synced) {
+        const parsed = parseLrc(data.lyrics);
+        if (parsed.length > 0) {
+          if (syncedBadge) syncedBadge.style.display = 'inline-flex';
+          parsed.forEach((item) => {
+            const lineEl = document.createElement('div');
+            lineEl.className = 'lyrics-line';
+            lineEl.textContent = item.text;
+            lineEl.title = `Перейти к ${formatTime(item.time)}`;
+            lineEl.addEventListener('click', () => {
+              sendPlayerAction('seek', { seconds: Math.floor(item.time) });
+              state.elapsed = Math.floor(item.time);
+              updateLyricsSync();
+            });
+            linesWrap.appendChild(lineEl);
+            lyricsState.syncedLines.push({
+              time: item.time,
+              text: item.text,
+              el: lineEl
+            });
+          });
+          updateLyricsSync();
+          return;
+        }
+      }
+
+      // Plain lyrics fallback
+      if (syncedBadge) syncedBadge.style.display = 'none';
+      const plainLines = data.lyrics.split('\n');
+      plainLines.forEach(line => {
+        const t = line.trim();
+        if (t) {
+          const lineEl = document.createElement('div');
+          lineEl.className = 'lyrics-line';
+          lineEl.style.cursor = 'default';
+          lineEl.textContent = t;
+          linesWrap.appendChild(lineEl);
+        }
+      });
+    } catch (err) {
+      if (loadingState) loadingState.style.display = 'none';
+      if (emptyState) emptyState.style.display = 'flex';
+    }
+  }
+
+  function closeLyricsModal() {
+    const modal = document.getElementById('visionLyricsModal');
+    if (modal) modal.style.display = 'none';
+    lyricsState.isOpen = false;
+  }
+
+  function setupLyricsManager() {
+    const btn1 = document.getElementById('btnDockLyrics');
+    const btn2 = document.getElementById('btnDockLyricsExtra');
+    const btnClose = document.getElementById('btnCloseLyricsModal');
+    const backdrop = document.getElementById('lyricsBackdropClose');
+    const quickPlay = document.getElementById('lyricsQuickPlayBtn');
+    const scrollContainer = document.getElementById('lyricsScrollContainer');
+
+    if (btn1) btn1.addEventListener('click', openLyricsModal);
+    if (btn2) btn2.addEventListener('click', openLyricsModal);
+    if (btnClose) btnClose.addEventListener('click', closeLyricsModal);
+    if (backdrop) backdrop.addEventListener('click', closeLyricsModal);
+
+    if (quickPlay) {
+      quickPlay.addEventListener('click', () => {
+        if (state.isPlaying) {
+          sendPlayerAction('pause');
+        } else {
+          sendPlayerAction('resume');
+        }
+      });
+    }
+
+    if (scrollContainer) {
+      scrollContainer.addEventListener('wheel', () => {
+        lyricsState.isManualScroll = true;
+        clearTimeout(lyricsState.manualScrollTimer);
+        lyricsState.manualScrollTimer = setTimeout(() => {
+          lyricsState.isManualScroll = false;
+        }, 3500);
+      }, { passive: true });
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && lyricsState.isOpen) {
+        closeLyricsModal();
+      }
+    });
+  }
+
   // Boot
   async function init() {
     setLanguage(state.lang, false);
     setupThemeSwitcher();
+    setupLyricsManager();
 
     // Restore saved volume preference if exists
     if (state.userExplicitVolume !== null) {
