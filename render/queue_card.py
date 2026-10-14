@@ -6,7 +6,7 @@ Renders an elegant visionOS glass card displaying upcoming tracks with rankings,
 import io
 import asyncio
 import logging
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Any
 
 import discord
 from PIL import Image, ImageDraw, ImageFilter
