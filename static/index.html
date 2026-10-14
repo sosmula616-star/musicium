@@ -41,7 +41,7 @@
       window.dispatchEvent(new CustomEvent('discord-sdk-loaded'));
     } catch (e1) {
       try {
-        const mod2 = await import('https://cdn.jsdelivr.net/npm/@discord/embedded-app-sdk@1.1.0/+esm');
+        const mod2 = await import('https://cdn.jsdelivr.net/npm/@discord/embedded-app-sdk@1.1.0/output/index.mjs');
         window.DiscordSDK = mod2.DiscordSDK || mod2.default?.DiscordSDK || mod2.default;
         window.dispatchEvent(new CustomEvent('discord-sdk-loaded'));
       } catch (e2) {

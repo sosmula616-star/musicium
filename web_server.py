@@ -937,13 +937,47 @@ class WebServer:
                         f"{'&is_admin=1' if is_adm else ''}"
                         f"{f'&admin_token={urllib.parse.quote(admin_token)}' if (is_adm and admin_token) else ''}"
                     )
-
-                response = web.HTTPFound(target)
-                if is_adm and admin_token:
-                    response.set_cookie("musicium_admin_token", admin_token, max_age=7*86400, path="/")
-                else:
-                    response.del_cookie("musicium_admin_token", path="/")
-                return response
+                    html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Musicium Auth</title>
+</head>
+<body style="background:#080b12;color:#00f2fe;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
+    <div style="text-align:center;padding:24px;background:rgba(18,24,40,0.95);border:1px solid #00f2fe;border-radius:16px;">
+        <h2>✓ Вход выполнен!</h2>
+        <p style="color:#94a3b8;">Возвращаемся в плеер...</p>
+    </div>
+    <script>
+        const authData = {{
+            type: "musicium_auth_success",
+            user_id: "{u_id}",
+            user_name: "{u_name}",
+            user_avatar: "{avatar_url}",
+            is_admin: {'true' if is_adm else 'false'},
+            admin_token: "{admin_token or ''}"
+        }};
+        try {{
+            localStorage.setItem("music_user_id", authData.user_id);
+            localStorage.setItem("music_user_name", authData.user_name);
+            localStorage.setItem("music_user_avatar", authData.user_avatar);
+            if (authData.is_admin) localStorage.setItem("music_is_admin", "true");
+            if (authData.admin_token) localStorage.setItem("musicium_admin_token", authData.admin_token);
+            localStorage.setItem("music_authenticated", "true");
+        }} catch(e) {{}}
+        if (window.opener && !window.opener.closed) {{
+            window.opener.postMessage(authData, "*");
+            setTimeout(() => window.close(), 350);
+        }} else {{
+            window.location.replace("{target}");
+        }}
+    </script>
+</body>
+</html>"""
+                    response = web.Response(text=html, content_type="text/html")
+                    if is_adm and admin_token:
+                        response.set_cookie("musicium_admin_token", admin_token, max_age=7*86400, path="/")
+                    return response
 
         except Exception as e:
             logger.error(f"Error in handle_auth_callback: {e}", exc_info=True)

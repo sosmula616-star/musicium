@@ -800,6 +800,34 @@
     }, 3200);
   }
 
+  // Check if active session or admin token already exists
+  async function checkExistingSession() {
+    if (state.isAuthenticated && state.userId && !state.userId.startsWith('user_')) {
+      return true;
+    }
+    try {
+      const token = localStorage.getItem('musicium_admin_token') || '';
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      const res = await fetch('/api/admin/auth/status', { headers, credentials: 'include' });
+      const d = await res.json();
+      if (d && d.authenticated && d.user_id) {
+        state.userId = String(d.user_id);
+        state.userName = d.user_name || 'Admin';
+        state.userAvatar = d.user_avatar || '/static/activity_icon.jpg';
+        state.isAuthenticated = true;
+        localStorage.setItem('music_user_id', state.userId);
+        localStorage.setItem('music_user_name', state.userName);
+        localStorage.setItem('music_user_avatar', state.userAvatar);
+        localStorage.setItem('music_is_admin', 'true');
+        localStorage.setItem('music_authenticated', 'true');
+        saveUser();
+        if (el.authDiscordModal) el.authDiscordModal.style.display = 'none';
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
   // Discord Embedded App SDK Init & OAuth Authorization
   async function initDiscordSdk(forceConsent = false) {
     const SdkClass = window.DiscordSDK?.DiscordSDK || window.DiscordSDK;
@@ -813,12 +841,13 @@
         if (discordSdk.guildId) state.guildId = discordSdk.guildId;
         if (discordSdk.channelId) state.channelId = discordSdk.channelId;
 
+        // Valid Embedded App scopes are strictly identify and guilds
         const { code } = await discordSdk.commands.authorize({
           client_id: '1555020109507199066',
           response_type: 'code',
           state: '',
           prompt: forceConsent ? 'consent' : 'none',
-          scope: ['identify', 'guilds', 'rpc.voice.read'],
+          scope: ['identify', 'guilds'],
         });
 
         const resp = await fetch('/api/token', {
@@ -829,12 +858,19 @@
         const tokenData = await resp.json();
 
         if (tokenData.access_token) {
-          const auth = await discordSdk.commands.authenticate({ access_token: tokenData.access_token });
-          if (auth && auth.user) {
-            state.userId = auth.user.id;
-            state.userName = auth.user.global_name || auth.user.username;
-            state.userAvatar = auth.user.avatar
-              ? `https://cdn.discordapp.com/avatars/${auth.user.id}/${auth.user.avatar}.png`
+          let userObj = tokenData.user || null;
+          try {
+            const auth = await discordSdk.commands.authenticate({ access_token: tokenData.access_token });
+            if (auth && auth.user) userObj = auth.user;
+          } catch (authErr) {
+            console.debug('Discord SDK authenticate warning, using server user:', authErr);
+          }
+
+          if (userObj && userObj.id) {
+            state.userId = String(userObj.id);
+            state.userName = userObj.global_name || userObj.username || userObj.name || 'Пользователь Discord';
+            state.userAvatar = userObj.avatar
+              ? (userObj.avatar.startsWith('http') ? userObj.avatar : `https://cdn.discordapp.com/avatars/${userObj.id}/${userObj.avatar}.png`)
               : '/static/activity_icon.jpg';
             state.isAuthenticated = true;
             localStorage.setItem('music_authenticated', 'true');
@@ -854,6 +890,10 @@
         console.warn('Discord SDK auth attempt:', err);
       }
     }
+
+    // Check existing session (e.g. admin session, cookies)
+    const hasExisting = await checkExistingSession();
+    if (hasExisting) return true;
 
     // If not authenticated and not a real user ID: show modal prompt
     if (!state.isAuthenticated && (!state.userId || state.userId.startsWith('user_'))) {
@@ -3434,6 +3474,33 @@
     const menuAdminLink = document.getElementById('menuAdminLink');
     if (menuAdminLink) menuAdminLink.addEventListener('click', navigateToAdmin);
 
+    // Listen for OAuth success messages from external login popups
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'musicium_auth_success') {
+        const d = event.data;
+        if (d.user_id) {
+          state.userId = String(d.user_id);
+          state.userName = d.user_name || 'Пользователь Discord';
+          state.userAvatar = d.user_avatar || '/static/activity_icon.jpg';
+          state.isAuthenticated = true;
+          localStorage.setItem('music_user_id', state.userId);
+          localStorage.setItem('music_user_name', state.userName);
+          localStorage.setItem('music_user_avatar', state.userAvatar);
+          localStorage.setItem('music_authenticated', 'true');
+          if (d.is_admin || d.admin_token || state.userId === '410432175373156352') {
+            localStorage.setItem('music_is_admin', 'true');
+          }
+          if (d.admin_token) {
+            localStorage.setItem('musicium_admin_token', d.admin_token);
+          }
+          saveUser();
+          if (el.authDiscordModal) el.authDiscordModal.style.display = 'none';
+          showToast(`Вы авторизованы как ${state.userName}!`, 'success', 'fa-user-check');
+          checkUserVoice();
+        }
+      }
+    });
+
     // Discord Login Action buttons in modal (iframe-safe and SDK aware)
     if (el.btnDiscordLoginAction) {
       el.btnDiscordLoginAction.addEventListener('click', async () => {
@@ -3737,7 +3804,7 @@
     fetchRecommendations();
     fetchCommunityPlaylists();
     fetchFeedDiscovery();
-    loadUserDataFromDB();
+    await checkExistingSession();
     await initDiscordSdk();
     loadUserDataFromDB();
     await checkSystemStatus();
