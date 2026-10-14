@@ -1675,8 +1675,9 @@ class WebServer:
                         discord_user = await self.bot.fetch_user(target_id)
                     if discord_user:
                         name = discord_user.display_name or discord_user.name
-                        avatar = discord_user.display_avatar.url if hasattr(discord_user, "display_avatar") else avatar
-                        refreshed_token = admin_service.generate_admin_token(uid, name=name, avatar=avatar)
+                        resolved_avatar = discord_user.display_avatar.url if hasattr(discord_user, "display_avatar") else str(avatar or "/static/activity_icon.jpg")
+                        avatar = resolved_avatar
+                        refreshed_token = admin_service.generate_admin_token(uid, name=name, avatar=resolved_avatar)
                         resp = web.json_response({
                             "authenticated": True,
                             "user_id": uid,

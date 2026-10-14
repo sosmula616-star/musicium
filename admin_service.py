@@ -155,7 +155,7 @@ def verify_admin_login_code(user_id: str, input_code: str) -> bool:
         return True
     return False
 
-def generate_admin_token(user_id: str, name: str = "", avatar: str = "", max_age_days: int = 7) -> str:
+def generate_admin_token(user_id: str, name: Optional[str] = "", avatar: Optional[str] = "", max_age_days: int = 7) -> str:
     user_id = user_id.strip()
     exp = int(time.time()) + (max_age_days * 86400)
     payload_data = {
