@@ -1772,7 +1772,7 @@
       function playAlbumItem(alb) {
         showToast(`Включаем альбом «${alb.title}» (${alb.platform_label || 'Альбом'})`, 'info');
         playTrack({
-          title: `${alb.title} - ${alb.artist}`,
+          title: `💿 ${alb.title} - ${alb.artist}`,
           artist: alb.artist,
           thumbnail: alb.cover,
           source: alb.platform || 'youtube',

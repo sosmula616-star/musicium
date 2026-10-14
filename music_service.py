@@ -20,7 +20,7 @@ def clean_youtube_url(url: str) -> str:
     """
     Cleans YouTube / YouTube Music URLs: strips radio/mix params (&list=RD..., &index=, &si=)
     which cause yt-dlp to hang or play random mix tracks.
-    Preserves standalone playlists (/playlist?list=...).
+    Preserves and formats standalone and album playlists (/playlist?list=... or list=OLAK...).
     """
     if not url:
         return ""
@@ -36,16 +36,28 @@ def clean_youtube_url(url: str) -> str:
     if "youtube.com" in url or "music.youtube.com" in url:
         try:
             parsed = urllib.parse.urlparse(url)
-            # Standalone playlist (no video id)
-            if "/playlist" in parsed.path and "v=" not in parsed.query:
-                qs = urllib.parse.parse_qs(parsed.query)
+            qs = urllib.parse.parse_qs(parsed.query)
+
+            # Standalone playlist
+            if "/playlist" in parsed.path:
                 list_id = qs.get("list", [""])[0]
                 if list_id:
                     return f"https://www.youtube.com/playlist?list={list_id}"
                 return url
 
-            qs = urllib.parse.parse_qs(parsed.query)
             v_id = qs.get("v", [""])[0]
+            list_id = qs.get("list", [""])[0]
+
+            # If v_id is actually an album or playlist ID (OLAK..., PL..., MPRE...)
+            if v_id and (v_id.startswith(("OLAK", "PL", "MPRE", "RD", "UU")) or len(v_id) > 15):
+                return f"https://www.youtube.com/playlist?list={v_id}"
+
+            # If list is an album or playlist (OLAK, PL, MPRE) and NOT a random radio/mix (RD)
+            if list_id and list_id.startswith(("OLAK", "PL", "MPRE")):
+                if not v_id or len(v_id) != 11:
+                    return f"https://www.youtube.com/playlist?list={list_id}"
+                return f"https://www.youtube.com/watch?v={v_id}&list={list_id}"
+
             if v_id and len(v_id) == 11:
                 return f"https://www.youtube.com/watch?v={v_id}"
         except Exception:
@@ -169,8 +181,8 @@ class MusicService:
             "skip_download": True,
             "extract_flat": True,
             "ignoreerrors": True,
-            "socket_timeout": 5,
-            "retries": 1,
+            "socket_timeout": 8,
+            "retries": 2,
             "source_address": "0.0.0.0",
         }
 
@@ -183,12 +195,12 @@ class MusicService:
             "noplaylist": True,
             "skip_download": True,
             "check_formats": False,
-            "youtube_include_dash_manifest": False,
-            "youtube_include_hls_manifest": False,
+            "youtube_include_dash_manifest": True,
+            "youtube_include_hls_manifest": True,
             "lazy_playlist": True,
-            "socket_timeout": 5,
+            "socket_timeout": 8,
             "retries": 2,
-            "fragment_retries": 1,
+            "fragment_retries": 2,
             "source_address": "0.0.0.0",
             "extractor_args": {
                 "youtube": {
@@ -556,16 +568,19 @@ class MusicService:
                 if pw in combined:
                     score -= 80
 
-            # 2. Duration check: standard musical tracks are 60s - 480s (1:00 - 8:00)
+            # 2. Duration check: standard musical tracks or albums
             dur = t.duration or 0
-            if 70 <= dur <= 450:
+            is_album = ("album" in combined or "альбом" in combined or t.title.startswith("💿") or "album" in q_lower or "альбом" in q_lower)
+            if is_album and dur > 500:
+                score += 35
+            elif 70 <= dur <= 450:
                 score += 25
             elif 450 < dur <= 600:
                 score += 10
             elif 0 < dur < 45:
                 score -= 60  # Short ringtone / snippet / meme sound
-            elif dur > 700:
-                score -= 60  # Long interview / full discography / 1-hour loop unless query asked for it
+            elif dur > 700 and not is_album:
+                score -= 60  # Long interview / non-musical loop unless track or query is an album
 
             # 3. Official Music & Release quality boost
             if "- topic" in artist_lower or "topic" in artist_lower:
@@ -645,7 +660,7 @@ class MusicService:
 
     def _extract_url_info(self, raw_url: str) -> List[Track]:
         url = clean_youtube_url(raw_url)
-        is_playlist = ("/playlist" in url or "/sets/" in url)
+        is_playlist = ("/playlist" in url or "/sets/" in url or "list=OLAK" in url or "list=PL" in url or "list=MPRE" in url or "list=" in url)
         is_single_yt = (not is_playlist) and ("youtube.com" in url or "youtu.be" in url)
 
         # Single YouTube / YouTube Music track: resolve metadata AND direct audio stream in ONE fast shot (~1.2s)
@@ -742,13 +757,28 @@ class MusicService:
     def _parse_flat_entry(self, entry: Any, default_source: str = "youtube") -> Track:
         entry_id = str(entry.get("id") or "")
         webpage_url = entry.get("url") or entry.get("webpage_url") or ""
+        entry_type = (entry.get("_type") or "").lower()
+        ie_key = (entry.get("ie_key") or "").lower()
+
+        is_playlist = (
+            entry_type in ("playlist", "multi_video", "url") or
+            "playlist" in ie_key or "tab" in ie_key or
+            entry_id.startswith(("OLAK", "PL", "MPRE", "RD", "UU", "alb_")) or
+            len(entry_id) > 15 or
+            "/playlist" in webpage_url or "list=" in webpage_url
+        )
         
         source = default_source
         if not webpage_url.startswith("http"):
             if default_source == "youtube":
-                webpage_url = f"https://www.youtube.com/watch?v={entry_id}"
+                if is_playlist:
+                    webpage_url = f"https://www.youtube.com/playlist?list={entry_id}"
+                else:
+                    webpage_url = f"https://www.youtube.com/watch?v={entry_id}"
             elif default_source == "soundcloud":
                 webpage_url = entry.get("url") or ""
+        elif is_playlist and "watch?v=" in webpage_url and entry_id.startswith(("OLAK", "PL", "MPRE")):
+            webpage_url = f"https://www.youtube.com/playlist?list={entry_id}"
 
         extractor = (entry.get("extractor") or entry.get("extractor_key") or "").lower()
         if "soundcloud" in extractor or "soundcloud" in webpage_url:
@@ -788,7 +818,7 @@ class MusicService:
 
         thumbnail = tb or DEFAULT_THUMBNAIL
 
-        return Track(
+        track_obj = Track(
             id=f"{source}_{entry_id}",
             title=title,
             artist=artist,
@@ -799,6 +829,11 @@ class MusicService:
             stream_url=None,
             raw_info=entry,
         )
+        if is_playlist and duration == 0:
+            pl_cnt = entry.get("playlist_count") or entry.get("n_entries")
+            if pl_cnt:
+                track_obj.duration_str = f"{pl_cnt} треков"
+        return track_obj
 
     async def _search_youtube(self, query: str, limit: int = 6) -> List[Track]:
         def _search():
@@ -888,7 +923,8 @@ class MusicService:
                 for entry in info["entries"]:
                     if entry:
                         t = self._parse_flat_entry(entry, default_source="youtube")
-                        t.title = f"💿 {t.title}"
+                        if not t.title.startswith("💿"):
+                            t.title = f"💿 {t.title}"
                         tracks.append(t)
                 return tracks
 
@@ -1065,9 +1101,13 @@ class MusicService:
             if not target_url or not target_url.startswith("http"):
                 if track.id and "_" in track.id:
                     vid_id = track.id.split("_", 1)[1]
-                    target_url = f"https://www.youtube.com/watch?v={vid_id}"
+                    if vid_id.startswith(("OLAK", "PL", "MPRE", "RD", "UU", "alb_")) or len(vid_id) > 15:
+                        target_url = f"https://www.youtube.com/playlist?list={vid_id}"
+                    else:
+                        target_url = f"https://www.youtube.com/watch?v={vid_id}"
                 else:
-                    target_url = f"ytsearch1:{track.title} {track.artist}"
+                    clean_t = track.title.lstrip("💿 ").strip()
+                    target_url = f"ytsearch1:{clean_t} {track.artist}"
 
             cookie_file = self.youtube_cookie_path if (self.youtube_cookie_path and os.path.exists(self.youtube_cookie_path)) else None
             proxy = self.streaming_settings.get("proxy", "").strip() or os.getenv("YTDLP_PROXY") or os.getenv("HTTP_PROXY") or os.getenv("HTTPS_PROXY")
@@ -1081,7 +1121,44 @@ class MusicService:
             clean_artist = track.artist if track.artist and track.artist != "Неизвестный автор" else ""
             search_query = f"{clean_title} {clean_artist}".strip() or track.title
 
-            def build_opts(clients=None, use_cookies=False, timeout=3.5):
+            # If target_url is a YouTube search URL (e.g. from home page albums)
+            if "/search?q=" in target_url:
+                try:
+                    p_qs = urllib.parse.parse_qs(urllib.parse.urlparse(target_url).query)
+                    sq = p_qs.get("q", [""])[0]
+                    if sq:
+                        target_url = f"ytsearch1:{sq}"
+                except Exception:
+                    pass
+
+            # If target_url is a playlist or album URL, unpack first playable track ID
+            if "/playlist" in target_url or ("list=" in target_url and "list=RD" not in target_url):
+                try:
+                    pl_opts = {
+                        "extract_flat": True,
+                        "noplaylist": False,
+                        "quiet": True,
+                        "socket_timeout": 6,
+                    }
+                    if cookie_file:
+                        pl_opts["cookiefile"] = cookie_file
+                    if proxy:
+                        pl_opts["proxy"] = proxy
+                    with yt_dlp.YoutubeDL(pl_opts) as ydl:
+                        pl_info = ydl.extract_info(target_url, download=False)
+                        if pl_info and "entries" in pl_info:
+                            entries = list(pl_info.get("entries") or [])
+                            for e in entries:
+                                if e and e.get("id"):
+                                    cand_id = e.get("id")
+                                    if len(cand_id) == 11:
+                                        target_url = f"https://www.youtube.com/watch?v={cand_id}"
+                                        logger.info(f"Resolved first video {cand_id} from album/playlist: {track.title}")
+                                        break
+                except Exception as pl_err:
+                    logger.debug(f"Could not resolve first video from playlist {target_url}: {pl_err}")
+
+            def build_opts(clients=None, use_cookies=False, timeout=6.0):
                 opts = {
                     "format": "ba[acodec^=opus]/ba[ext=webm]/ba[ext=m4a]/ba/b/bestaudio/best",
                     "quiet": True,
@@ -1090,11 +1167,12 @@ class MusicService:
                     "noplaylist": True,
                     "skip_download": True,
                     "check_formats": False,
-                    "youtube_include_dash_manifest": False,
-                    "youtube_include_hls_manifest": False,
+                    "youtube_include_dash_manifest": True,
+                    "youtube_include_hls_manifest": True,
                     "lazy_playlist": True,
                     "socket_timeout": timeout,
-                    "retries": 1,
+                    "retries": 2,
+                    "fragment_retries": 2,
                     "source_address": "0.0.0.0",
                 }
                 if use_cookies and cookie_file:
@@ -1111,10 +1189,10 @@ class MusicService:
 
             t0 = time.time()
 
-            # --- Strategy 1: Ultra-Fast iOS / Android Innertube extraction (0.8s - 1.2s, bypasses JS n-sig deciphering) ---
+            # --- Strategy 1: Fast Multi-Client Extraction (supports DASH/HLS for long albums & singles) ---
             try:
                 has_cookies = (mode == "youtube_cookies" and bool(cookie_file))
-                fast_opts = build_opts(clients=["ios", "android", "mweb"], use_cookies=has_cookies, timeout=3.5)
+                fast_opts = build_opts(clients=["ios", "android", "mweb"], use_cookies=has_cookies, timeout=5.0)
                 with yt_dlp.YoutubeDL(fast_opts) as ydl:
                     info = ydl.extract_info(target_url, download=False)
                     if info and not track.duration and info.get("duration"):
@@ -1131,7 +1209,7 @@ class MusicService:
             # --- Strategy 2 & 3: Concurrent Fallback (Web / TV clients + Alternative Search) ---
             def try_strategy_web():
                 try:
-                    opts_web = build_opts(clients=["web", "mweb"], use_cookies=bool(cookie_file), timeout=4.0)
+                    opts_web = build_opts(clients=["web", "mweb"], use_cookies=bool(cookie_file), timeout=5.5)
                     with yt_dlp.YoutubeDL(opts_web) as ydl:
                         info = ydl.extract_info(target_url, download=False)
                         return self._extract_audio_stream_url(info)
@@ -1141,7 +1219,7 @@ class MusicService:
 
             def try_strategy_tv():
                 try:
-                    opts_tv = build_opts(clients=["tv_embedded", "mweb"], use_cookies=False, timeout=4.0)
+                    opts_tv = build_opts(clients=["tv_embedded", "mweb"], use_cookies=False, timeout=5.5)
                     with yt_dlp.YoutubeDL(opts_tv) as ydl:
                         info = ydl.extract_info(target_url, download=False)
                         return self._extract_audio_stream_url(info)
@@ -1151,7 +1229,7 @@ class MusicService:
 
             def try_strategy_ytsearch():
                 try:
-                    opts_s = build_opts(clients=["ios", "mweb"], use_cookies=bool(cookie_file), timeout=3.5)
+                    opts_s = build_opts(clients=["ios", "mweb"], use_cookies=bool(cookie_file), timeout=4.5)
                     search_target = f"ytsearch3:{search_query}"
                     with yt_dlp.YoutubeDL(opts_s) as ydl:
                         alt_info = ydl.extract_info(search_target, download=False)
@@ -1175,7 +1253,7 @@ class MusicService:
                         executor.submit(try_strategy_tv): "tv",
                         executor.submit(try_strategy_ytsearch): "ytsearch"
                     }
-                    for fut in concurrent.futures.as_completed(futures, timeout=5.0):
+                    for fut in concurrent.futures.as_completed(futures, timeout=6.5):
                         res = fut.result()
                         if res:
                             elapsed = time.time() - t0

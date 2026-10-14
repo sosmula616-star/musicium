@@ -558,7 +558,18 @@ class WebServer:
             track_data["requester_name"] = member_name
             track = Track.from_dict(track_data)
 
-            is_playlist = ("/playlist" in track_url or "/sets/" in track_url)
+            track_url = track.url or ""
+            is_search_url = ("/search?q=" in track_url or "search_query=" in track_url)
+            is_playlist = (
+                is_search_url or
+                "/playlist" in track_url or
+                "/sets/" in track_url or
+                "list=OLAK" in track_url or
+                "list=PL" in track_url or
+                "list=MPRE" in track_url or
+                (track.id and track.id.startswith(("youtube_PL", "youtube_OLAK", "youtube_MPRE", "alb_"))) or
+                (track.title and track.title.startswith("💿"))
+            )
 
             # Parallelize voice channel connection and stream URL resolution for instant start
             connect_task = asyncio.create_task(player.connect_to_channel(target_channel))
@@ -574,9 +585,30 @@ class WebServer:
                         pass
             else:
                 await connect_task
-            if ("playlist" in track_url or "/sets/" in track_url) and not track_data.get("stream_url"):
+
+            if is_playlist and not track_data.get("stream_url"):
                 try:
-                    album_tracks = await self.music_service._resolve_direct_url(track_url)
+                    resolve_target = track_url
+                    if is_search_url:
+                        try:
+                            parsed_s = urllib.parse.urlparse(track_url)
+                            qs_s = urllib.parse.parse_qs(parsed_s.query)
+                            q_val = qs_s.get("q", [""])[0] or qs_s.get("search_query", [""])[0]
+                            if q_val:
+                                resolve_target = f"ytsearch10:{q_val}"
+                        except Exception:
+                            resolve_target = track_url
+                    elif not resolve_target.startswith("http"):
+                        if track.id and track.id.startswith("youtube_"):
+                            raw_id = track.id.split("_", 1)[1]
+                            resolve_target = f"https://www.youtube.com/playlist?list={raw_id}"
+
+                    album_tracks = await self.music_service._resolve_direct_url(resolve_target)
+                    if not album_tracks and track.title:
+                        # Fallback: search query for album
+                        clean_t = track.title.lstrip("💿 ").strip()
+                        album_tracks = await self.music_service._resolve_direct_url(f"ytsearch8:{clean_t} {track.artist} album".strip())
+
                     if album_tracks and len(album_tracks) > 1:
                         first_t = album_tracks[0]
                         first_t.requester_id = user_id
@@ -595,6 +627,10 @@ class WebServer:
                             "track": first_t.to_dict(),
                             "player": player.get_state(),
                         })
+                    elif album_tracks and len(album_tracks) == 1:
+                        track = album_tracks[0]
+                        track.requester_id = user_id
+                        track.requester_name = member_name
                 except Exception as ex:
                     logger.warning(f"Could not batch-resolve playlist {track_url}: {ex}")
 

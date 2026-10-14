@@ -413,7 +413,7 @@ class GuildPlayer:
                     return
                 elapsed = (time.time() - self.start_time) if self.start_time > 0 else 0
                 expected_dur = track.duration or 0
-                prematurely_cut = (expected_dur > 20) and (elapsed < (expected_dur - 12))
+                prematurely_cut = (expected_dur > 30) and (elapsed < min(expected_dur - 25, expected_dur * 0.90))
                 is_failed = bool(err) or (elapsed < 3.0) or prematurely_cut
 
                 if err:
