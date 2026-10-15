@@ -1959,6 +1959,7 @@
   let isQueueDragging = false;
   let queueDragSourceIdx = -1;
   let isHistoryCollapsed = false;
+  let isDrawerExpanded = true;
   let lastCoverUrl = '';
 
   function renderAllTabQueueView() {
@@ -1970,131 +1971,269 @@
 
     el.allQueueView.innerHTML = '';
 
-    // 1. «Сейчас играет» (Now Playing Glass Card)
-    const npCard = document.createElement('div');
-    npCard.className = 'now-playing-glass-card';
+    // Main Coverflow Wrapper
+    const wrapper = document.createElement('div');
+    wrapper.className = 'vision-coverflow-wrapper';
 
-    if (current) {
-      const src = (current.source || 'youtube').toLowerCase();
-      const isYt = src === 'youtube';
-      const badgeIcon = isYt
-        ? `<svg viewBox="0 0 24 24" width="13" height="13" fill="#ff0000"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg> YouTube Music`
-        : `<svg viewBox="0 0 24 24" width="13" height="13" fill="#ff5500"><path d="M11.56 8.87V17h8.76c1.86 0 3.37-1.5 3.37-3.36 0-1.85-1.51-3.35-3.37-3.35-.42 0-.82.08-1.19.22C18.8 8.08 16.73 6.3 14.2 6.3c-1.07 0-2.07.33-2.9 0.9-.38-1.54-1.74-2.7-3.38-2.7-.42 0-.82.07-1.19.21V8.87h4.83zm-1.8 8.13H8.38V7.57c.38-.17.8-.27 1.25-.27.06 0 .12 0 .18.01v9.69h-.05zm-2.82 0H5.56V8.62c.42-.31.91-.53 1.45-.63v8.71l-.07.3zm-2.82 0H2.74v-6.9c.45-.48 1.02-.85 1.66-1.06v7.66l-.48.3zm-2.82 0H0v-4.83c.39-.62.91-1.12 1.54-1.46v5.89l-.24.4z"/></svg> SoundCloud`;
-
-      const pct = duration > 0 ? Math.min(100, Math.max(0, (elapsed / duration) * 100)) : 0;
-      const isLiked = isTrackLiked(current);
-
-      npCard.innerHTML = `
-        <div class="np-card-header">
-          <span class="np-pill-label">✦ Сейчас играет</span>
-          <div class="playing-equalizer-bars ${isPlaying ? 'active' : ''}">
-            <span></span><span></span><span></span><span></span>
-          </div>
-        </div>
-        <div class="np-content-layout">
-          <div class="np-artwork-container">
-            <img src="${getSafeImageUrl(current.thumbnail)}" alt="${escapeHtml(current.title)}" class="np-artwork-img" onerror="this.src='/static/activity_icon.jpg';">
-          </div>
-          <div class="np-info-col">
-            <div class="np-meta-badges">
-              <span class="np-source-badge ${src}">${badgeIcon}</span>
-              ${current.isAutoplay ? `<span class="queue-badge-autoplay">✦ Подобрано автоматически</span>` : ''}
-            </div>
-            <h2 class="np-title" title="${escapeHtml(current.title)}">${escapeHtml(current.title)}</h2>
-            <div class="np-artist" title="${escapeHtml(current.artist)}">${escapeHtml(current.artist)}</div>
-            
-            <div class="np-progress-block">
-              <div class="np-progress-track" id="npProgressTrack">
-                <div class="np-progress-fill" id="npProgressFill" style="width: ${pct}%;"></div>
-              </div>
-              <div class="np-time-row">
-                <span id="npTimeElapsed">${formatTime(elapsed)}</span>
-                <span id="npTimeDuration">${current.duration_str || formatTime(duration)}</span>
-              </div>
-            </div>
-
-            <div class="np-controls-row">
-              <button class="np-btn-control" id="npBtnPrev" title="Предыдущий / В начало (←)">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
-              </button>
-              <button class="np-btn-control np-btn-play-main" id="npBtnPlayPause" title="Воспроизведение / Пауза (Пробел)">
-                <svg viewBox="0 0 24 24" width="22" height="22" fill="#080b12"><path d="${isPlaying ? 'M6 19h4V5H6v14zm8-14v14h4V5h-4z' : 'M8 5v14l11-7z'}"/></svg>
-              </button>
-              <button class="np-btn-control" id="npBtnNext" title="Следующий трек (→)">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-              </button>
-              <button class="np-btn-control ${isLiked ? 'liked' : ''}" id="npBtnLike" title="Мне нравится">
-                <svg viewBox="0 0 24 24" width="17" height="17" fill="${isLiked ? '#ef4444' : 'currentColor'}"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-              </button>
-              <button class="np-btn-control" id="npBtnAddToPl" title="Добавить в плейлист">
-                <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor"><path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z"/></svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
-
-      // Animated Crossfade 300ms on cover artwork
-      const artImg = npCard.querySelector('.np-artwork-img');
-      if (artImg && current.thumbnail) {
-        if (lastCoverUrl && lastCoverUrl !== current.thumbnail) {
-          artImg.style.transition = 'opacity 150ms ease, transform 0.4s ease';
-          artImg.style.opacity = '0';
-          setTimeout(() => {
-            artImg.src = getSafeImageUrl(current.thumbnail);
-            artImg.onload = () => {
-              artImg.style.transition = 'opacity 300ms ease, transform 0.4s ease';
-              artImg.style.opacity = '1';
-            };
-          }, 150);
-        }
-        lastCoverUrl = current.thumbnail;
-      }
-
-      // Control handlers
-      npCard.querySelector('#npBtnPlayPause').addEventListener('click', () => window.playerStore.toggle());
-      npCard.querySelector('#npBtnNext').addEventListener('click', () => window.playerStore.next());
-      npCard.querySelector('#npBtnPrev').addEventListener('click', () => window.playerStore.prev());
-      npCard.querySelector('#npBtnLike').addEventListener('click', () => {
-        toggleLikeTrack(current);
-        renderAllTabQueueView();
-      });
-      npCard.querySelector('#npBtnAddToPl').addEventListener('click', () => openAddToPlaylistModal(current));
-
-      // Progress bar scrubber click
-      const npProgTrack = npCard.querySelector('#npProgressTrack');
-      if (npProgTrack) {
-        npProgTrack.addEventListener('click', (e) => {
-          if (!duration || duration <= 0) return;
-          const rect = npProgTrack.getBoundingClientRect();
-          const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-          const targetSec = Math.floor(frac * duration);
-          window.playerStore.seek(targetSec);
-        });
-      }
-    } else {
-      // Empty placeholder
-      npCard.innerHTML = `
-        <div class="np-empty-state">
-          <div class="np-empty-icon">
-            <svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
-          </div>
-          <h3 class="np-empty-title">Выберите трек — я подберу продолжение</h3>
-          <p class="np-empty-sub">Включите любую композицию из YouTube Music, SoundCloud или альбомов — умный автоподбор сформирует персонализированный поток похожих треков.</p>
-          <button class="np-empty-btn" id="npStartRadioBtn">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-            <span>Включить рекомендации</span>
-          </button>
-        </div>
-      `;
-      npCard.querySelector('#npStartRadioBtn').addEventListener('click', () => {
-        window.playerStore.loadSimilar();
-      });
+    // Ambient Backdrop (Warm glowing blur of cover art matching screenshot)
+    const currentThumb = current ? current.thumbnail : (queue[0] ? queue[0].thumbnail : '/static/activity_icon.jpg');
+    const backdrop = document.createElement('div');
+    backdrop.className = 'vision-ambient-backdrop';
+    if (current && current.thumbnail) {
+      backdrop.style.backgroundImage = `radial-gradient(circle at 50% 50%, rgba(255, 140, 20, 0.45) 0%, rgba(220, 60, 0, 0.22) 50%, transparent 75%)`;
     }
+    wrapper.appendChild(backdrop);
 
-    el.allQueueView.appendChild(npCard);
+    // 1. 3D VISIONOS COVERFLOW VIEWPORT
+    const viewport = document.createElement('div');
+    viewport.className = 'vision-coverflow-viewport';
 
-    // 2. «Далее в очереди» (Next in Queue Glass Section)
+    // Left Navigation Chevron (<)
+    const btnPrev = document.createElement('button');
+    btnPrev.className = 'coverflow-nav-btn prev';
+    btnPrev.id = 'coverflowBtnPrev';
+    btnPrev.title = 'Предыдущий трек (←)';
+    btnPrev.setAttribute('aria-label', 'Предыдущий трек');
+    btnPrev.innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>`;
+    btnPrev.addEventListener('click', (e) => {
+      e.stopPropagation();
+      window.playerStore.prev();
+    });
+    viewport.appendChild(btnPrev);
+
+    // Right Navigation Chevron (>)
+    const btnNext = document.createElement('button');
+    btnNext.className = 'coverflow-nav-btn next';
+    btnNext.id = 'coverflowBtnNext';
+    btnNext.title = 'Следующий трек (→)';
+    btnNext.setAttribute('aria-label', 'Следующий трек');
+    btnNext.innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>`;
+    btnNext.addEventListener('click', (e) => {
+      e.stopPropagation();
+      window.playerStore.next();
+    });
+    viewport.appendChild(btnNext);
+
+    // 3D Stage Container
+    const stage = document.createElement('div');
+    stage.className = 'vision-coverflow-stage';
+    stage.id = 'coverflowStage';
+
+    // Build the 5 3D cards: [-2, -1, 0, 1, 2]
+    // History tracks on left, Current in center, Queue/Recommended tracks on right
+    const fallbackList = (state.lastTracks && state.lastTracks.length)
+      ? state.lastTracks
+      : (communityPlaylistsCache[0]?.tracks || [
+          { title: 'Video Games', artist: 'Lana Del Rey', thumbnail: '/static/activity_icon.jpg' },
+          { title: 'God\'s Plan', artist: 'Drake', thumbnail: '/static/activity_icon.jpg' },
+          { title: 'Diamonds', artist: 'Rihanna', thumbnail: '/static/activity_icon.jpg' },
+          { title: 'Starboy', artist: 'The Weeknd', thumbnail: '/static/activity_icon.jpg' }
+        ]);
+
+    let h1 = history.length >= 1 ? history[history.length - 1] : null;
+    let h2 = history.length >= 2 ? history[history.length - 2] : null;
+    if (!h1 && fallbackList[0]) h1 = { ...fallbackList[0], isFallback: true };
+    if (!h2 && fallbackList[1]) h2 = { ...fallbackList[1], isFallback: true };
+
+    const centerTrack = current || (queue[0] || fallbackList[2] || { title: 'Blinding Lights', artist: 'The Weeknd', thumbnail: '/static/activity_icon.jpg' });
+
+    let q1 = queue.length >= 1 ? queue[0] : null;
+    let q2 = queue.length >= 2 ? queue[1] : null;
+    if (!q1 && fallbackList[2]) q1 = { ...fallbackList[2], isFallback: true, isAutoplay: true };
+    if (!q2 && fallbackList[3]) q2 = { ...fallbackList[3], isFallback: true, isAutoplay: true };
+
+    const cardsSpec = [
+      { offset: -2, track: h2, type: 'history' },
+      { offset: -1, track: h1, type: 'history' },
+      { offset: 0, track: centerTrack, type: 'current', isPlaying: isPlaying },
+      { offset: 1, track: q1, type: 'queue' },
+      { offset: 2, track: q2, type: 'queue' }
+    ];
+
+    cardsSpec.forEach(spec => {
+      if (!spec.track) return;
+      const cardEl = document.createElement('div');
+      cardEl.className = `coverflow-card pos-${spec.offset}`;
+      cardEl.dataset.offset = spec.offset;
+      cardEl.title = `${spec.track.title} — ${spec.track.artist}`;
+
+      const thumbUrl = getSafeImageUrl(spec.track.thumbnail);
+      cardEl.innerHTML = `
+        <div class="coverflow-thumb-wrap">
+          <img src="${thumbUrl}" alt="${escapeHtml(spec.track.title)}" class="coverflow-thumb" onerror="this.src='/static/activity_icon.jpg';">
+          <div class="coverflow-thumb-overlay"></div>
+        </div>
+        <div class="coverflow-card-bottom">
+          <div class="coverflow-card-title">${escapeHtml(spec.track.title)}</div>
+          <div class="coverflow-card-artist">${escapeHtml(spec.track.artist)}</div>
+          ${spec.track.isAutoplay ? `<span class="coverflow-card-badge autoplay">✦ Похоже</span>` : ''}
+          ${spec.offset === 0 && isPlaying ? `<span class="coverflow-card-badge playing">● В эфире</span>` : ''}
+        </div>
+      `;
+
+      // Card click interaction
+      cardEl.addEventListener('click', () => {
+        if (spec.offset === 0) {
+          window.playerStore.toggle();
+        } else if (spec.offset === -1) {
+          window.playerStore.prev();
+        } else if (spec.offset === -2) {
+          window.playerStore.play(spec.track, { isManual: true });
+        } else if (spec.offset === 1) {
+          if (queue.length >= 1 && !spec.track.isFallback) {
+            window.playerStore.jumpTo(0);
+          } else {
+            window.playerStore.play(spec.track, { isManual: true });
+          }
+        } else if (spec.offset === 2) {
+          if (queue.length >= 2 && !spec.track.isFallback) {
+            window.playerStore.jumpTo(1);
+          } else {
+            window.playerStore.play(spec.track, { isManual: true });
+          }
+        }
+      });
+
+      stage.appendChild(cardEl);
+    });
+
+    viewport.appendChild(stage);
+    wrapper.appendChild(viewport);
+
+    // Keyboard navigation (Left / Right Arrow)
+    const handleCoverflowKey = (e) => {
+      if (state.currentView !== 'home' || (state.activeHomeFilter && state.activeHomeFilter !== 'all')) return;
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.key === 'ArrowLeft') {
+        window.playerStore.prev();
+      } else if (e.key === 'ArrowRight') {
+        window.playerStore.next();
+      }
+    };
+    document.removeEventListener('keydown', handleCoverflowKey);
+    document.addEventListener('keydown', handleCoverflowKey);
+
+    // 2. FLOATING VISIONOS GLASS CAPSULE PLAYER (REFERENCE MATCH)
+    const capsule = document.createElement('div');
+    capsule.className = 'vision-capsule-player';
+
+    const currentTitle = centerTrack ? centerTrack.title : 'Трек не выбран';
+    const currentArtist = centerTrack ? centerTrack.artist : 'Musicium';
+    const currentArt = centerTrack ? getSafeImageUrl(centerTrack.thumbnail) : '/static/activity_icon.jpg';
+
+    capsule.innerHTML = `
+      <div class="capsule-controls-left">
+        <button class="capsule-btn" id="capsuleBtnPrev" title="Предыдущий / В начало (←)" aria-label="Предыдущий">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+            <path d="M11 6l-8.5 6 8.5 6V6zm9.5 0l-8.5 6 8.5 6V6z"/>
+          </svg>
+        </button>
+        <button class="capsule-btn capsule-play-btn" id="capsuleBtnPlayPause" title="Воспроизведение / Пауза (Пробел)" aria-label="Воспроизведение">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+            <path d="${isPlaying ? 'M6 19h4V5H6v14zm8-14v14h4V5h-4z' : 'M8 5v14l11-7z'}"/>
+          </svg>
+        </button>
+        <button class="capsule-btn" id="capsuleBtnNext" title="Следующий трек (→)" aria-label="Следующий">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+            <path d="M4.5 18l8.5-6-8.5-6v12zm9.5-12v12l8.5-6-8.5-6z"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="capsule-center-pill" id="capsuleCenterPill" title="${escapeHtml(currentTitle)}">
+        <img src="${currentArt}" alt="" class="capsule-thumb" onerror="this.src='/static/activity_icon.jpg';">
+        <div class="capsule-track-meta">
+          <div class="capsule-title" title="${escapeHtml(currentTitle)}">${escapeHtml(currentTitle)}</div>
+          <div class="capsule-artist" title="${escapeHtml(currentArtist)}">${escapeHtml(currentArtist)}</div>
+        </div>
+        <div class="capsule-equalizer ${isPlaying ? 'active' : ''}">
+          <span></span><span></span><span></span><span></span>
+        </div>
+        <button class="capsule-more-btn" id="capsuleBtnMore" title="Действия с треком">•••</button>
+      </div>
+
+      <div class="capsule-controls-right">
+        <button class="capsule-btn" id="capsuleBtnLyrics" title="Текст песни и караоке (visionOS)" aria-label="Текст песни">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-9 9H7V7h4v4zm6 0h-4V7h4v4z"/>
+          </svg>
+        </button>
+        <button class="capsule-btn" id="capsuleBtnQueueToggle" title="Очередь воспроизведения" aria-label="Очередь">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+          </svg>
+        </button>
+        <button class="capsule-btn" id="capsuleBtnVolume" title="Громкость" aria-label="Громкость">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="${state.isMuted ? 'M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z' : 'M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z'}"/>
+          </svg>
+        </button>
+        <div class="capsule-volume-popover" id="capsuleVolumePopover" style="display: none;">
+          <input type="range" id="capsuleVolumeSlider" min="0" max="150" value="${state.isMuted ? 0 : (state.savedVolume || 100)}">
+          <span id="capsuleVolumeVal">${state.isMuted ? '0%' : `${state.savedVolume || 100}%`}</span>
+        </div>
+      </div>
+    `;
+
+    // Wire Capsule Actions
+    capsule.querySelector('#capsuleBtnPrev').addEventListener('click', () => window.playerStore.prev());
+    capsule.querySelector('#capsuleBtnPlayPause').addEventListener('click', () => window.playerStore.toggle());
+    capsule.querySelector('#capsuleBtnNext').addEventListener('click', () => window.playerStore.next());
+    capsule.querySelector('#capsuleCenterPill').addEventListener('click', () => window.playerStore.toggle());
+    
+    // Lyrics action
+    capsule.querySelector('#capsuleBtnLyrics').addEventListener('click', (e) => {
+      e.stopPropagation();
+      openLyricsModal();
+    });
+
+    // More button action
+    capsule.querySelector('#capsuleBtnMore').addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (centerTrack) openAddToPlaylistModal(centerTrack);
+    });
+
+    // Queue drawer expand/collapse toggle
+    const btnQueueToggle = capsule.querySelector('#capsuleBtnQueueToggle');
+    btnQueueToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      isDrawerExpanded = !isDrawerExpanded;
+      const drawer = wrapper.querySelector('#coverflowExpandedDrawer');
+      if (drawer) {
+        drawer.style.display = isDrawerExpanded ? 'flex' : 'none';
+      }
+    });
+
+    // Volume popover toggle & slider
+    const btnVol = capsule.querySelector('#capsuleBtnVolume');
+    const volPop = capsule.querySelector('#capsuleVolumePopover');
+    const volSld = capsule.querySelector('#capsuleVolumeSlider');
+    const volVal = capsule.querySelector('#capsuleVolumeVal');
+
+    btnVol.addEventListener('click', (e) => {
+      e.stopPropagation();
+      volPop.style.display = volPop.style.display === 'none' ? 'flex' : 'none';
+    });
+
+    volSld.addEventListener('input', (e) => {
+      const v = parseInt(e.target.value) || 0;
+      volVal.textContent = `${v}%`;
+      state.isMuted = (v === 0);
+      state.savedVolume = v;
+      if (el.volumeSlider) el.volumeSlider.value = v;
+      if (el.volumeVal) el.volumeVal.textContent = `${v}%`;
+      sendPlayerAction('volume', { value: v });
+    });
+
+    wrapper.appendChild(capsule);
+
+    // 3. EXPANDABLE QUEUE & HISTORY DRAWER
+    const drawer = document.createElement('div');
+    drawer.className = 'coverflow-expanded-drawer';
+    drawer.id = 'coverflowExpandedDrawer';
+    drawer.style.display = isDrawerExpanded ? 'flex' : 'none';
+
+    // Queue Section
     const queueSection = document.createElement('div');
     queueSection.className = 'queue-section-glass';
 
@@ -2131,14 +2270,12 @@
     `;
 
     // Autoplay toggle click
-    const toggleBtn = queueSection.querySelector('#autoplayToggleBtn');
-    toggleBtn.addEventListener('click', () => {
+    queueSection.querySelector('#autoplayToggleBtn').addEventListener('click', () => {
       window.playerStore.setAutoplay(!autoplay);
     });
 
-    // Clear queue button click (clears manual, refreshes autoplay)
-    const clearBtn = queueSection.querySelector('#btnClearQueueBtn');
-    clearBtn.addEventListener('click', () => {
+    // Clear queue button click
+    queueSection.querySelector('#btnClearQueueBtn').addEventListener('click', () => {
       window.playerStore.clearManual();
     });
 
@@ -2188,7 +2325,7 @@
           window.playerStore.jumpTo(idx);
         });
 
-        // Keyboard navigation accessibility: Enter to jump, Delete to remove
+        // Keyboard navigation
         item.addEventListener('keydown', (e) => {
           if (e.key === 'Enter') {
             window.playerStore.jumpTo(idx);
@@ -2270,9 +2407,9 @@
       }
     }
 
-    el.allQueueView.appendChild(queueSection);
+    drawer.appendChild(queueSection);
 
-    // 3. «Недавно играли» (Recently Played / History Collapsible Section)
+    // History Collapsible Section
     const historySection = document.createElement('div');
     historySection.className = `history-section-glass ${isHistoryCollapsed ? 'collapsed' : ''}`;
     historySection.innerHTML = `
@@ -2298,7 +2435,7 @@
     if (history.length === 0) {
       histList.innerHTML = `<div style="padding: 10px 0; color: var(--text-tertiary); font-size: 13px;">История воспроизведения пуста</div>`;
     } else {
-      history.slice(0, 30).forEach((hTrack, hIdx) => {
+      history.slice(0, 30).forEach((hTrack) => {
         const hItem = document.createElement('div');
         hItem.className = 'history-track-card';
         hItem.innerHTML = `
@@ -2316,7 +2453,10 @@
       });
     }
 
-    el.allQueueView.appendChild(historySection);
+    drawer.appendChild(historySection);
+    wrapper.appendChild(drawer);
+
+    el.allQueueView.appendChild(wrapper);
   }
 
   // Community Playlists (Shared albums and leaderboard)
@@ -3499,6 +3639,15 @@
       if (state.currentView === 'home' && (!state.activeHomeFilter || state.activeHomeFilter === 'all')) {
         if (type === 'tick' || type === 'seek' || type === 'backend_tick') {
           // Micro update without rebuilding DOM
+          const capPlaySvg = document.querySelector('#capsuleBtnPlayPause svg path');
+          if (capPlaySvg) {
+            capPlaySvg.setAttribute('d', storeState.isPlaying ? 'M6 19h4V5H6v14zm8-14v14h4V5h-4z' : 'M8 5v14l11-7z');
+          }
+          const capEq = document.querySelector('.capsule-equalizer');
+          if (capEq) {
+            capEq.classList.toggle('active', storeState.isPlaying);
+          }
+
           const npTimeElap = document.getElementById('npTimeElapsed');
           const npTimeDur = document.getElementById('npTimeDuration');
           const npProgFill = document.getElementById('npProgressFill');
