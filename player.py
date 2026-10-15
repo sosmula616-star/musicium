@@ -795,6 +795,14 @@ class GuildPlayer:
             return removed
         return None
 
+    def move_in_queue(self, from_idx: int, to_idx: int) -> bool:
+        if 0 <= from_idx < len(self.queue) and 0 <= to_idx < len(self.queue):
+            track = self.queue.pop(from_idx)
+            self.queue.insert(to_idx, track)
+            asyncio.create_task(self._notify_change())
+            return True
+        return False
+
     def clear_queue(self):
         self.queue.clear()
         asyncio.create_task(self._notify_change())

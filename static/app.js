@@ -2088,7 +2088,7 @@
         </div>
       `;
       npCard.querySelector('#npStartRadioBtn').addEventListener('click', () => {
-        window.playerStore.loadSimilar({ immediatePlay: true });
+        window.playerStore.loadSimilar();
       });
     }
 
@@ -3202,14 +3202,6 @@
 
   async function playTrack(track, playNow = false, silent = false) {
     if (!track) return;
-    if (window.playerStore) {
-      if (playNow) {
-        await window.playerStore.play(track, { isManual: true, playNow: true, silent });
-      } else {
-        window.playerStore.enqueue(track, { silent });
-      }
-      return;
-    }
     return await sendPlayRequestToBot(track, playNow, silent);
   }
 
@@ -3505,7 +3497,7 @@
 
       // If active tab is "all" in Home view:
       if (state.currentView === 'home' && (!state.activeHomeFilter || state.activeHomeFilter === 'all')) {
-        if (type === 'tick' || type === 'seek') {
+        if (type === 'tick' || type === 'seek' || type === 'backend_tick') {
           // Micro update without rebuilding DOM
           const npTimeElap = document.getElementById('npTimeElapsed');
           const npTimeDur = document.getElementById('npTimeDuration');

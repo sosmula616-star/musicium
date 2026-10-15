@@ -1,7 +1,7 @@
 /**
  * Musicium Unified Player & Queue Store (player_store.js)
- * Manages player state (history, current, queue, autoplay),
- * Media Session API, hotkeys, drag-and-drop reordering, and smart similarity recommendation engine.
+ * Authoritative synchronization with Discord bot player,
+ * Media Session API, hotkeys, drag-and-drop reordering, and smart similarity recommendations.
  */
 
 (function () {
@@ -47,6 +47,13 @@
     return 0;
   }
 
+  function formatSeconds(sec) {
+    const s = Math.max(0, Math.floor(sec || 0));
+    const m = Math.floor(s / 60);
+    const rem = s % 60;
+    return `${m}:${rem < 10 ? '0' : ''}${rem}`;
+  }
+
   // Normalize track object ensuring standard fields
   function normalizeTrack(raw, isAutoplay = false) {
     if (!raw) return null;
@@ -62,16 +69,9 @@
       genre: raw.genre || '',
       views: raw.views || '',
       plays: raw.plays || '',
-      isAutoplay: Boolean(isAutoplay)
+      isAutoplay: Boolean(isAutoplay || raw.isAutoplay)
     };
     return t;
-  }
-
-  function formatSeconds(sec) {
-    const s = Math.max(0, Math.floor(sec || 0));
-    const m = Math.floor(s / 60);
-    const rem = s % 60;
-    return `${m}:${rem < 10 ? '0' : ''}${rem}`;
   }
 
   class PlayerStore {
@@ -89,18 +89,13 @@
       this.isLoadingSimilar = false;
 
       this._listeners = new Set();
-      this._retrySimilarCount = 0;
-      this._retrySimilarTimer = null;
+      this._lastLoadSimilarTime = 0;
+      this._isEnqueuingAutoplay = false;
       this._tickerInterval = null;
 
       this._initMediaSession();
       this._initHotkeys();
       this._startTicker();
-
-      // If autoplay is enabled and queue is empty, schedule initial similar tracks
-      if (this.autoplay && this.queue.length <= 3) {
-        setTimeout(() => this.loadSimilar(), 800);
-      }
     }
 
     getState() {
@@ -140,254 +135,139 @@
       }));
     }
 
-    // Play a track directly
+    // Play a track directly via bot
     async play(track, { isManual = true, playNow = true, silent = false } = {}) {
       if (!track) return;
-      const normalized = normalizeTrack(track, false);
-
-      // If already playing this track, just ensure playback is active
-      if (this.current && this.current.title === normalized.title && this.current.artist === normalized.artist) {
-        if (!this.isPlaying) {
-          this.resume();
-        }
-        return;
-      }
-
-      // Old current goes to history
-      if (this.current) {
-        this.history.unshift(this.current);
-        if (this.history.length > MAX_HISTORY) {
-          this.history.pop();
-        }
-      }
-
-      // Remove from queue if it was queued
-      this.queue = this.queue.filter(t => !this._isSameTrack(t, normalized));
-
-      this.current = normalized;
-      this.elapsed = 0;
-      this.duration = parseDuration(normalized.duration_str || normalized.duration) || 210;
-      this.isPlaying = true;
-
-      this._announceTrackChange(this.current);
-      this.notify('track_change', { track: this.current });
-
-      // Check autoplay threshold
-      if (this.autoplay && this.queue.length <= 3) {
-        this.loadSimilar();
-      }
-
-      // Dispatch to bot/backend if available
       if (typeof window.dispatchBotPlayTrack === 'function') {
         try {
-          await window.dispatchBotPlayTrack(this.current, playNow, silent);
+          await window.dispatchBotPlayTrack(track, playNow, silent);
         } catch (_) {}
       }
     }
 
     // Insert track at the beginning of the queue (next in line)
-    playNext(track) {
+    async playNext(track) {
       if (!track) return;
-      const normalized = normalizeTrack(track, false);
-      // Remove duplicate if already present in queue
-      this.queue = this.queue.filter(t => !this._isSameTrack(t, normalized));
-
-      this.queue.unshift(normalized);
-      this.notify('queue_update', { action: 'playNext', track: normalized });
-
+      if (typeof window.dispatchBotPlayTrack === 'function') {
+        try {
+          await window.dispatchBotPlayTrack(track, false, false);
+          const manualTracks = this.queue.filter(t => !t.isAutoplay);
+          if (manualTracks.length > 1 && typeof window.dispatchBotAction === 'function') {
+            await window.dispatchBotAction('reorder', { from_index: manualTracks.length - 1, to_index: 0 });
+          }
+        } catch (_) {}
+      }
       if (typeof window.showToast === 'function') {
-        window.showToast(`Будет сыграно следующим: ${normalized.title}`, 'success', 'fa-forward-step');
+        window.showToast(`Будет сыграно следующим: ${track.title}`, 'success', 'fa-forward-step');
       }
     }
 
-    // Enqueue track (manual tracks go before autoplay tracks)
+    // Enqueue track (adds to bot's queue)
     enqueue(track, { silent = false } = {}) {
       if (!track) return;
-      const normalized = normalizeTrack(track, false);
-
-      // If nothing is playing, play immediately
-      if (!this.current) {
-        return this.play(normalized, { isManual: true, playNow: true, silent });
-      }
-
-      // Avoid immediate duplicates in queue
-      this.queue = this.queue.filter(t => !this._isSameTrack(t, normalized));
-
-      // Find first autoplay track: manual tracks insert before autoplay
-      const firstAutoplayIdx = this.queue.findIndex(t => t.isAutoplay);
-      if (firstAutoplayIdx !== -1) {
-        this.queue.splice(firstAutoplayIdx, 0, normalized);
-      } else {
-        this.queue.push(normalized);
-      }
-
-      this.notify('queue_update', { action: 'enqueue', track: normalized });
-
-      if (!silent && typeof window.showToast === 'function') {
-        window.showToast(`Добавлено в очередь: ${normalized.title}`, 'success', 'fa-plus');
-      }
-
-      // Dispatch enqueue to bot if needed
       if (typeof window.dispatchBotPlayTrack === 'function') {
         try {
-          window.dispatchBotPlayTrack(normalized, false, true);
+          window.dispatchBotPlayTrack(track, false, silent);
         } catch (_) {}
       }
     }
 
-    // Advance to the next track
+    // Advance to the next track (sends skip action to bot)
     async next() {
-      if (this.queue.length > 0) {
-        if (this.current) {
-          this.history.unshift(this.current);
-          if (this.history.length > MAX_HISTORY) {
-            this.history.pop();
+      if (typeof window.dispatchBotAction === 'function') {
+        try {
+          const res = await window.dispatchBotAction('skip', { forced: true });
+          if (res && res.success && typeof window.showToast === 'function') {
+            window.showToast('Трек пропущен', 'info', 'fa-forward-step');
           }
-        }
-        const nextTrack = this.queue.shift();
-        this.current = nextTrack;
-        this.elapsed = 0;
-        this.duration = parseDuration(nextTrack.duration_str || nextTrack.duration) || 210;
-        this.isPlaying = true;
-
-        this._announceTrackChange(this.current);
-        this.notify('track_change', { track: this.current, direction: 'next' });
-
-        if (this.autoplay && this.queue.length <= 3) {
-          this.loadSimilar();
-        }
-
-        if (typeof window.dispatchBotPlayTrack === 'function') {
-          try {
-            await window.dispatchBotPlayTrack(this.current, true, true);
-          } catch (_) {}
-        }
-      } else {
-        // Queue empty
-        if (this.autoplay) {
-          await this.loadSimilar({ immediatePlay: true });
-        } else {
-          this.isPlaying = false;
-          this.notify('queue_ended');
-          if (typeof window.showToast === 'function') {
-            window.showToast('Очередь воспроизведения завершена', 'info');
-          }
-        }
+        } catch (_) {}
       }
     }
 
     // Previous track or rewind if elapsed > 3s
     async prev() {
-      // If elapsed > 3s, restart current track
       if (this.elapsed > 3) {
-        this.elapsed = 0;
-        this.notify('seek', { seconds: 0 });
+        this.seek(0);
         if (typeof window.showToast === 'function') {
           window.showToast('Трек перезапущен', 'info', 'fa-backward-step');
-        }
-        if (typeof window.dispatchBotAction === 'function') {
-          try {
-            await window.dispatchBotAction('seek', { seconds: 0 });
-          } catch (_) {}
         }
         return;
       }
 
-      // Otherwise return to the last track from history
       if (this.history.length > 0) {
-        if (this.current) {
-          // Current returns to beginning of queue
-          this.queue.unshift(this.current);
-        }
-        const prevTrack = this.history.shift();
-        this.current = prevTrack;
-        this.elapsed = 0;
-        this.duration = parseDuration(prevTrack.duration_str || prevTrack.duration) || 210;
-        this.isPlaying = true;
-
-        this._announceTrackChange(this.current);
-        this.notify('track_change', { track: this.current, direction: 'prev' });
-
+        const prevTrack = this.history[0];
         if (typeof window.dispatchBotPlayTrack === 'function') {
           try {
-            await window.dispatchBotPlayTrack(this.current, true, true);
+            await window.dispatchBotPlayTrack(prevTrack, true, false);
           } catch (_) {}
         }
       } else {
-        this.elapsed = 0;
-        this.notify('seek', { seconds: 0 });
+        this.seek(0);
       }
     }
 
-    // Jump to specific track in queue: all preceding tracks move to history
+    // Jump to specific track in queue
     async jumpTo(index) {
       if (index < 0 || index >= this.queue.length) return;
-
-      if (this.current) {
-        this.history.unshift(this.current);
-      }
-
-      // All tracks before index go to history
-      const skipped = this.queue.splice(0, index);
-      for (let i = skipped.length - 1; i >= 0; i--) {
-        this.history.unshift(skipped[i]);
-      }
-      if (this.history.length > MAX_HISTORY) {
-        this.history = this.history.slice(0, MAX_HISTORY);
-      }
-
-      const chosen = this.queue.shift();
-      this.current = chosen;
-      this.elapsed = 0;
-      this.duration = parseDuration(chosen.duration_str || chosen.duration) || 210;
-      this.isPlaying = true;
-
-      this._announceTrackChange(this.current);
-      this.notify('track_change', { track: this.current, jumped: true });
-
-      if (this.autoplay && this.queue.length <= 3) {
-        this.loadSimilar();
-      }
+      const chosen = this.queue[index];
+      if (!chosen) return;
 
       if (typeof window.dispatchBotPlayTrack === 'function') {
         try {
-          await window.dispatchBotPlayTrack(this.current, true, true);
+          await window.dispatchBotPlayTrack(chosen, true, false);
         } catch (_) {}
       }
     }
 
     // Reorder tracks in queue (via Drag & Drop)
-    reorder(fromIndex, toIndex) {
+    async reorder(fromIndex, toIndex) {
       if (fromIndex === toIndex || fromIndex < 0 || fromIndex >= this.queue.length || toIndex < 0 || toIndex >= this.queue.length) {
         return;
       }
       const [moved] = this.queue.splice(fromIndex, 1);
       this.queue.splice(toIndex, 0, moved);
       this.notify('queue_reorder', { fromIndex, toIndex });
+
+      const manualCount = this.queue.filter(t => !t.isAutoplay).length;
+      if (fromIndex < manualCount && toIndex < manualCount) {
+        if (typeof window.dispatchBotAction === 'function') {
+          try {
+            await window.dispatchBotAction('reorder', { from_index: fromIndex, to_index: toIndex });
+          } catch (_) {}
+        }
+      }
     }
 
     // Remove single track from queue
-    remove(index) {
+    async remove(index) {
       if (index < 0 || index >= this.queue.length) return;
+      const manualCount = this.queue.filter(t => !t.isAutoplay).length;
       const [removed] = this.queue.splice(index, 1);
       this.notify('queue_remove', { index, track: removed });
 
-      if (this.autoplay && this.queue.length <= 3) {
-        this.loadSimilar();
+      if (index < manualCount) {
+        if (typeof window.dispatchBotAction === 'function') {
+          try {
+            await window.dispatchBotAction('remove', { index });
+          } catch (_) {}
+        }
       }
     }
 
-    // Clear only manual tracks; if autoplay is on, reload similar tracks immediately
-    clearManual() {
-      // Keep only autoplay tracks, or wipe and reload fresh
-      this.queue = [];
+    // Clear only manual tracks from queue
+    async clearManual() {
+      this.queue = this.queue.filter(t => t.isAutoplay);
       this.notify('queue_clear');
 
+      if (typeof window.dispatchBotAction === 'function') {
+        try {
+          await window.dispatchBotAction('clear');
+        } catch (_) {}
+      }
       if (typeof window.showToast === 'function') {
         window.showToast('Очередь очищена', 'info');
       }
-
-      if (this.autoplay) {
+      if (this.autoplay && this.queue.length <= 2) {
         this.loadSimilar();
       }
     }
@@ -405,8 +285,6 @@
     setAutoplay(enabled) {
       this.autoplay = Boolean(enabled);
       if (!this.autoplay) {
-        // Remove autoplay tracks from queue
-        const prevCount = this.queue.length;
         this.queue = this.queue.filter(t => !t.isAutoplay);
         this.notify('autoplay_change', { autoplay: false });
         if (typeof window.showToast === 'function') {
@@ -417,7 +295,7 @@
         if (typeof window.showToast === 'function') {
           window.showToast('Автоподбор похожих треков включён', 'success', 'fa-sparkles');
         }
-        if (this.queue.length <= 3) {
+        if (this.queue.length <= 2) {
           this.loadSimilar();
         }
       }
@@ -442,14 +320,6 @@
     }
 
     resume() {
-      if (!this.current) {
-        if (this.queue.length > 0) {
-          this.next();
-        } else {
-          this.loadSimilar({ immediatePlay: true });
-        }
-        return;
-      }
       this.isPlaying = true;
       this.notify('resume');
       if (typeof window.dispatchBotAction === 'function') {
@@ -469,37 +339,43 @@
       }
     }
 
-    // Background loader for similar tracks
-    async loadSimilar({ immediatePlay = false } = {}) {
-      if (this.isLoadingSimilar) return;
-      this.isLoadingSimilar = true;
-      this.notify('loading_similar_start');
+    // Background loader for similar tracks (throttled, no recursive spam)
+    async loadSimilar() {
+      if (this.isLoadingSimilar || !this.autoplay) return;
+
+      const now = Date.now();
+      if (this._lastLoadSimilarTime && (now - this._lastLoadSimilarTime < 8000)) {
+        return;
+      }
+      this._lastLoadSimilarTime = now;
 
       const seed = this.current || (this.history.length > 0 ? this.history[0] : null);
+      if (!seed) return;
+
+      this.isLoadingSimilar = true;
+      this.notify('loading_similar_start');
 
       try {
         let fetched = [];
 
         // 1. Try smart endpoint /api/similar
-        if (seed) {
-          const params = new URLSearchParams({
-            title: seed.title || '',
-            artist: seed.artist || '',
-            source: seed.source || 'all',
-            genre: seed.genre || '',
-            limit: '10'
-          });
-          const resp = await fetch(`/api/similar?${params.toString()}`);
-          if (resp.ok) {
-            const data = await resp.json();
-            if (data && Array.isArray(data.tracks) && data.tracks.length > 0) {
-              fetched = data.tracks.map(t => normalizeTrack(t, true));
-            }
+        const params = new URLSearchParams({
+          title: seed.title || '',
+          artist: seed.artist || '',
+          source: seed.source || 'all',
+          genre: seed.genre || '',
+          limit: '8'
+        });
+        const resp = await fetch(`/api/similar?${params.toString()}`);
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data && Array.isArray(data.tracks) && data.tracks.length > 0) {
+            fetched = data.tracks.map(t => normalizeTrack(t, true));
           }
         }
 
-        // 2. Fallback / supplementary: /api/recommendations or search
-        if (fetched.length < 5) {
+        // 2. Fallback: /api/recommendations
+        if (fetched.length < 4) {
           const recResp = await fetch('/api/recommendations');
           if (recResp.ok) {
             const recData = await recResp.json();
@@ -509,13 +385,11 @@
               ...(recData.youtube_charts || []),
               ...(recData.soundcloud_charts || [])
             ];
-            // Shuffle pool
             for (let i = pool.length - 1; i > 0; i--) {
               const j = Math.floor(Math.random() * (i + 1));
               [pool[i], pool[j]] = [pool[j], pool[i]];
             }
-            const normalizedPool = pool.map(t => normalizeTrack(t, true));
-            fetched.push(...normalizedPool);
+            fetched.push(...pool.map(t => normalizeTrack(t, true)));
           }
         }
 
@@ -532,104 +406,143 @@
 
           cand.isAutoplay = true;
           uniqueSimilar.push(cand);
-          if (uniqueSimilar.length >= 8) break;
+          if (uniqueSimilar.length >= 6) break;
         }
 
         if (uniqueSimilar.length > 0) {
-          this._retrySimilarCount = 0;
+          this.queue.push(...uniqueSimilar);
+          this.notify('queue_loaded_similar', { count: uniqueSimilar.length });
 
-          if (immediatePlay && !this.current) {
-            const first = uniqueSimilar.shift();
-            this.current = first;
-            this.queue.push(...uniqueSimilar);
-            this.elapsed = 0;
-            this.duration = parseDuration(first.duration_str || first.duration) || 210;
-            this.isPlaying = true;
-            this._announceTrackChange(this.current);
-            this.notify('track_change', { track: this.current });
+          // Pre-enqueue 1st autoplay track to bot with play_now = false if bot queue has 0 tracks
+          const botManualCount = this.queue.filter(t => !t.isAutoplay).length;
+          if (this.autoplay && this.isPlaying && this.current && botManualCount === 0 && !this._isEnqueuingAutoplay) {
+            this._isEnqueuingAutoplay = true;
             if (typeof window.dispatchBotPlayTrack === 'function') {
-              window.dispatchBotPlayTrack(this.current, true, true);
+              window.dispatchBotPlayTrack(uniqueSimilar[0], false, true).finally(() => {
+                setTimeout(() => { this._isEnqueuingAutoplay = false; }, 3000);
+              });
             }
-          } else {
-            this.queue.push(...uniqueSimilar);
-            this.notify('queue_loaded_similar', { count: uniqueSimilar.length });
           }
-        } else {
-          throw new Error('No unique similar tracks found');
         }
       } catch (err) {
         console.warn('Auto-match recommendations error:', err);
-        this._retrySimilarCount += 1;
-        if (this._retrySimilarCount <= 3) {
-          if (typeof window.showToast === 'function') {
-            window.showToast('Подбор треков: повтор через 5 секунд...', 'info');
-          }
-          if (this._retrySimilarTimer) clearTimeout(this._retrySimilarTimer);
-          this._retrySimilarTimer = setTimeout(() => {
-            this.loadSimilar({ immediatePlay });
-          }, 5000);
-        }
       } finally {
         this.isLoadingSimilar = false;
         this.notify('loading_similar_end');
       }
     }
 
-    // Synchronize with external Discord bot state (from /api/player or WebSocket)
+    // Synchronize with authoritative Discord bot state (from /api/player or WebSocket)
     syncFromBackend(backendState) {
       if (!backendState) return;
 
-      const hasTrack = Boolean(backendState.current_track || backendState.is_playing || backendState.is_paused);
-      if (!hasTrack) {
-        return;
+      const botTrack = normalizeTrack(backendState.current_track, false);
+      const isPlaying = Boolean(backendState.is_playing && !backendState.is_paused);
+      const elapsed = Number(backendState.position !== undefined ? backendState.position : (backendState.elapsed_seconds || 0));
+      const duration = Number(backendState.duration || (botTrack ? parseDuration(botTrack.duration_str || botTrack.duration) : 0));
+
+      const rawQueue = Array.isArray(backendState.queue) ? backendState.queue : [];
+      const botQueue = rawQueue.map(t => normalizeTrack(t, false));
+      const rawHistory = Array.isArray(backendState.history) ? backendState.history : [];
+      const botHistory = rawHistory.map(t => normalizeTrack(t, false));
+
+      let trackChanged = false;
+      let queueChanged = false;
+
+      // 1. Current track change check
+      if (!this._isSameTrack(this.current, botTrack)) {
+        if (this.current) {
+          this.history.unshift(this.current);
+          if (this.history.length > MAX_HISTORY) this.history.pop();
+        }
+        this.current = botTrack;
+        this.elapsed = elapsed;
+        this.duration = duration;
+        this.isPlaying = isPlaying;
+        trackChanged = true;
+      } else {
+        this.elapsed = elapsed;
+        if (duration > 0) this.duration = duration;
+        this.isPlaying = isPlaying;
       }
 
-      const botTrack = normalizeTrack(backendState.current_track, false);
-      if (botTrack) {
-        if (!this.current || !this._isSameTrack(this.current, botTrack)) {
-          if (this.current) {
-            this.history.unshift(this.current);
-            if (this.history.length > MAX_HISTORY) this.history.pop();
+      // 2. History sync from bot if available
+      if (botHistory.length > 0) {
+        const mergedHistory = [...botHistory];
+        for (const h of this.history) {
+          if (!mergedHistory.some(m => this._isSameTrack(m, h))) {
+            mergedHistory.push(h);
           }
-          this.current = botTrack;
-          this.elapsed = backendState.position || backendState.elapsed_seconds || 0;
-          this.duration = parseDuration(botTrack.duration_str || botTrack.duration) || backendState.duration || 210;
-          this.isPlaying = Boolean(backendState.is_playing && !backendState.is_paused);
-          this.notify('backend_sync');
-          return;
+        }
+        this.history = mergedHistory.slice(0, MAX_HISTORY);
+      }
+
+      // 3. Queue sync:
+      // Manual tracks come directly from bot queue.
+      // Autoplay suggestions follow at the end.
+      const currentAutoplayTracks = this.autoplay
+        ? this.queue.filter(t => t.isAutoplay && !botQueue.some(bq => this._isSameTrack(bq, t)))
+        : [];
+
+      const existingManual = this.queue.filter(t => !t.isAutoplay);
+      const queueDiff = (existingManual.length !== botQueue.length) ||
+        botQueue.some((bt, i) => !existingManual[i] || !this._isSameTrack(existingManual[i], bt));
+
+      if (queueDiff || trackChanged) {
+        queueChanged = true;
+        this.queue = [...botQueue, ...currentAutoplayTracks];
+      }
+
+      // 4. Autoplay pre-enqueueing to Discord bot:
+      // If queue has 0 manual tracks and bot is playing, feed next autoplay track to bot with play_now = false
+      if (this.autoplay && this.isPlaying && this.current && botQueue.length === 0 && !this._isEnqueuingAutoplay) {
+        const nextAuto = this.queue.find(t => t.isAutoplay);
+        if (nextAuto) {
+          this._isEnqueuingAutoplay = true;
+          if (typeof window.dispatchBotPlayTrack === 'function') {
+            window.dispatchBotPlayTrack(nextAuto, false, true).finally(() => {
+              setTimeout(() => { this._isEnqueuingAutoplay = false; }, 3000);
+            });
+          }
+        } else if (!this.isLoadingSimilar) {
+          this.loadSimilar();
         }
       }
 
-      this.isPlaying = Boolean(backendState.is_playing && !backendState.is_paused);
-      if (backendState.position !== undefined) {
-        this.elapsed = Number(backendState.position);
-      } else if (backendState.elapsed_seconds !== undefined) {
-        this.elapsed = Number(backendState.elapsed_seconds);
+      // If autoplay is enabled and total queue is small, fetch recommendations
+      if (this.autoplay && this.current && this.queue.length <= 2 && !this.isLoadingSimilar) {
+        this.loadSimilar();
       }
-      this.notify('backend_tick');
+
+      if (trackChanged) {
+        this._announceTrackChange(this.current);
+        this.notify('track_change', { track: this.current });
+      } else if (queueChanged) {
+        this.notify('queue_update', { action: 'sync' });
+      } else {
+        // Micro position/playback update: does NOT rebuild queue DOM!
+        this.notify('backend_tick', { elapsed: this.elapsed, duration: this.duration });
+      }
     }
 
-    // Helper: test track equality by title/artist or url
+    // Helper: test track equality by url or fuzzy title
     _isSameTrack(a, b) {
+      if (!a && !b) return true;
       if (!a || !b) return false;
+      if (a.id && b.id && String(a.id) === String(b.id)) return true;
       if (a.url && b.url && a.url === b.url) return true;
-      const cleanTitleA = (a.title || '').trim().toLowerCase();
-      const cleanTitleB = (b.title || '').trim().toLowerCase();
-      const cleanArtistA = (a.artist || '').trim().toLowerCase();
-      const cleanArtistB = (b.artist || '').trim().toLowerCase();
-      return cleanTitleA === cleanTitleB && (!cleanArtistA || !cleanArtistB || cleanArtistA === cleanArtistB);
+      const cleanTitleA = (a.title || '').trim().toLowerCase().replace(/[\(\[\{].*?[\)\]\}]/g, '').trim();
+      const cleanTitleB = (b.title || '').trim().toLowerCase().replace(/[\(\[\{].*?[\)\]\}]/g, '').trim();
+      return Boolean(cleanTitleA && cleanTitleB && cleanTitleA === cleanTitleB);
     }
 
-    // Progress ticker
+    // Progress ticker (only updates visual progress, NEVER aborts or skips audio!)
     _startTicker() {
       if (this._tickerInterval) clearInterval(this._tickerInterval);
       this._tickerInterval = setInterval(() => {
         if (this.isPlaying && this.current) {
-          this.elapsed += 1;
-          if (this.duration > 0 && this.elapsed >= this.duration) {
-            // Track finished! Rule 4: queue -> current, old current -> history
-            this.next();
-            return;
+          if (this.duration > 0 && this.elapsed < this.duration) {
+            this.elapsed += 1;
           }
           this.notify('tick', { elapsed: this.elapsed, duration: this.duration });
         }
@@ -679,7 +592,6 @@
     // Global keyboard hotkeys: Space, ArrowLeft, ArrowRight
     _initHotkeys() {
       document.addEventListener('keydown', (e) => {
-        // Skip hotkeys if focused on input, textarea, or contenteditable
         const tag = (e.target.tagName || '').toUpperCase();
         if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target.isContentEditable) {
           return;

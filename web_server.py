@@ -836,6 +836,12 @@ class WebServer:
                 res_data["success"] = bool(removed)
                 res_data["removed"] = removed.to_dict() if removed else None
 
+            elif action == "reorder":
+                from_idx = safe_int(data.get("from_index"), -1)
+                to_idx = safe_int(data.get("to_index"), -1)
+                ok = player.move_in_queue(from_idx, to_idx)
+                res_data["success"] = ok
+
             elif action == "clear":
                 player.clear_queue()
                 res_data["message"] = "Очередь очищена"
