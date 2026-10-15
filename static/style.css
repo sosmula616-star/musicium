@@ -2553,27 +2553,88 @@ html:not([data-lang="en"]) .lang-en { display: none !important; }
 .btn-text-danger:hover { background: rgba(229,62,62,0.1); }
 
 /* ============================================================
-   BOTTOM PLAYER DOCK (Floating visionOS Glass Capsule)
+   BOTTOM PLAYER DOCK (Unified visionOS Glass Capsule Player)
    ============================================================ */
-.player-dock {
-  position: fixed;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: calc(100% - 32px);
-  max-width: 1640px;
-  height: 84px;
-  background: var(--glass-bg-dock) !important;
-  backdrop-filter: blur(48px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(48px) saturate(180%) !important;
-  border: 1px solid var(--glass-border) !important;
-  border-top: 1px solid var(--glass-border-top, rgba(255, 255, 255, 0.35)) !important;
-  box-shadow: var(--glass-rim-light), 0 24px 64px rgba(0, 0, 0, 0.75), 0 0 32px var(--accent-glow) !important;
+.player-dock,
+.vision-capsule-dock {
+  position: fixed !important;
+  bottom: 20px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  width: calc(100% - 32px) !important;
+  max-width: 740px !important;
+  height: 68px !important;
   border-radius: 9999px !important;
-  padding: 0 24px;
-  z-index: 200;
-  box-sizing: border-box;
-  transition: all var(--t-normal) var(--ease);
+  background: rgba(255, 255, 255, 0.12) !important;
+  backdrop-filter: blur(36px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(36px) saturate(190%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.28) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.45) !important;
+  box-shadow: 0 20px 52px rgba(0, 0, 0, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.35) !important;
+  padding: 0 22px !important;
+  z-index: 200 !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  user-select: none !important;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.player-dock:hover,
+.vision-capsule-dock:hover {
+  background: rgba(255, 255, 255, 0.16) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.65), inset 0 1px 1px rgba(255, 255, 255, 0.45) !important;
+}
+
+/* Micro-progress scrubber inside center pill matching screenshot */
+.capsule-progress-track {
+  width: 100%;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 9999px;
+  cursor: pointer;
+  position: relative;
+  margin-top: 3px;
+  overflow: visible;
+}
+
+.capsule-progress-fill {
+  height: 100%;
+  background: #ffffff;
+  border-radius: 9999px;
+  position: relative;
+  transition: width 0.1s linear;
+}
+
+.capsule-progress-handle {
+  position: absolute;
+  right: -3px;
+  top: -3px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.capsule-center-pill:hover .capsule-progress-handle,
+.capsule-progress-track:hover .capsule-progress-handle {
+  opacity: 1;
+}
+
+.capsule-volume-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.capsule-volume-wrap:hover .capsule-volume-popover,
+.capsule-volume-wrap:focus-within .capsule-volume-popover {
+  display: flex !important;
 }
 
 .player-inner {

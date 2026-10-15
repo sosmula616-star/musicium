@@ -2113,121 +2113,7 @@
     document.removeEventListener('keydown', handleCoverflowKey);
     document.addEventListener('keydown', handleCoverflowKey);
 
-    // 2. FLOATING VISIONOS GLASS CAPSULE PLAYER (REFERENCE MATCH)
-    const capsule = document.createElement('div');
-    capsule.className = 'vision-capsule-player';
-
-    const currentTitle = centerTrack ? centerTrack.title : 'Трек не выбран';
-    const currentArtist = centerTrack ? centerTrack.artist : 'Musicium';
-    const currentArt = centerTrack ? getSafeImageUrl(centerTrack.thumbnail) : '/static/activity_icon.jpg';
-
-    capsule.innerHTML = `
-      <div class="capsule-controls-left">
-        <button class="capsule-btn" id="capsuleBtnPrev" title="Предыдущий / В начало (←)" aria-label="Предыдущий">
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-            <path d="M11 6l-8.5 6 8.5 6V6zm9.5 0l-8.5 6 8.5 6V6z"/>
-          </svg>
-        </button>
-        <button class="capsule-btn capsule-play-btn" id="capsuleBtnPlayPause" title="Воспроизведение / Пауза (Пробел)" aria-label="Воспроизведение">
-          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-            <path d="${isPlaying ? 'M6 19h4V5H6v14zm8-14v14h4V5h-4z' : 'M8 5v14l11-7z'}"/>
-          </svg>
-        </button>
-        <button class="capsule-btn" id="capsuleBtnNext" title="Следующий трек (→)" aria-label="Следующий">
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-            <path d="M4.5 18l8.5-6-8.5-6v12zm9.5-12v12l8.5-6-8.5-6z"/>
-          </svg>
-        </button>
-      </div>
-
-      <div class="capsule-center-pill" id="capsuleCenterPill" title="${escapeHtml(currentTitle)}">
-        <img src="${currentArt}" alt="" class="capsule-thumb" onerror="this.src='/static/activity_icon.jpg';">
-        <div class="capsule-track-meta">
-          <div class="capsule-title" title="${escapeHtml(currentTitle)}">${escapeHtml(currentTitle)}</div>
-          <div class="capsule-artist" title="${escapeHtml(currentArtist)}">${escapeHtml(currentArtist)}</div>
-        </div>
-        <div class="capsule-equalizer ${isPlaying ? 'active' : ''}">
-          <span></span><span></span><span></span><span></span>
-        </div>
-        <button class="capsule-more-btn" id="capsuleBtnMore" title="Действия с треком">•••</button>
-      </div>
-
-      <div class="capsule-controls-right">
-        <button class="capsule-btn" id="capsuleBtnLyrics" title="Текст песни и караоке (visionOS)" aria-label="Текст песни">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-            <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-9 9H7V7h4v4zm6 0h-4V7h4v4z"/>
-          </svg>
-        </button>
-        <button class="capsule-btn" id="capsuleBtnQueueToggle" title="Очередь воспроизведения" aria-label="Очередь">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-            <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
-          </svg>
-        </button>
-        <button class="capsule-btn" id="capsuleBtnVolume" title="Громкость" aria-label="Громкость">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-            <path d="${state.isMuted ? 'M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z' : 'M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z'}"/>
-          </svg>
-        </button>
-        <div class="capsule-volume-popover" id="capsuleVolumePopover" style="display: none;">
-          <input type="range" id="capsuleVolumeSlider" min="0" max="150" value="${state.isMuted ? 0 : (state.savedVolume || 100)}">
-          <span id="capsuleVolumeVal">${state.isMuted ? '0%' : `${state.savedVolume || 100}%`}</span>
-        </div>
-      </div>
-    `;
-
-    // Wire Capsule Actions
-    capsule.querySelector('#capsuleBtnPrev').addEventListener('click', () => window.playerStore.prev());
-    capsule.querySelector('#capsuleBtnPlayPause').addEventListener('click', () => window.playerStore.toggle());
-    capsule.querySelector('#capsuleBtnNext').addEventListener('click', () => window.playerStore.next());
-    capsule.querySelector('#capsuleCenterPill').addEventListener('click', () => window.playerStore.toggle());
-    
-    // Lyrics action
-    capsule.querySelector('#capsuleBtnLyrics').addEventListener('click', (e) => {
-      e.stopPropagation();
-      openLyricsModal();
-    });
-
-    // More button action
-    capsule.querySelector('#capsuleBtnMore').addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (centerTrack) openAddToPlaylistModal(centerTrack);
-    });
-
-    // Queue drawer expand/collapse toggle
-    const btnQueueToggle = capsule.querySelector('#capsuleBtnQueueToggle');
-    btnQueueToggle.addEventListener('click', (e) => {
-      e.stopPropagation();
-      isDrawerExpanded = !isDrawerExpanded;
-      const drawer = wrapper.querySelector('#coverflowExpandedDrawer');
-      if (drawer) {
-        drawer.style.display = isDrawerExpanded ? 'flex' : 'none';
-      }
-    });
-
-    // Volume popover toggle & slider
-    const btnVol = capsule.querySelector('#capsuleBtnVolume');
-    const volPop = capsule.querySelector('#capsuleVolumePopover');
-    const volSld = capsule.querySelector('#capsuleVolumeSlider');
-    const volVal = capsule.querySelector('#capsuleVolumeVal');
-
-    btnVol.addEventListener('click', (e) => {
-      e.stopPropagation();
-      volPop.style.display = volPop.style.display === 'none' ? 'flex' : 'none';
-    });
-
-    volSld.addEventListener('input', (e) => {
-      const v = parseInt(e.target.value) || 0;
-      volVal.textContent = `${v}%`;
-      state.isMuted = (v === 0);
-      state.savedVolume = v;
-      if (el.volumeSlider) el.volumeSlider.value = v;
-      if (el.volumeVal) el.volumeVal.textContent = `${v}%`;
-      sendPlayerAction('volume', { value: v });
-    });
-
-    wrapper.appendChild(capsule);
-
-    // 3. EXPANDABLE QUEUE & HISTORY DRAWER
+    // 2. EXPANDABLE QUEUE & HISTORY DRAWER
     const drawer = document.createElement('div');
     drawer.className = 'coverflow-expanded-drawer';
     drawer.id = 'coverflowExpandedDrawer';
@@ -3639,30 +3525,15 @@
       if (state.currentView === 'home' && (!state.activeHomeFilter || state.activeHomeFilter === 'all')) {
         if (type === 'tick' || type === 'seek' || type === 'backend_tick') {
           // Micro update without rebuilding DOM
-          const capPlaySvg = document.querySelector('#capsuleBtnPlayPause svg path');
-          if (capPlaySvg) {
-            capPlaySvg.setAttribute('d', storeState.isPlaying ? 'M6 19h4V5H6v14zm8-14v14h4V5h-4z' : 'M8 5v14l11-7z');
+          if (el.playIconSvg) {
+            el.playIconSvg.innerHTML = storeState.isPlaying ? SVG_ICONS.pause : SVG_ICONS.play;
           }
-          const capEq = document.querySelector('.capsule-equalizer');
-          if (capEq) {
-            capEq.classList.toggle('active', storeState.isPlaying);
+          if (el.equalizerBars) {
+            el.equalizerBars.classList.toggle('active', storeState.isPlaying);
           }
-
-          const npTimeElap = document.getElementById('npTimeElapsed');
-          const npTimeDur = document.getElementById('npTimeDuration');
-          const npProgFill = document.getElementById('npProgressFill');
-          if (npTimeElap) npTimeElap.textContent = formatTime(storeState.elapsed);
-          if (npTimeDur) npTimeDur.textContent = storeState.current && storeState.current.duration_str ? storeState.current.duration_str : formatTime(storeState.duration);
-          if (npProgFill && storeState.duration > 0) {
+          if (el.progressFill && storeState.duration > 0) {
             const p = Math.min(100, Math.max(0, (storeState.elapsed / storeState.duration) * 100));
-            npProgFill.style.width = `${p}%`;
-          }
-          const eqBars = document.querySelector('.now-playing-glass-card .playing-equalizer-bars');
-          if (eqBars) eqBars.classList.toggle('active', storeState.isPlaying);
-
-          const playBtnSvg = document.querySelector('#npBtnPlayPause svg path');
-          if (playBtnSvg) {
-            playBtnSvg.setAttribute('d', storeState.isPlaying ? 'M6 19h4V5H6v14zm8-14v14h4V5h-4z' : 'M8 5v14l11-7z');
+            el.progressFill.style.width = `${p}%`;
           }
         } else {
           if (!isQueueDragging) {
@@ -3842,6 +3713,17 @@
     if (el.navLiked) el.navLiked.addEventListener('click', () => switchView('liked'));
     if (el.navHistory) el.navHistory.addEventListener('click', () => switchView('history'));
     if (el.btnToggleQueue) el.btnToggleQueue.addEventListener('click', () => {
+      if (state.currentView === 'home' && (!state.activeHomeFilter || state.activeHomeFilter === 'all')) {
+        const drawer = document.getElementById('coverflowExpandedDrawer');
+        if (drawer) {
+          isDrawerExpanded = (drawer.style.display === 'none');
+          drawer.style.display = isDrawerExpanded ? 'flex' : 'none';
+          if (isDrawerExpanded) {
+            drawer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+          return;
+        }
+      }
       if (state.currentView === 'queue') switchView(state.previousView || 'home');
       else switchView('queue');
     });

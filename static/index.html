@@ -609,140 +609,87 @@
     </div>
   </div>
 
-  <!-- Bottom Fixed Dock / Music Player Bar (YouTube Music Player) -->
-  <footer class="player-dock" id="playerDock">
-    <div class="player-inner">
-      <!-- Left: Track Cover Artwork, Meta & Like Button -->
-      <div class="dock-track-info">
-        <div class="dock-art-container" id="dockArtContainer">
-          <div class="vinyl-record-wrap" id="vinylRecordWrap">
-            <div class="vinyl-disc" id="vinylDisc">
-              <div class="vinyl-groove-rings"></div>
-              <div class="vinyl-label">
-                <img src="/static/activity_icon.jpg" alt="Cover" id="dockArt" class="dock-art" width="56" height="56">
-              </div>
-              <div class="vinyl-spindle-hole"></div>
-            </div>
-          </div>
-        </div>
-        <div class="dock-meta">
-          <div class="dock-title-marquee">
-            <a href="#" target="_blank" id="dockTitle" class="dock-title" data-i18n="player.noTrack">Трек не выбран</a>
-          </div>
-          <div class="dock-submeta">
-            <div class="playing-equalizer-bars" id="equalizerBars">
-              <span></span><span></span><span></span><span></span>
-            </div>
-            <span id="dockArtist" class="dock-artist" data-i18n="player.selectSong">Выберите песню для воспроизведения</span>
-            <span class="dock-source-badge" id="dockSourceBadge">DISCORD</span>
-          </div>
-        </div>
-        <!-- Like Button in Dock -->
-        <button class="btn-like-dock" id="btnLikeCurrent" title="Добавить в понравившиеся" aria-label="Like">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+  <!-- Bottom Fixed Dock / Unified visionOS Glass Capsule Player (Reference Match) -->
+  <footer class="player-dock vision-capsule-dock" id="playerDock">
+    <!-- Left Controls: Rewind, Play/Pause, Fast-Forward -->
+    <div class="capsule-controls-left">
+      <button class="capsule-btn" id="btnPrev" title="Предыдущий трек (←)" aria-label="Предыдущий">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+          <path d="M11 6l-8.5 6 8.5 6V6zm9.5 0l-8.5 6 8.5 6V6z"/>
+        </svg>
+      </button>
+      <button class="capsule-btn capsule-play-btn" id="btnPlayPause" title="Воспроизведение / Пауза (Пробел)" aria-label="Воспроизведение">
+        <span id="playIconSvg">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+            <path d="M8 5v14l11-7z"/>
           </svg>
-        </button>
-        <!-- Add To Playlist Button in Dock -->
-        <button class="btn-like-dock" id="btnAddToPlCurrent" title="Добавить текущий трек в плейлист" aria-label="Add to Playlist">
-          <svg viewBox="0 0 24 24" width="19" height="19" fill="currentColor">
-            <path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z"/>
-          </svg>
-        </button>
-        <!-- Karaoke / Lyrics Button in Dock -->
-        <button class="btn-like-dock" id="btnDockLyrics" title="Текст песни и караоке (visionOS)" aria-label="Lyrics">
-          <svg viewBox="0 0 24 24" width="19" height="19" fill="currentColor">
-            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/>
-          </svg>
-        </button>
-      </div>
+        </span>
+      </button>
+      <button class="capsule-btn" id="btnSkip" title="Следующий трек (→)" aria-label="Следующий">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+          <path d="M4.5 18l8.5-6-8.5-6v12zm9.5-12v12l8.5-6-8.5-6z"/>
+        </svg>
+      </button>
+    </div>
 
-      <!-- Center: Playback Controls & Progress Bar -->
-      <div class="dock-controls-center">
-        <div class="controls-buttons-row">
-          <!-- Shuffle -->
-          <button class="control-btn btn-sm" id="btnShuffle" title="Перемешать">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-              <path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/>
-            </svg>
-          </button>
-          <!-- Previous -->
-          <button class="control-btn" id="btnPrev" title="Предыдущий / В начало">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-              <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
-            </svg>
-          </button>
-          <!-- Play / Pause -->
-          <button class="control-btn btn-play-main" id="btnPlayPause" title="Воспроизведение / Пауза">
-            <span id="playIconSvg"><svg viewBox="0 0 24 24" width="22" height="22" fill="#000"><path d="M8 5v14l11-7z"/></svg></span>
-          </button>
-          <!-- Next -->
-          <button class="control-btn" id="btnSkip" title="Следующий трек">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-              <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
-            </svg>
-          </button>
-          <!-- Vote Skip Button -->
-          <button class="control-btn btn-vote-skip" id="btnVoteSkip" title="Голосовать за пропуск песни">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-              <path d="M18 13h-.68l-2 2h2.68v4H6v-4h2.68l-2-2H6c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2zm-6-2.58l3.29-3.29-1.41-1.42L13 6.59V1h-2v5.59L9.12 4.71 7.71 6.13 11 9.42l1 1z"/>
-            </svg>
-            <span class="vote-label" id="voteSkipLabel" data-i18n="player.voteSkipLabel">Скип</span>
-            <span class="vote-counter" id="voteCountBadge">0/1</span>
-          </button>
-          <!-- Loop Mode -->
-          <button class="control-btn btn-sm" id="btnLoop" title="Повтор">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-              <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/>
-            </svg>
-          </button>
+    <!-- Center Inner Dark Capsule: Thumbnail, Title, Artist, Micro-progress, Equalizer, More -->
+    <div class="capsule-center-pill" id="capsuleCenterPill" title="Текущий трек">
+      <img src="/static/activity_icon.jpg" alt="Cover" id="dockArt" class="capsule-thumb" width="38" height="38">
+      <div class="capsule-track-meta">
+        <div class="dock-title-marquee">
+          <a href="#" target="_blank" id="dockTitle" class="capsule-title" data-i18n="player.noTrack">Трек не выбран</a>
         </div>
-
-        <!-- Scrubber Progress Bar -->
-        <div class="progress-bar-container">
-          <span class="time-label" id="timeElapsed">00:00</span>
-          <div class="progress-track" id="progressTrack">
-            <div class="progress-fill" id="progressFill">
-              <div class="progress-handle" id="progressHandle"></div>
-            </div>
+        <div id="dockArtist" class="capsule-artist" data-i18n="player.selectSong">Musicium</div>
+        <!-- Micro-progress scrubber inside center pill matching screenshot -->
+        <div class="capsule-progress-track" id="progressTrack" title="Перемотка">
+          <div class="capsule-progress-fill" id="progressFill" style="width: 0%;">
+            <div class="capsule-progress-handle" id="progressHandle"></div>
           </div>
-          <span class="time-label" id="timeDuration">00:00</span>
         </div>
       </div>
+      <div class="capsule-equalizer playing-equalizer-bars" id="equalizerBars">
+        <span></span><span></span><span></span><span></span>
+      </div>
+      <button class="capsule-more-btn" id="btnAddToPlCurrent" title="Добавить в плейлист / Действия">•••</button>
+      <!-- Hidden elements preserved for JS compatibility -->
+      <span id="timeElapsed" style="display: none;">00:00</span>
+      <span id="timeDuration" style="display: none;">00:00</span>
+      <span id="dockSourceBadge" style="display: none;"></span>
+      <button id="btnLikeCurrent" style="display: none;"></button>
+      <button id="btnShuffle" style="display: none;"></button>
+      <button id="btnLoop" style="display: none;"></button>
+      <button id="btnVoteSkip" style="display: none;"></button>
+      <span id="voteCountBadge" style="display: none;"></span>
+    </div>
 
-      <!-- Right: Volume, Queue Toggle & Stop -->
-      <div class="dock-extra-controls">
-        <!-- Volume Group -->
-        <div class="volume-group">
-          <button class="btn-icon-subtle" id="btnMute" title="Громкость">
-            <span id="volumeIconSvg"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg></span>
-          </button>
-          <div class="volume-slider-wrapper">
-            <input type="range" id="volumeSlider" min="0" max="150" value="100" class="custom-slider">
-          </div>
+    <!-- Right Controls: Lyrics, Queue, Volume -->
+    <div class="capsule-controls-right">
+      <button class="capsule-btn" id="btnDockLyrics" title="Текст песни и караоке (visionOS)" aria-label="Текст песни">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+          <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-9 9H7V7h4v4zm6 0h-4V7h4v4z"/>
+        </svg>
+      </button>
+      <button class="capsule-btn" id="btnToggleQueue" title="Очередь воспроизведения" aria-label="Очередь">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+          <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+        </svg>
+      </button>
+      <div class="capsule-volume-wrap">
+        <button class="capsule-btn" id="btnMute" title="Громкость" aria-label="Громкость">
+          <span id="volumeIconSvg">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+              <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+            </svg>
+          </span>
+        </button>
+        <div class="capsule-volume-popover" id="capsuleVolumePopover" style="display: none;">
+          <input type="range" id="volumeSlider" min="0" max="150" value="100" class="custom-slider">
           <span class="volume-value" id="volumeVal">100%</span>
         </div>
-
-        <!-- Queue Drawer Toggle Button -->
-        <button class="btn-icon-subtle" id="btnToggleQueue" title="Открыть очередь" aria-label="Queue">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-            <path d="M4 10h12v2H4zm0-4h12v2H4zm0 8h8v2H4zm10 0v6l5-3z"/>
-          </svg>
-        </button>
-
-        <!-- Karaoke / Lyrics Toggle Button -->
-        <button class="btn-icon-subtle" id="btnDockLyricsExtra" title="Караоке / Текст песни" aria-label="Karaoke">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/>
-          </svg>
-        </button>
-
-        <!-- Stop / Disconnect -->
-        <button class="btn-danger-dock" id="btnStop" title="Остановить и отключить бота">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M6 6h12v12H6z"/></svg>
-          <span class="btn-text-hide-mobile" id="btnStopLabel" data-i18n="player.stopLabel">Стоп</span>
-        </button>
       </div>
+      <!-- Hidden buttons preserved for JS compatibility -->
+      <button id="btnDockLyricsExtra" style="display: none;"></button>
+      <button id="btnStop" style="display: none;"></button>
     </div>
   </footer>
 
