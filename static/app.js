@@ -576,6 +576,7 @@
 
     // Home Shelves & Platform Charts
     homePlatformView: document.getElementById('homePlatformView'),
+    allQueueView: document.getElementById('allQueueView'),
     liveServersShelf: document.getElementById('liveServersShelf'),
     liveServersRow: document.getElementById('liveServersRow'),
     liveArrowLeft: document.getElementById('liveArrowLeft'),
@@ -1927,6 +1928,10 @@
 
     if (!isPlatformView) {
       el.homePlatformView.style.display = 'none';
+      if (el.allQueueView) {
+        el.allQueueView.style.display = 'flex';
+        renderAllTabQueueView();
+      }
       renderLiveServers();
       renderGlobalRecent();
       renderCuratedShelf(force);
@@ -1935,6 +1940,9 @@
       return;
     }
 
+    if (el.allQueueView) {
+      el.allQueueView.style.display = 'none';
+    }
     el.homePlatformView.style.display = 'block';
     if (filter === 'youtube') {
       renderYouTubeChartsView();
@@ -1943,6 +1951,372 @@
     } else if (filter === 'albums' || filter === 'yt_albums') {
       renderBestAlbumsView();
     }
+  }
+
+  // ============================================================
+  // TAB «ВСЕ»: UNIFIED QUEUE, NOW PLAYING, SMART AUTOPLAY VIEW
+  // ============================================================
+  let isQueueDragging = false;
+  let queueDragSourceIdx = -1;
+  let isHistoryCollapsed = false;
+  let lastCoverUrl = '';
+
+  function renderAllTabQueueView() {
+    if (!el.allQueueView) return;
+    const storeState = window.playerStore ? window.playerStore.getState() : null;
+    if (!storeState) return;
+
+    const { current, queue, history, autoplay, isPlaying, elapsed, duration, isLoadingSimilar } = storeState;
+
+    el.allQueueView.innerHTML = '';
+
+    // 1. «Сейчас играет» (Now Playing Glass Card)
+    const npCard = document.createElement('div');
+    npCard.className = 'now-playing-glass-card';
+
+    if (current) {
+      const src = (current.source || 'youtube').toLowerCase();
+      const isYt = src === 'youtube';
+      const badgeIcon = isYt
+        ? `<svg viewBox="0 0 24 24" width="13" height="13" fill="#ff0000"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg> YouTube Music`
+        : `<svg viewBox="0 0 24 24" width="13" height="13" fill="#ff5500"><path d="M11.56 8.87V17h8.76c1.86 0 3.37-1.5 3.37-3.36 0-1.85-1.51-3.35-3.37-3.35-.42 0-.82.08-1.19.22C18.8 8.08 16.73 6.3 14.2 6.3c-1.07 0-2.07.33-2.9 0.9-.38-1.54-1.74-2.7-3.38-2.7-.42 0-.82.07-1.19.21V8.87h4.83zm-1.8 8.13H8.38V7.57c.38-.17.8-.27 1.25-.27.06 0 .12 0 .18.01v9.69h-.05zm-2.82 0H5.56V8.62c.42-.31.91-.53 1.45-.63v8.71l-.07.3zm-2.82 0H2.74v-6.9c.45-.48 1.02-.85 1.66-1.06v7.66l-.48.3zm-2.82 0H0v-4.83c.39-.62.91-1.12 1.54-1.46v5.89l-.24.4z"/></svg> SoundCloud`;
+
+      const pct = duration > 0 ? Math.min(100, Math.max(0, (elapsed / duration) * 100)) : 0;
+      const isLiked = isTrackLiked(current);
+
+      npCard.innerHTML = `
+        <div class="np-card-header">
+          <span class="np-pill-label">✦ Сейчас играет</span>
+          <div class="playing-equalizer-bars ${isPlaying ? 'active' : ''}">
+            <span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+        <div class="np-content-layout">
+          <div class="np-artwork-container">
+            <img src="${getSafeImageUrl(current.thumbnail)}" alt="${escapeHtml(current.title)}" class="np-artwork-img" onerror="this.src='/static/activity_icon.jpg';">
+          </div>
+          <div class="np-info-col">
+            <div class="np-meta-badges">
+              <span class="np-source-badge ${src}">${badgeIcon}</span>
+              ${current.isAutoplay ? `<span class="queue-badge-autoplay">✦ Подобрано автоматически</span>` : ''}
+            </div>
+            <h2 class="np-title" title="${escapeHtml(current.title)}">${escapeHtml(current.title)}</h2>
+            <div class="np-artist" title="${escapeHtml(current.artist)}">${escapeHtml(current.artist)}</div>
+            
+            <div class="np-progress-block">
+              <div class="np-progress-track" id="npProgressTrack">
+                <div class="np-progress-fill" id="npProgressFill" style="width: ${pct}%;"></div>
+              </div>
+              <div class="np-time-row">
+                <span id="npTimeElapsed">${formatTime(elapsed)}</span>
+                <span id="npTimeDuration">${current.duration_str || formatTime(duration)}</span>
+              </div>
+            </div>
+
+            <div class="np-controls-row">
+              <button class="np-btn-control" id="npBtnPrev" title="Предыдущий / В начало (←)">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+              </button>
+              <button class="np-btn-control np-btn-play-main" id="npBtnPlayPause" title="Воспроизведение / Пауза (Пробел)">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="#080b12"><path d="${isPlaying ? 'M6 19h4V5H6v14zm8-14v14h4V5h-4z' : 'M8 5v14l11-7z'}"/></svg>
+              </button>
+              <button class="np-btn-control" id="npBtnNext" title="Следующий трек (→)">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+              </button>
+              <button class="np-btn-control ${isLiked ? 'liked' : ''}" id="npBtnLike" title="Мне нравится">
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="${isLiked ? '#ef4444' : 'currentColor'}"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+              </button>
+              <button class="np-btn-control" id="npBtnAddToPl" title="Добавить в плейлист">
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor"><path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Animated Crossfade 300ms on cover artwork
+      const artImg = npCard.querySelector('.np-artwork-img');
+      if (artImg && current.thumbnail) {
+        if (lastCoverUrl && lastCoverUrl !== current.thumbnail) {
+          artImg.style.transition = 'opacity 150ms ease, transform 0.4s ease';
+          artImg.style.opacity = '0';
+          setTimeout(() => {
+            artImg.src = getSafeImageUrl(current.thumbnail);
+            artImg.onload = () => {
+              artImg.style.transition = 'opacity 300ms ease, transform 0.4s ease';
+              artImg.style.opacity = '1';
+            };
+          }, 150);
+        }
+        lastCoverUrl = current.thumbnail;
+      }
+
+      // Control handlers
+      npCard.querySelector('#npBtnPlayPause').addEventListener('click', () => window.playerStore.toggle());
+      npCard.querySelector('#npBtnNext').addEventListener('click', () => window.playerStore.next());
+      npCard.querySelector('#npBtnPrev').addEventListener('click', () => window.playerStore.prev());
+      npCard.querySelector('#npBtnLike').addEventListener('click', () => {
+        toggleLikeTrack(current);
+        renderAllTabQueueView();
+      });
+      npCard.querySelector('#npBtnAddToPl').addEventListener('click', () => openAddToPlaylistModal(current));
+
+      // Progress bar scrubber click
+      const npProgTrack = npCard.querySelector('#npProgressTrack');
+      if (npProgTrack) {
+        npProgTrack.addEventListener('click', (e) => {
+          if (!duration || duration <= 0) return;
+          const rect = npProgTrack.getBoundingClientRect();
+          const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+          const targetSec = Math.floor(frac * duration);
+          window.playerStore.seek(targetSec);
+        });
+      }
+    } else {
+      // Empty placeholder
+      npCard.innerHTML = `
+        <div class="np-empty-state">
+          <div class="np-empty-icon">
+            <svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+          </div>
+          <h3 class="np-empty-title">Выберите трек — я подберу продолжение</h3>
+          <p class="np-empty-sub">Включите любую композицию из YouTube Music, SoundCloud или альбомов — умный автоподбор сформирует персонализированный поток похожих треков.</p>
+          <button class="np-empty-btn" id="npStartRadioBtn">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            <span>Включить рекомендации</span>
+          </button>
+        </div>
+      `;
+      npCard.querySelector('#npStartRadioBtn').addEventListener('click', () => {
+        window.playerStore.loadSimilar({ immediatePlay: true });
+      });
+    }
+
+    el.allQueueView.appendChild(npCard);
+
+    // 2. «Далее в очереди» (Next in Queue Glass Section)
+    const queueSection = document.createElement('div');
+    queueSection.className = 'queue-section-glass';
+
+    const manualCount = queue.filter(t => !t.isAutoplay).length;
+    const autoCount = queue.filter(t => t.isAutoplay).length;
+    const countLabel = manualCount > 0 && autoCount > 0
+      ? `${manualCount} ручн. • ${autoCount} авто`
+      : `${queue.length} в очереди`;
+
+    queueSection.innerHTML = `
+      <div class="queue-section-header">
+        <div class="queue-header-left">
+          <h3 class="queue-title">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M4 10h12v2H4zm0-4h12v2H4zm0 8h8v2H4zm10 0v6l5-3z"/></svg>
+            Далее в очереди
+          </h3>
+          <span class="queue-count-pill">${countLabel}</span>
+        </div>
+        <div class="queue-header-actions">
+          <div class="autoplay-toggle-wrap" id="autoplayToggleBtn" title="Включить / отключить умный автоподбор похожих треков">
+            <span class="sparkle-icon">✦</span>
+            <span>Автоподбор</span>
+            <div class="toggle-switch ${autoplay ? 'active' : ''}">
+              <div class="toggle-slider"></div>
+            </div>
+          </div>
+          <button class="btn-clear-queue" id="btnClearQueueBtn" title="Очистить только ручные треки из очереди">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+            <span>Очистить очередь</span>
+          </button>
+        </div>
+      </div>
+      <div class="queue-tracks-list" id="allQueueTracksList"></div>
+    `;
+
+    // Autoplay toggle click
+    const toggleBtn = queueSection.querySelector('#autoplayToggleBtn');
+    toggleBtn.addEventListener('click', () => {
+      window.playerStore.setAutoplay(!autoplay);
+    });
+
+    // Clear queue button click (clears manual, refreshes autoplay)
+    const clearBtn = queueSection.querySelector('#btnClearQueueBtn');
+    clearBtn.addEventListener('click', () => {
+      window.playerStore.clearManual();
+    });
+
+    const queueList = queueSection.querySelector('#allQueueTracksList');
+
+    if (queue.length === 0 && !isLoadingSimilar) {
+      const emptyDiv = document.createElement('div');
+      emptyDiv.style.cssText = 'padding: 24px 0; text-align: center; color: var(--text-tertiary); font-size: 14px;';
+      emptyDiv.textContent = 'Очередь воспроизведения пуста. Включите автоподбор или добавьте треки кнопкой «+ В очередь».';
+      queueList.appendChild(emptyDiv);
+    } else {
+      queue.forEach((track, idx) => {
+        const item = document.createElement('div');
+        item.className = 'queue-track-card stagger-in';
+        item.draggable = true;
+        item.tabIndex = 0;
+        item.dataset.index = idx;
+        item.style.setProperty('--stagger-idx', Math.min(idx, 10));
+
+        const isSc = (track.source || '').toLowerCase() === 'soundcloud';
+        const sourceIcon = isSc
+          ? `<svg viewBox="0 0 24 24" width="14" height="14" fill="#ff5500"><path d="M11.56 8.87V17h8.76c1.86 0 3.37-1.5 3.37-3.36 0-1.85-1.51-3.35-3.37-3.35-.42 0-.82.08-1.19.22C18.8 8.08 16.73 6.3 14.2 6.3c-1.07 0-2.07.33-2.9 0.9-.38-1.54-1.74-2.7-3.38-2.7-.42 0-.82.07-1.19.21V8.87h4.83zm-1.8 8.13H8.38V7.57c.38-.17.8-.27 1.25-.27.06 0 .12 0 .18.01v9.69h-.05zm-2.82 0H5.56V8.62c.42-.31.91-.53 1.45-.63v8.71l-.07.3zm-2.82 0H2.74v-6.9c.45-.48 1.02-.85 1.66-1.06v7.66l-.48.3zm-2.82 0H0v-4.83c.39-.62.91-1.12 1.54-1.46v5.89l-.24.4z"/></svg>`
+          : `<svg viewBox="0 0 24 24" width="14" height="14" fill="#ff0000"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>`;
+
+        item.innerHTML = `
+          <span class="queue-drag-handle" title="Перетащите для смены порядка">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M11 18c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2zm-2-8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6 4c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+          </span>
+          <div class="queue-thumb-wrap">
+            <img src="${getSafeImageUrl(track.thumbnail)}" alt="" class="queue-thumb" onerror="this.src='/static/activity_icon.jpg';">
+          </div>
+          <div class="queue-info-col">
+            <span class="queue-item-title" title="${escapeHtml(track.title)}">${escapeHtml(track.title)}</span>
+            <span class="queue-item-artist" title="${escapeHtml(track.artist)}">${escapeHtml(track.artist)}</span>
+          </div>
+          ${track.isAutoplay ? `<span class="queue-badge-autoplay" title="Автоподбор похожего трека">✦ Похоже</span>` : ''}
+          <span class="queue-duration">${track.duration_str || ''}</span>
+          <span class="queue-source-icon">${sourceIcon}</span>
+          <button class="queue-btn-remove" title="Удалить из очереди" aria-label="Удалить">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          </button>
+        `;
+
+        // Click on item -> jump to it
+        item.addEventListener('click', (e) => {
+          if (e.target.closest('.queue-btn-remove') || e.target.closest('.queue-drag-handle')) return;
+          window.playerStore.jumpTo(idx);
+        });
+
+        // Keyboard navigation accessibility: Enter to jump, Delete to remove
+        item.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            window.playerStore.jumpTo(idx);
+          } else if (e.key === 'Delete' || e.key === 'Backspace') {
+            e.preventDefault();
+            window.playerStore.remove(idx);
+          }
+        });
+
+        // Delete button
+        item.querySelector('.queue-btn-remove').addEventListener('click', (e) => {
+          e.stopPropagation();
+          window.playerStore.remove(idx);
+        });
+
+        // HTML5 Drag and Drop
+        item.addEventListener('dragstart', (e) => {
+          isQueueDragging = true;
+          queueDragSourceIdx = idx;
+          item.classList.add('dragging');
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', String(idx));
+        });
+
+        item.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          const rect = item.getBoundingClientRect();
+          const midY = rect.top + rect.height / 2;
+          if (e.clientY < midY) {
+            item.classList.add('drag-over-top');
+            item.classList.remove('drag-over-bottom');
+          } else {
+            item.classList.add('drag-over-bottom');
+            item.classList.remove('drag-over-top');
+          }
+        });
+
+        item.addEventListener('dragleave', () => {
+          item.classList.remove('drag-over-top', 'drag-over-bottom');
+        });
+
+        item.addEventListener('drop', (e) => {
+          e.preventDefault();
+          item.classList.remove('drag-over-top', 'drag-over-bottom');
+          const fromIdx = queueDragSourceIdx;
+          const toIdx = idx;
+          if (fromIdx !== -1 && fromIdx !== toIdx) {
+            window.playerStore.reorder(fromIdx, toIdx);
+          }
+        });
+
+        item.addEventListener('dragend', () => {
+          isQueueDragging = false;
+          queueDragSourceIdx = -1;
+          item.classList.remove('dragging');
+          document.querySelectorAll('.queue-track-card').forEach(c => {
+            c.classList.remove('drag-over-top', 'drag-over-bottom');
+          });
+        });
+
+        queueList.appendChild(item);
+      });
+    }
+
+    // Skeleton shimmer placeholders while loading recommendations
+    if (isLoadingSimilar) {
+      for (let s = 0; s < 3; s++) {
+        const skel = document.createElement('div');
+        skel.className = 'queue-skeleton-card';
+        skel.innerHTML = `
+          <div class="skeleton-thumb"></div>
+          <div class="skeleton-lines">
+            <div class="skeleton-title"></div>
+            <div class="skeleton-artist"></div>
+          </div>
+        `;
+        queueList.appendChild(skel);
+      }
+    }
+
+    el.allQueueView.appendChild(queueSection);
+
+    // 3. «Недавно играли» (Recently Played / History Collapsible Section)
+    const historySection = document.createElement('div');
+    historySection.className = `history-section-glass ${isHistoryCollapsed ? 'collapsed' : ''}`;
+    historySection.innerHTML = `
+      <div class="history-section-header" id="historyToggleHeader">
+        <div class="history-header-left">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+          <h4 class="history-title">Недавно играли</h4>
+          <span class="history-count-pill">${history.length}</span>
+        </div>
+        <div class="history-chevron">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+        </div>
+      </div>
+      <div class="history-tracks-list" id="allHistoryTracksList"></div>
+    `;
+
+    historySection.querySelector('#historyToggleHeader').addEventListener('click', () => {
+      isHistoryCollapsed = !isHistoryCollapsed;
+      historySection.classList.toggle('collapsed', isHistoryCollapsed);
+    });
+
+    const histList = historySection.querySelector('#allHistoryTracksList');
+    if (history.length === 0) {
+      histList.innerHTML = `<div style="padding: 10px 0; color: var(--text-tertiary); font-size: 13px;">История воспроизведения пуста</div>`;
+    } else {
+      history.slice(0, 30).forEach((hTrack, hIdx) => {
+        const hItem = document.createElement('div');
+        hItem.className = 'history-track-card';
+        hItem.innerHTML = `
+          <img src="${getSafeImageUrl(hTrack.thumbnail)}" class="history-thumb" alt="" onerror="this.src='/static/activity_icon.jpg';">
+          <div class="history-info-col">
+            <span class="history-item-title" title="${escapeHtml(hTrack.title)}">${escapeHtml(hTrack.title)}</span>
+            <span class="history-item-artist" title="${escapeHtml(hTrack.artist)}">${escapeHtml(hTrack.artist)}</span>
+          </div>
+          <span class="queue-duration">${hTrack.duration_str || ''}</span>
+        `;
+        hItem.addEventListener('click', () => {
+          window.playerStore.play(hTrack, { isManual: true });
+        });
+        histList.appendChild(hItem);
+      });
+    }
+
+    el.allQueueView.appendChild(historySection);
   }
 
   // Community Playlists (Shared albums and leaderboard)
@@ -2570,7 +2944,7 @@
 
   // Queue View
   function renderQueueView() {
-    const queue = (state.player && state.player.queue) ? state.player.queue : [];
+    const queue = window.playerStore ? window.playerStore.getState().queue : ((state.player && state.player.queue) ? state.player.queue : []);
     if (el.sidebarQueueCount) el.sidebarQueueCount.textContent = queue.length;
     if (el.queueMetaCount) el.queueMetaCount.textContent = `${queue.length} в очереди`;
     if (!el.queueList) return;
@@ -2588,6 +2962,7 @@
     queue.forEach((track, index) => {
       const item = document.createElement('div');
       item.className = 'ytm-track-item';
+      item.style.cursor = 'pointer';
       item.innerHTML = `
         <span class="track-index">${index + 1}</span>
         <img src="${getSafeImageUrl(track.thumbnail)}" alt="${escapeHtml(track.title)}" class="track-thumb" onerror="this.src='/static/activity_icon.jpg';">
@@ -2595,6 +2970,7 @@
           <span class="track-name" title="${escapeHtml(track.title)}">${escapeHtml(track.title)}</span>
           <span class="track-author" title="${escapeHtml(track.artist)}">${escapeHtml(track.artist)}</span>
         </div>
+        ${track.isAutoplay ? `<span class="queue-badge-autoplay" style="margin-right:8px;">✦ Похоже</span>` : ''}
         <span class="track-duration-col">${track.duration_str || ''}</span>
         <div class="track-item-actions">
           <button class="btn-compact-action btn-remove-q" title="${t('queue.removeTitle')}">
@@ -2602,9 +2978,19 @@
           </button>
         </div>
       `;
+      item.addEventListener('click', (e) => {
+        if (e.target.closest('.btn-remove-q')) return;
+        if (window.playerStore) {
+          window.playerStore.jumpTo(index);
+        }
+      });
       item.querySelector('.btn-remove-q').addEventListener('click', async (e) => {
         e.stopPropagation();
-        await sendPlayerAction('remove', { index });
+        if (window.playerStore) {
+          window.playerStore.remove(index);
+        } else {
+          await sendPlayerAction('remove', { index });
+        }
       });
       el.queueList.appendChild(item);
     });
@@ -2738,7 +3124,7 @@
   let lastTrackRequestKey = '';
   let lastTrackRequestTime = 0;
 
-  async function playTrack(track, playNow = false, silent = false) {
+  async function sendPlayRequestToBot(track, playNow = false, silent = false) {
     if (!track) return;
     const trackKey = (track.url || track.title || '') + (playNow ? ':now' : ':queue');
     const now = Date.now();
@@ -2758,10 +3144,6 @@
       }
       await checkUserVoice();
       if (!state.inVoice && !state.channelId && !isMiniApp) {
-        if (el.voiceWidgetContainer) {
-          el.voiceWidgetContainer.classList.add('dropdown-open');
-        }
-        showToast('Вы должны находиться в голосовом канале на сервере, чтобы включить музыку!', 'warning', 'fa-triangle-exclamation');
         return;
       }
     }
@@ -2818,6 +3200,23 @@
     }
   }
 
+  async function playTrack(track, playNow = false, silent = false) {
+    if (!track) return;
+    if (window.playerStore) {
+      if (playNow) {
+        await window.playerStore.play(track, { isManual: true, playNow: true, silent });
+      } else {
+        window.playerStore.enqueue(track, { silent });
+      }
+      return;
+    }
+    return await sendPlayRequestToBot(track, playNow, silent);
+  }
+
+  // Export handlers for playerStore
+  window.dispatchBotPlayTrack = sendPlayRequestToBot;
+  window.dispatchBotAction = sendPlayerAction;
+
   // Send player action (checks if user is in voice, except for volume setting)
   async function sendPlayerAction(action, payload = {}) {
     if (action !== 'volume' && !state.inVoice && !state.channelId) {
@@ -2861,6 +3260,10 @@
 
   // Update Player UI from Player state
   function updatePlayerUI(playerState) {
+    if (window.playerStore && playerState) {
+      window.playerStore.syncFromBackend(playerState);
+    }
+
     if (state.guildId && playerState && playerState.guild_id && String(playerState.guild_id) !== String(state.guildId)) {
       return;
     }
@@ -3004,6 +3407,134 @@
     else stopProgressTicker();
 
     if (state.currentView === 'queue') renderQueueView();
+  }
+
+  // Synchronize bottom floating glass capsule with playerStore
+  function syncBottomPlayerWithStore(storeState) {
+    if (!storeState) return;
+    const track = storeState.current;
+
+    if (el.sidebarQueueCount) {
+      el.sidebarQueueCount.textContent = storeState.queue.length;
+    }
+    if (el.queueMetaCount) {
+      el.queueMetaCount.textContent = `${storeState.queue.length} в очереди`;
+    }
+
+    if (!track) {
+      state.isPlaying = false;
+      state.duration = 0;
+      state.elapsed = 0;
+      if (el.dockArt) el.dockArt.src = '/static/activity_icon.jpg';
+      if (el.dockTitle) {
+        el.dockTitle.textContent = t('player.noTrack');
+        el.dockTitle.removeAttribute('href');
+      }
+      if (el.dockArtist) el.dockArtist.textContent = t('player.selectSong');
+      if (el.dockSourceBadge) el.dockSourceBadge.textContent = 'DISCORD';
+      if (el.playIconSvg) el.playIconSvg.innerHTML = SVG_ICONS.play;
+      if (el.equalizerBars) el.equalizerBars.classList.remove('active');
+      if (el.timeElapsed) el.timeElapsed.textContent = '00:00';
+      if (el.timeDuration) el.timeDuration.textContent = '00:00';
+      if (el.progressFill) el.progressFill.style.width = '0%';
+      const vinylWrap = document.getElementById('vinylRecordWrap');
+      if (vinylWrap) vinylWrap.classList.remove('playing');
+      return;
+    }
+
+    state.isPlaying = storeState.isPlaying;
+    state.duration = storeState.duration;
+    state.elapsed = storeState.elapsed;
+
+    if (el.dockArt) {
+      el.dockArt.src = getSafeImageUrl(track.thumbnail);
+      el.dockArt.onerror = function() { this.src = '/static/activity_icon.jpg'; };
+    }
+    if (el.dockTitle) {
+      el.dockTitle.textContent = track.title;
+      if (track.url) el.dockTitle.href = track.url;
+    }
+    if (el.dockArtist) {
+      el.dockArtist.textContent = track.artist || 'YouTube Music';
+    }
+    if (el.dockSourceBadge) {
+      el.dockSourceBadge.textContent = (track.source || 'YT').toUpperCase();
+      el.dockSourceBadge.className = `dock-source-badge ${track.source || 'youtube'}`;
+    }
+
+    if (el.playIconSvg) {
+      el.playIconSvg.innerHTML = storeState.isPlaying ? SVG_ICONS.pause : SVG_ICONS.play;
+    }
+
+    if (el.equalizerBars) {
+      if (storeState.isPlaying) el.equalizerBars.classList.add('active');
+      else el.equalizerBars.classList.remove('active');
+    }
+
+    if (el.timeElapsed) {
+      el.timeElapsed.textContent = formatTime(storeState.elapsed);
+    }
+    if (el.timeDuration) {
+      el.timeDuration.textContent = track.duration_str || formatTime(storeState.duration);
+    }
+    if (el.progressFill) {
+      if (storeState.duration > 0) {
+        const pct = Math.min(100, Math.max(0, (storeState.elapsed / storeState.duration) * 100));
+        el.progressFill.style.width = `${pct}%`;
+      } else {
+        el.progressFill.style.width = '0%';
+      }
+    }
+
+    const vinylWrap = document.getElementById('vinylRecordWrap');
+    if (vinylWrap) {
+      if (storeState.isPlaying) vinylWrap.classList.add('playing');
+      else vinylWrap.classList.remove('playing');
+    }
+    const visionBlur = document.getElementById('visionArtworkBlur');
+    if (visionBlur && track.thumbnail) {
+      visionBlur.style.backgroundImage = `url(${getSafeImageUrl(track.thumbnail)})`;
+    }
+    applyAdaptiveColorsFromArtwork();
+  }
+
+  function setupPlayerStoreIntegration() {
+    if (!window.playerStore) return;
+    window.playerStore.subscribe((storeState, type) => {
+      syncBottomPlayerWithStore(storeState);
+
+      // If active tab is "all" in Home view:
+      if (state.currentView === 'home' && (!state.activeHomeFilter || state.activeHomeFilter === 'all')) {
+        if (type === 'tick' || type === 'seek') {
+          // Micro update without rebuilding DOM
+          const npTimeElap = document.getElementById('npTimeElapsed');
+          const npTimeDur = document.getElementById('npTimeDuration');
+          const npProgFill = document.getElementById('npProgressFill');
+          if (npTimeElap) npTimeElap.textContent = formatTime(storeState.elapsed);
+          if (npTimeDur) npTimeDur.textContent = storeState.current && storeState.current.duration_str ? storeState.current.duration_str : formatTime(storeState.duration);
+          if (npProgFill && storeState.duration > 0) {
+            const p = Math.min(100, Math.max(0, (storeState.elapsed / storeState.duration) * 100));
+            npProgFill.style.width = `${p}%`;
+          }
+          const eqBars = document.querySelector('.now-playing-glass-card .playing-equalizer-bars');
+          if (eqBars) eqBars.classList.toggle('active', storeState.isPlaying);
+
+          const playBtnSvg = document.querySelector('#npBtnPlayPause svg path');
+          if (playBtnSvg) {
+            playBtnSvg.setAttribute('d', storeState.isPlaying ? 'M6 19h4V5H6v14zm8-14v14h4V5h-4z' : 'M8 5v14l11-7z');
+          }
+        } else {
+          if (!isQueueDragging) {
+            renderAllTabQueueView();
+          }
+        }
+      }
+
+      // Also sync sidebar queue view if open
+      if (state.currentView === 'queue') {
+        renderQueueView();
+      }
+    });
   }
 
   function updateVoteBadge(votes, required) {
@@ -3482,6 +4013,9 @@
               performSearch(currentQ);
             }
           } else {
+            if (state.currentView !== 'home') {
+              switchView('home');
+            }
             renderHomeView();
           }
         });
@@ -3801,6 +4335,10 @@
     }
 
     el.btnPlayPause.addEventListener('click', async () => {
+      if (window.playerStore) {
+        window.playerStore.toggle();
+        return;
+      }
       const res = await sendPlayerAction('play_pause');
       if (res && res.success) {
         state.isPlaying = !res.is_paused;
@@ -3816,6 +4354,10 @@
     });
 
     el.btnSkip.addEventListener('click', async () => {
+      if (window.playerStore) {
+        window.playerStore.next();
+        return;
+      }
       const res = await sendPlayerAction('skip', { forced: true });
       if (res && res.success) {
         showToast(t('toast.trackSkipped'), 'info', 'fa-forward-step');
@@ -3831,6 +4373,10 @@
     });
 
     el.btnPrev.addEventListener('click', async () => {
+      if (window.playerStore) {
+        window.playerStore.prev();
+        return;
+      }
       state.elapsed = 0;
       el.timeElapsed.textContent = '00:00';
       el.progressFill.style.width = '0%';
@@ -3848,6 +4394,9 @@
       state.elapsed = targetSec;
       el.timeElapsed.textContent = formatTime(targetSec);
       updateProgressBar();
+      if (window.playerStore) {
+        window.playerStore.seek(targetSec);
+      }
       return targetSec;
     }
 
@@ -4308,6 +4857,7 @@
     setLanguage(state.lang, false);
     setupThemeSwitcher();
     setupLyricsManager();
+    setupPlayerStoreIntegration();
 
     // Restore saved volume preference if exists
     if (state.userExplicitVolume !== null) {

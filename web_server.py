@@ -2,6 +2,7 @@ import os
 import json
 import asyncio
 import logging
+import random
 from typing import Optional, Tuple, Dict, Any, List
 import urllib.parse
 from aiohttp import web, WSMsgType
@@ -69,6 +70,7 @@ class WebServer:
         self.app.router.add_get("/api/auth/callback", self.handle_auth_callback)
         self.app.router.add_get("/api/proxy-image", self.handle_proxy_image)
         self.app.router.add_get("/api/recommendations", self.handle_recommendations)
+        self.app.router.add_get("/api/similar", self.handle_similar)
         self.app.router.add_get("/api/lyrics", self.handle_lyrics)
 
         # User Database routes (PostgreSQL)
@@ -1400,6 +1402,91 @@ class WebServer:
             "soundcloud_charts": soundcloud_charts,
             "best_albums": best_albums,
             "albums": best_albums
+        })
+
+    async def handle_similar(self, request: web.Request) -> web.Response:
+        """Returns smart similar / recommended tracks based on current or previous track."""
+        title = request.query.get("title", "").strip()
+        artist = request.query.get("artist", "").strip()
+        genre = request.query.get("genre", "").strip()
+        source = request.query.get("source", "all").strip().lower()
+        limit = safe_int(request.query.get("limit", 8)) or 8
+        limit = max(1, min(limit, 25))
+
+        similar_tracks: List[Dict[str, Any]] = []
+        seen_titles = set()
+        if title:
+            seen_titles.add(title.lower())
+
+        # 1. Search for related tracks / artist
+        search_queries = []
+        if artist and genre:
+            search_queries.append(f"{artist} {genre}")
+        if artist:
+            search_queries.append(f"{artist} radio")
+            search_queries.append(artist)
+        elif genre:
+            search_queries.append(f"{genre} hits")
+
+        for q in search_queries:
+            if len(similar_tracks) >= limit:
+                break
+            try:
+                results = await self.music_service.search(query=q, source=source if source in ("youtube", "soundcloud") else "all", limit=limit)
+                for t in results:
+                    td: Dict[str, Any] = t.to_dict()
+                    t_title = (td.get("title") or "").strip().lower()
+                    if t_title and t_title not in seen_titles:
+                        seen_titles.add(t_title)
+                        td["isAutoplay"] = True
+                        similar_tracks.append(td)
+                        if len(similar_tracks) >= limit:
+                            break
+            except Exception as e:
+                logger.warning(f"Error searching similar tracks for '{q}': {e}")
+
+        # 2. If soundcloud source or needs more, mix with soundcloud trending
+        if len(similar_tracks) < limit:
+            try:
+                sc_tracks = await self.music_service.get_soundcloud_trending(genre=genre or "all", limit=limit)
+                for td in sc_tracks:
+                    t_title = (td.get("title") or "").strip().lower()
+                    if t_title and t_title not in seen_titles:
+                        seen_titles.add(t_title)
+                        td["isAutoplay"] = True
+                        similar_tracks.append(td)
+                        if len(similar_tracks) >= limit:
+                            break
+            except Exception as e:
+                logger.warning(f"Error getting soundcloud trending for similar: {e}")
+
+        # 3. Fallback: curated recommendations
+        if len(similar_tracks) < limit:
+            fallback_pool = [
+                {"id": "4NRXx6U8ABQ", "title": "Blinding Lights", "artist": "The Weeknd", "duration_str": "3:20", "thumbnail": "https://i.ytimg.com/vi/4NRXx6U8ABQ/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=4NRXx6U8ABQ", "isAutoplay": True},
+                {"id": "5NV6Rdv1a3I", "title": "Get Lucky", "artist": "Daft Punk ft. Pharrell Williams", "duration_str": "4:08", "thumbnail": "https://i1.sndcdn.com/artworks-000045956041-3o3t81-t500x500.jpg", "source": "soundcloud", "url": "https://api.soundcloud.com/tracks/soundcloud%3Atracks%3A88335161", "isAutoplay": True},
+                {"id": "34Na4j8AVgA", "title": "Starboy", "artist": "The Weeknd ft. Daft Punk", "duration_str": "3:50", "thumbnail": "https://i.ytimg.com/vi/34Na4j8AVgA/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=34Na4j8AVgA", "isAutoplay": True},
+                {"id": "TUVcZfQe-Kw", "title": "Levitating", "artist": "Dua Lipa", "duration_str": "3:23", "thumbnail": "https://i.ytimg.com/vi/TUVcZfQe-Kw/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=TUVcZfQe-Kw", "isAutoplay": True},
+                {"id": "7wtfhZwyrcc", "title": "Believer", "artist": "Imagine Dragons", "duration_str": "3:24", "thumbnail": "https://i.ytimg.com/vi/7wtfhZwyrcc/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=7wtfhZwyrcc", "isAutoplay": True},
+                {"id": "ALZHF5UqnU4", "title": "Alone", "artist": "Marshmello", "duration_str": "3:19", "thumbnail": "https://i1.sndcdn.com/artworks-000164805728-66236b-t500x500.jpg", "source": "soundcloud", "url": "https://soundcloud.com/marshmellomusic/marshmello-alone", "isAutoplay": True},
+                {"id": "60ItHLz5WEA", "title": "Faded", "artist": "Alan Walker", "duration_str": "3:32", "thumbnail": "https://i1.sndcdn.com/artworks-000138246104-q1m5k5-t500x500.jpg", "source": "soundcloud", "url": "https://soundcloud.com/alanwalker/faded", "isAutoplay": True},
+                {"id": "DyDfgMOUjCI", "title": "Bad Guy", "artist": "Billie Eilish", "duration_str": "3:14", "thumbnail": "https://i.ytimg.com/vi/DyDfgMOUjCI/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=DyDfgMOUjCI", "isAutoplay": True},
+                {"id": "gCYcYZW45Uk", "title": "Animals", "artist": "Martin Garrix", "duration_str": "2:56", "thumbnail": "https://i1.sndcdn.com/artworks-000050868843-g4l0w7-t500x500.jpg", "source": "soundcloud", "url": "https://soundcloud.com/martingarrix/martin-garrix-animals", "isAutoplay": True},
+                {"id": "kTJczUoc268", "title": "Stay", "artist": "The Kid LAROI & Justin Bieber", "duration_str": "2:21", "thumbnail": "https://i.ytimg.com/vi/kTJczUoc268/hqdefault.jpg", "source": "youtube", "url": "https://music.youtube.com/watch?v=kTJczUoc268", "isAutoplay": True}
+            ]
+            shuffled = list(fallback_pool)
+            random.shuffle(shuffled)
+            for td in shuffled:
+                t_title = (td.get("title") or "").strip().lower()
+                if t_title and t_title not in seen_titles:
+                    seen_titles.add(t_title)
+                    similar_tracks.append(dict(td))
+                    if len(similar_tracks) >= limit:
+                        break
+
+        return web.json_response({
+            "success": True,
+            "tracks": similar_tracks[:limit]
         })
 
     async def handle_feed_discovery(self, request: web.Request) -> web.Response:

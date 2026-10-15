@@ -333,6 +333,9 @@
           <!-- Platform Specific Charts & Albums Container (Shown when YouTube Music, SoundCloud, or Albums chip is clicked) -->
           <div id="homePlatformView" style="display: none;"></div>
 
+          <!-- Tab "Все": Unified Queue, Now Playing, and Similar Tracks Flow -->
+          <div id="allQueueView" class="all-queue-view"></div>
+
           <!-- Section 1: Сейчас слушают на серверах (Live Now across Discord servers) -->
           <div class="ytm-shelf" id="liveServersShelf">
             <div class="ytm-shelf-header">
@@ -1287,9 +1290,14 @@
     </div>
   </div>
 
+  <!-- Accessibility Live Region for Track Changes -->
+  <div id="trackAnnouncer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
   <!-- Toast Notification Container -->
   <div class="toast-container" id="toastContainer"></div>
 
+  <!-- Unified Player Store & Autoplay Engine -->
+  <script src="/static/player_store.js"></script>
   <script src="/static/app.js?v=visionos-4.0-lyrics"></script>
 </body>
 
