@@ -1990,3 +1990,34 @@ html[data-view="home"] .user-profile-wrap::before {
 .vision-coverflow-viewport:active { cursor: grabbing; }
 .coverflow-thumb { -webkit-user-drag: none; user-drag: none; pointer-events: none; }
 .coverflow-nav-btn { display: none !important; }
+
+/* ============================================================
+   V19 — плеер: одна цельная панель без «рамки в рамке»
+   ============================================================ */
+/* Центральная плашка больше не отдельная карточка: фон и рамка сняты, секции разделены тонкими линиями */
+.capsule-center-pill, .capsule-center-pill:hover {
+  background: transparent !important; border: none !important; box-shadow: none !important;
+  backdrop-filter: none !important; -webkit-backdrop-filter: none !important; cursor: default;
+}
+.capsule-center-pill { position: relative; padding-left: 22px; padding-right: 18px; }
+.capsule-center-pill::before, .capsule-center-pill::after {
+  content: ''; position: absolute; top: 14%; bottom: 14%; width: 1px; pointer-events: none;
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+}
+.capsule-center-pill::before { left: 0; }
+.capsule-center-pill::after { right: 0; }
+
+/* Название: многоточие вместо обрезки, бейдж источника не наезжает на текст */
+.cap-title-row { gap: 10px; }
+.cap-title-row .dock-title-marquee { flex: 0 1 auto; min-width: 0; max-width: calc(100% - 96px); overflow: hidden; }
+.capsule-title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.cap-source-badge { margin-left: 2px; }
+
+/* Прогресс и обложка */
+.cap-art-wrap .capsule-thumb { box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.14); }
+.capsule-progress-track { height: 5px; background: rgba(255, 255, 255, 0.14); }
+.capsule-progress-fill { background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.75), #fff); }
+
+/* Правая группа — с отступом от скругления панели */
+.capsule-controls-right { padding-right: 6px; gap: 8px; }
+.player-dock, .vision-capsule-dock { overflow: visible; }
