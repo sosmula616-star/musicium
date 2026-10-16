@@ -3334,7 +3334,7 @@
         el.dockTitle.removeAttribute('href');
       }
       if (el.dockArtist) el.dockArtist.textContent = t('player.selectSong');
-      if (el.dockSourceBadge) el.dockSourceBadge.textContent = 'DISCORD';
+      if (el.dockSourceBadge) { el.dockSourceBadge.textContent = ''; el.dockSourceBadge.className = 'cap-source-badge'; }
       if (el.playIconSvg) el.playIconSvg.innerHTML = SVG_ICONS.play;
       if (el.equalizerBars) el.equalizerBars.classList.remove('active');
       if (el.timeElapsed) el.timeElapsed.textContent = '00:00';
@@ -3393,7 +3393,7 @@
       if (el.dockArtist) el.dockArtist.textContent = track.artist || 'YouTube Music';
       if (el.dockSourceBadge) {
         el.dockSourceBadge.textContent = (track.source || 'YT').toUpperCase();
-        el.dockSourceBadge.className = `dock-source-badge ${track.source || 'youtube'}`;
+        el.dockSourceBadge.className = `cap-source-badge ${track.source || 'youtube'}`;
       }
 
       // visionOS Vinyl and Dynamic Ambient Backdrop updates
@@ -3466,7 +3466,7 @@
         el.dockTitle.removeAttribute('href');
       }
       if (el.dockArtist) el.dockArtist.textContent = t('player.selectSong');
-      if (el.dockSourceBadge) el.dockSourceBadge.textContent = 'DISCORD';
+      if (el.dockSourceBadge) { el.dockSourceBadge.textContent = ''; el.dockSourceBadge.className = 'cap-source-badge'; }
       if (el.playIconSvg) el.playIconSvg.innerHTML = SVG_ICONS.play;
       if (el.equalizerBars) el.equalizerBars.classList.remove('active');
       if (el.timeElapsed) el.timeElapsed.textContent = '00:00';
@@ -3494,7 +3494,7 @@
     }
     if (el.dockSourceBadge) {
       el.dockSourceBadge.textContent = (track.source || 'YT').toUpperCase();
-      el.dockSourceBadge.className = `dock-source-badge ${track.source || 'youtube'}`;
+      el.dockSourceBadge.className = `cap-source-badge ${track.source || 'youtube'}`;
     }
 
     if (el.playIconSvg) {
