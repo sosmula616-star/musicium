@@ -1160,6 +1160,13 @@
     }
     state.currentView = viewName;
     state.selectedPlaylistId = playlistId;
+    document.documentElement.dataset.view = viewName;
+    // Чипы Audius/Mixcloud/Archive живут только на странице поиска: уходя с неё, возвращаем «Все»
+    if (viewName !== 'search' && ['audius', 'mixcloud', 'archive'].includes(state.currentSource)) {
+      state.currentSource = 'all';
+      state.activeHomeFilter = 'all';
+      if (el.sourceChips) el.sourceChips.forEach(c => c.classList.toggle('active', c.dataset.source === 'all'));
+    }
 
     // Nav active states
     document.querySelectorAll('.ytm-nav-item, .ytm-playlist-item').forEach(item => {

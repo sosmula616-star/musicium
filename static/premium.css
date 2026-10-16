@@ -1923,3 +1923,24 @@ html.sb-collapsed #sbNewsBtn { width: 44px; flex: none; }
 .cap-source-badge.audius { color: #e58bf2; border-color: rgba(204, 15, 224, 0.4); background: rgba(204, 15, 224, 0.12); }
 .cap-source-badge.mixcloud { color: #a99bff; border-color: rgba(120, 90, 255, 0.4); background: rgba(80, 0, 255, 0.14); }
 .cap-source-badge.archive { color: #c3cad9; border-color: rgba(168, 176, 192, 0.35); background: rgba(168, 176, 192, 0.1); }
+
+/* ============================================================
+   V16 — главная: без поиска в шапке, без чёрной подложки у чипов
+   ============================================================ */
+/* Чипы новых источников — только на странице поиска */
+html:not([data-view="search"]) .source-chip-open,
+html:not([data-view="search"]) .chip-divider { display: none; }
+
+/* Подложка панели чипов: прозрачное стекло вместо чёрной плашки */
+.ytm-category-chips-bar {
+  background: transparent !important;
+  backdrop-filter: blur(14px) saturate(140%) !important; -webkit-backdrop-filter: blur(14px) saturate(140%) !important;
+  border-radius: 0 0 22px 22px; box-shadow: none !important; border: none !important;
+  -webkit-mask-image: linear-gradient(180deg, #000 70%, transparent 100%); mask-image: linear-gradient(180deg, #000 70%, transparent 100%);
+}
+
+/* На главной в шапке остаются только статусы и профиль — распределены по всей ширине */
+html[data-view="home"] .ytm-search-container { display: none; }
+html[data-view="home"] .ytm-header { justify-content: stretch; }
+html[data-view="home"] .ytm-header-right { flex: 1 1 auto; width: 100%; justify-content: space-between; gap: 14px; }
+html[data-view="home"] .ytm-header-right > * { flex-shrink: 0; }
