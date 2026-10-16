@@ -258,7 +258,9 @@
 
     // Clear only manual tracks from queue
     async clearManual() {
-      this.queue = this.queue.filter(t => t.isAutoplay);
+      // «Очистить очередь» убирает всё, включая подобранное автоподбором, и не наполняет очередь заново сразу же
+      this.queue = [];
+      this._similarKey = this._trackKey(this.current);
       this.notify('queue_clear');
 
       if (typeof window.dispatchBotAction === 'function') {
@@ -268,9 +270,6 @@
       }
       if (typeof window.showToast === 'function') {
         window.showToast('Очередь очищена', 'info');
-      }
-      if (this.autoplay && this.queue.length <= 2) {
-        this.loadSimilar();
       }
     }
 

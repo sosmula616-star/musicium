@@ -1960,3 +1960,8 @@ html[data-view="home"] .user-profile-wrap::before {
   content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 1px;
   background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.22), transparent);
 }
+
+/* Уведомления — по центру над плеером, а не поверх шапки и профиля */
+@media (min-width: 641px) {
+  .toast-container { top: auto; right: auto; bottom: 118px; left: 50%; transform: translateX(-50%); align-items: center; }
+}
