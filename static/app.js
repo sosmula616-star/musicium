@@ -1992,34 +1992,57 @@
   let isDrawerExpanded = true;
   let lastCoverUrl = '';
 
-  // Листание карусели свайпом (мышь/палец). Слушатели висят на постоянном контейнере: сама сцена
-  // пересоздаётся при каждом шаге, и жест не должен прерываться.
+  // Состояние «листания» карусели: смещение фокуса относительно текущего трека.
+  const coverflowBrowse = { curKey: '', offset: 0, dir: 0 };
+
+  // Листание карусели свайпом (мышь/палец) с живой анимацией: сцена едет за пальцем,
+  // после отпускания фокус смещается на нужное число карточек. Воспроизведение не меняется.
   function setupCoverflowSwipe() {
     const host = el.allQueueView;
     if (!host || host.__swipeReady) return;
     host.__swipeReady = true;
-    const STEP = 70;
-    let startX = 0, lastStepX = 0, active = false, moved = false;
+    const CARD_STEP = 95;
+    let startX = 0, dxNow = 0, active = false, moved = false, pid = null;
     const inViewport = (t) => t && t.closest && t.closest('.vision-coverflow-viewport');
+    const getStage = () => host.querySelector('#coverflowStage');
     host.style.touchAction = 'pan-y';
+
     host.addEventListener('pointerdown', (e) => {
       if (!inViewport(e.target) || (e.pointerType === 'mouse' && e.button !== 0)) return;
-      active = true; moved = false; startX = lastStepX = e.clientX;
+      active = true; moved = false; dxNow = 0; startX = e.clientX; pid = e.pointerId;
       window.__coverflowDragged = false;
     });
     host.addEventListener('pointermove', (e) => {
       if (!active) return;
-      const dx = e.clientX - lastStepX;
-      if (Math.abs(e.clientX - startX) > 8) { moved = true; window.__coverflowDragged = true; }
-      if (Math.abs(dx) >= STEP && window.playerStore) {
-        lastStepX = e.clientX;
-        if (dx < 0) window.playerStore.next(); else window.playerStore.prev();
+      dxNow = e.clientX - startX;
+      if (Math.abs(dxNow) > 8 && !moved) {
+        moved = true;
+        window.__coverflowDragged = true;
+        try { host.setPointerCapture(pid); } catch (_) {}
+        const vp = host.querySelector('.vision-coverflow-viewport');
+        if (vp) vp.classList.add('is-dragging');
+      }
+      if (moved) {
+        const stage = getStage();
+        if (stage) { stage.style.transition = 'none'; stage.style.transform = `translateX(${Math.max(-220, Math.min(220, dxNow * 0.55))}px)`; }
       }
     });
     const end = () => {
       if (!active) return;
       active = false;
-      if (moved) setTimeout(() => { window.__coverflowDragged = false; }, 150);
+      const vp = host.querySelector('.vision-coverflow-viewport');
+      if (vp) vp.classList.remove('is-dragging');
+      if (!moved) return;
+      setTimeout(() => { window.__coverflowDragged = false; }, 150);
+      const steps = Math.round(-dxNow / CARD_STEP);
+      if (steps !== 0) {
+        coverflowBrowse.offset += steps;
+        coverflowBrowse.dir = steps > 0 ? 1 : -1;
+        renderAllTabQueueView();
+      } else {
+        const stage = getStage();
+        if (stage) { stage.style.transition = 'transform 0.4s cubic-bezier(0.22, 1, 0.36, 1)'; stage.style.transform = ''; }
+      }
     };
     window.addEventListener('pointerup', end);
     window.addEventListener('pointercancel', end);
@@ -2068,74 +2091,74 @@
           { title: 'Starboy', artist: 'The Weeknd', thumbnail: '/static/activity_icon.jpg' }
         ]);
 
-    let h1 = history.length >= 1 ? history[history.length - 1] : null;
-    let h2 = history.length >= 2 ? history[history.length - 2] : null;
-    if (!h1 && fallbackList[0]) h1 = { ...fallbackList[0], isFallback: true };
-    if (!h2 && fallbackList[1]) h2 = { ...fallbackList[1], isFallback: true };
-
+    // ---- Последовательность карусели: история (старые слева) → текущий → очередь ----
+    // Свайп листает карусель (смещает фокус), а не переключает воспроизведение.
+    const seq = [];
+    for (let i = Math.min(history.length, 12) - 1; i >= 0; i--) seq.push({ track: history[i], type: 'history', hIdx: i });
     const centerTrack = current || (queue[0] || fallbackList[2] || { title: 'Blinding Lights', artist: 'The Weeknd', thumbnail: '/static/activity_icon.jpg' });
+    const currentIdx = seq.length;
+    seq.push({ track: centerTrack, type: 'current' });
+    queue.slice(0, 12).forEach((t, i) => seq.push({ track: t, type: 'queue', qIdx: i }));
 
-    let q1 = queue.length >= 1 ? queue[0] : null;
-    let q2 = queue.length >= 2 ? queue[1] : null;
-    if (!q1 && fallbackList[2]) q1 = { ...fallbackList[2], isFallback: true, isAutoplay: true };
-    if (!q2 && fallbackList[3]) q2 = { ...fallbackList[3], isFallback: true, isAutoplay: true };
+    // Заполняем недостающие места по бокам подборкой-заглушкой, чтобы сцена не была пустой
+    let fbL = 0, fbR = 2;
+    let leftCount = currentIdx, rightCount = seq.length - currentIdx - 1;
+    for (; leftCount < 2 && fallbackList[fbL]; leftCount++, fbL++) seq.unshift({ track: { ...fallbackList[fbL], isFallback: true }, type: 'fallback' });
+    for (; rightCount < 2 && fallbackList[fbR]; rightCount++, fbR++) seq.push({ track: { ...fallbackList[fbR], isFallback: true, isAutoplay: true }, type: 'fallback' });
+    const curPos = seq.findIndex(s => s.type === 'current');
 
-    const cardsSpec = [
-      { offset: -2, track: h2, type: 'history' },
-      { offset: -1, track: h1, type: 'history' },
-      { offset: 0, track: centerTrack, type: 'current', isPlaying: isPlaying },
-      { offset: 1, track: q1, type: 'queue' },
-      { offset: 2, track: q2, type: 'queue' }
-    ];
+    const curKey = String(centerTrack.url || centerTrack.title || '');
+    if (coverflowBrowse.curKey !== curKey) { coverflowBrowse.curKey = curKey; coverflowBrowse.offset = 0; }
+    coverflowBrowse.offset = Math.max(-curPos, Math.min(seq.length - 1 - curPos, coverflowBrowse.offset));
+    const focus = curPos + coverflowBrowse.offset;
 
-    cardsSpec.forEach(spec => {
-      if (!spec.track) return;
+    const playItem = (item) => {
+      if (!item) return;
+      if (item.type === 'current') {
+        if (current) window.playerStore.toggle(); else window.playerStore.play(item.track, { isManual: true });
+      } else if (item.type === 'queue' && !item.track.isFallback) {
+        window.playerStore.jumpTo(item.qIdx);
+      } else {
+        window.playerStore.play(item.track, { isManual: true });
+      }
+    };
+
+    for (let rel = -2; rel <= 2; rel++) {
+      const item = seq[focus + rel];
+      if (!item || !item.track) continue;
+      const track = item.track;
       const cardEl = document.createElement('div');
-      cardEl.className = `coverflow-card pos-${spec.offset}`;
-      cardEl.dataset.offset = spec.offset;
-      cardEl.title = `${spec.track.title} — ${spec.track.artist}`;
+      cardEl.className = `coverflow-card pos-${rel}`;
+      cardEl.dataset.offset = rel;
+      cardEl.title = `${track.title} — ${track.artist}`;
 
-      const thumbUrl = getSafeImageUrl(spec.track.thumbnail);
+      const thumbUrl = getSafeImageUrl(track.thumbnail);
       cardEl.innerHTML = `
         <div class="coverflow-thumb-wrap" style="--cover:url('${thumbUrl}')">
-          <img src="${thumbUrl}" alt="${escapeHtml(spec.track.title)}" class="coverflow-thumb" data-t="${escapeHtml(spec.track.title)}" data-a="${escapeHtml(spec.track.artist || '')}" referrerpolicy="no-referrer">
+          <img src="${thumbUrl}" alt="${escapeHtml(track.title)}" class="coverflow-thumb" data-t="${escapeHtml(track.title)}" data-a="${escapeHtml(track.artist || '')}" referrerpolicy="no-referrer">
           <div class="coverflow-thumb-overlay"></div>
         </div>
         <div class="coverflow-card-bottom">
-          <div class="coverflow-card-title">${escapeHtml(spec.track.title)}</div>
-          <div class="coverflow-card-artist">${escapeHtml(spec.track.artist)}</div>
-          ${spec.track.isAutoplay ? `<span class="coverflow-card-badge autoplay">✦ Похоже</span>` : ''}
-          ${spec.offset === 0 && isPlaying ? `<span class="coverflow-card-badge playing">● В эфире</span>` : ''}
+          <div class="coverflow-card-title">${escapeHtml(track.title)}</div>
+          <div class="coverflow-card-artist">${escapeHtml(track.artist)}</div>
+          ${track.isAutoplay ? `<span class="coverflow-card-badge autoplay">✦ Похоже</span>` : ''}
+          ${item.type === 'current' && isPlaying ? `<span class="coverflow-card-badge playing">● В эфире</span>` : ''}
         </div>
       `;
 
-      // Card click interaction
       cardEl.addEventListener('click', () => {
         if (window.__coverflowDragged) return; // жест свайпа не считается кликом
-        if (spec.offset === 0) {
-          if (current) window.playerStore.toggle();
-          else window.playerStore.play(spec.track, { isManual: true });
-        } else if (spec.offset === -1) {
-          window.playerStore.prev();
-        } else if (spec.offset === -2) {
-          window.playerStore.play(spec.track, { isManual: true });
-        } else if (spec.offset === 1) {
-          if (queue.length >= 1 && !spec.track.isFallback) {
-            window.playerStore.jumpTo(0);
-          } else {
-            window.playerStore.play(spec.track, { isManual: true });
-          }
-        } else if (spec.offset === 2) {
-          if (queue.length >= 2 && !spec.track.isFallback) {
-            window.playerStore.jumpTo(1);
-          } else {
-            window.playerStore.play(spec.track, { isManual: true });
-          }
-        }
+        coverflowBrowse.offset = 0;
+        playItem(item);
       });
 
       stage.appendChild(cardEl);
-    });
+    }
+
+    if (coverflowBrowse.dir) {
+      stage.classList.add(coverflowBrowse.dir > 0 ? 'cf-from-right' : 'cf-from-left');
+      coverflowBrowse.dir = 0;
+    }
 
     viewport.appendChild(stage);
     wrapper.appendChild(viewport);

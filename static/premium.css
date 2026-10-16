@@ -2021,3 +2021,12 @@ html[data-view="home"] .user-profile-wrap::before {
 /* Правая группа — с отступом от скругления панели */
 .capsule-controls-right { padding-right: 6px; gap: 8px; }
 .player-dock, .vision-capsule-dock { overflow: visible; }
+
+/* Листание карусели: сцена следует за жестом, после отпускания карточки «приезжают» с нужной стороны */
+.vision-coverflow-stage { will-change: transform; }
+.vision-coverflow-viewport.is-dragging { cursor: grabbing; }
+.vision-coverflow-viewport.is-dragging .coverflow-card { transition: none; }
+.vision-coverflow-stage.cf-from-right { animation: cfFromRight 0.55s cubic-bezier(0.22, 1, 0.36, 1); }
+.vision-coverflow-stage.cf-from-left { animation: cfFromLeft 0.55s cubic-bezier(0.22, 1, 0.36, 1); }
+@keyframes cfFromRight { from { transform: translateX(110px); opacity: 0.35; } to { transform: none; opacity: 1; } }
+@keyframes cfFromLeft { from { transform: translateX(-110px); opacity: 0.35; } to { transform: none; opacity: 1; } }
