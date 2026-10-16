@@ -1539,11 +1539,6 @@ img.cover-ph { object-fit: cover; }
   background: linear-gradient(180deg, color-mix(in srgb, var(--bg-base) 96%, transparent), color-mix(in srgb, var(--bg-base) 84%, transparent)) !important;
 }
 /* затухание контента у верхнего края экрана под липкими панелями */
-body::before {
-  content: ''; position: fixed; left: 0; right: 0; top: 0; height: 150px; pointer-events: none; z-index: 80;
-  background: linear-gradient(180deg, var(--bg-base) 0%, color-mix(in srgb, var(--bg-base) 82%, transparent) 55%, transparent 100%);
-}
-@media (max-width: 640px) { body::before { height: 120px; } }
 /* ============================================================
    RESPONSIVE
    Брейкпоинты: ≤1180 ноутбук · ≤900 планшет · ≤640 телефон · ≤400 узкий телефон
