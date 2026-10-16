@@ -539,33 +539,43 @@
     if (wrap) wrap.style.setProperty('--cover', "url('" + url + "')");
   }
   function isCoverImg(im) { return /thumb|cover|art|poster/i.test(im.className || '') || !!im.closest(CARD_SEL); }
-  document.addEventListener('error', function (e) {
-    var im = e.target;
-    if (!im || im.tagName !== 'IMG' || im.dataset.fb === '2') return;
+  // Название/исполнитель трека для поиска обложки: из data-атрибутов, alt или текста соседней строки
+  function trackInfoFor(im) {
     var title = im.dataset.t || im.alt;
     var artist = im.dataset.a || '';
     if (!title) {
-      // у миниатюр очереди/истории нет alt — берём название из соседнего текста строки
       var row = im.closest('.queue-item, .chart-item, .history-item, .track-card, .compact-card, .square-card, .recent-card, .live-card, li, tr, [class*="item"], [class*="row"]');
       var tEl = row && row.querySelector('[class*="title"]');
       var aEl = row && row.querySelector('[class*="artist"], [class*="author"], [class*="sub"]');
       title = tEl ? tEl.textContent.trim() : '';
       artist = aEl ? aEl.textContent.trim() : artist;
     }
+    return { title: title, artist: artist };
+  }
+
+  // Обложка не загрузилась или вместо неё стоит логотип-заглушка: ищем на iTunes/Deezer, затем рисуем свою
+  function recoverCover(im) {
+    if (!im || im.dataset.fb === '2' || im.dataset.fbBusy) return;
+    var info = trackInfoFor(im), title = info.title;
+    if (!title || /^(cover|avatar|logo|musicium)$/i.test(title) || !isCoverImg(im) || /avatar/i.test(im.className || '')) return;
     var stage = im.dataset.fb ? 2 : 1;
     im.dataset.fb = String(stage);
-    var finalFallback = function () { im.dataset.fb = '2'; if (title) im.src = placeholder(title); };
-    if (stage === 2 || !title || /^(cover|avatar|logo|musicium)$/i.test(title) || !isCoverImg(im)) { if (title && isCoverImg(im)) finalFallback(); return; }
-    var q = new URLSearchParams({ title: title, artist: artist }).toString();
+    var finalFallback = function () { im.dataset.fb = '2'; delete im.dataset.fbBusy; im.classList.add('cover-ph'); im.src = placeholder(title); };
+    if (stage === 2) return finalFallback();
+    var q = new URLSearchParams({ title: title, artist: info.artist }).toString();
     var go = function (u) {
+      delete im.dataset.fbBusy;
       if (!u) return finalFallback();
-      var proxied = '/api/proxy-image?url=' + encodeURIComponent(u);
-      setCover(im, proxied);
+      setCover(im, '/api/proxy-image?url=' + encodeURIComponent(u));
     };
+    im.dataset.fbBusy = '1';
     if (coverCache[q] !== undefined) return go(coverCache[q]);
     fetch('/api/cover?' + q).then(function (r) { return r.json(); })
       .then(function (d) { coverCache[q] = d && d.url || null; go(coverCache[q]); })
       .catch(finalFallback);
+  }
+  document.addEventListener('error', function (e) {
+    if (e.target && e.target.tagName === 'IMG') recoverCover(e.target);
   }, true);
 
   var area = $('ytmContentArea');
@@ -574,10 +584,8 @@
   function fixImages(scope) {
     var imgs = (scope || document).querySelectorAll('img[src*="activity_icon"]');
     imgs.forEach(function (im) {
-      if (im.classList.contains('cover-ph') || !im.alt || /^(cover|avatar|logo)$/i.test(im.alt)) return;
-      if (!im.closest(CARD)) return;
-      im.classList.add('cover-ph');
-      im.src = placeholder(im.alt);
+      if (im.classList.contains('cover-ph') || im.dataset.fb) return;
+      recoverCover(im);
     });
   }
   if (area) {
