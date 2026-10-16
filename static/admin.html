@@ -1378,8 +1378,26 @@
       .guilds-grid { grid-template-columns: 1fr; }
     }
   </style>
+  <link rel="stylesheet" href="/static/admin_premium.css?v=5">
 </head>
 <body>
+  <!-- Заставка загрузки -->
+  <div id="adminSplash" class="admin-splash" aria-hidden="true">
+    <div class="s-logo">
+      <svg viewBox="0 0 76 76" fill="none">
+        <defs>
+          <linearGradient id="asg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fbf1d4"/><stop offset="1" stop-color="#bfa56d"/></linearGradient>
+        </defs>
+        <circle cx="38" cy="38" r="35" stroke="rgba(255,255,255,0.08)" stroke-width="2"/>
+        <circle class="ring" cx="38" cy="38" r="35" stroke="url(#asg)" stroke-width="2.4" stroke-linecap="round"/>
+        <path class="m" d="M21 54V27l17 20 17-20v27" stroke="url(#asg)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div class="s-title">Musicium Admin</div>
+    <div class="s-bar"><span></span></div>
+    <div class="s-sub">Загрузка панели</div>
+  </div>
+
 
   <!-- Toast Notification Container -->
   <div id="toastContainer" class="toast-container"></div>
@@ -1584,6 +1602,10 @@
       <button class="tab-btn" data-tab="tab-logs">
         <span class="svg-icon" data-icon="terminal"></span>
         <span>Live Логи & Оповещения</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-audit">
+        <span class="svg-icon" data-icon="shield"></span>
+        <span>Журнал действий</span>
       </button>
     </div>
 
@@ -2003,6 +2025,46 @@
         <!-- Rendered log items -->
       </div>
     </section>
+
+    <!-- TAB 6: AUDIT (журнал действий) -->
+    <section id="tab-audit" class="tab-content">
+      <div class="audit-summary">
+        <div class="audit-summary-card"><div class="k">Всего действий</div><div class="v" id="auditStatTotal">0</div></div>
+        <div class="audit-summary-card"><div class="k">Успешно</div><div class="v ok" id="auditStatOk">0</div></div>
+        <div class="audit-summary-card"><div class="k">Ошибки / отказы</div><div class="v err" id="auditStatErr">0</div></div>
+        <div class="audit-summary-card"><div class="k">Администраторов</div><div class="v" id="auditStatAdmins">0</div></div>
+      </div>
+
+      <div class="toolbar-bar">
+        <div class="filter-pills">
+          <button class="filter-pill audit-filter active" data-status="">Все</button>
+          <button class="filter-pill audit-filter" data-status="ok" style="color: var(--accent-green);">Успешные</button>
+          <button class="filter-pill audit-filter" data-status="error" style="color: #f4a8a4;">Ошибки</button>
+        </div>
+        <select id="auditActionSelect" class="channel-select" style="max-width: 280px;">
+          <option value="">Все действия</option>
+        </select>
+        <div class="search-input-wrap" style="max-width: 320px;">
+          <span class="svg-icon" data-icon="search"></span>
+          <input type="text" id="auditSearchInput" class="search-input" placeholder="Поиск по журналу...">
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button id="auditRefreshBtn" class="btn" style="padding: 6px 12px; font-size: 0.8rem;">
+            <span class="svg-icon" data-icon="rotate"></span> Обновить
+          </button>
+          <a href="/api/admin/audit/download" class="btn" style="padding: 6px 12px; font-size: 0.8rem;" target="_blank">
+            <span class="svg-icon" data-icon="download"></span> Скачать
+          </a>
+        </div>
+      </div>
+
+      <div class="audit-table-wrap">
+        <div id="auditList" class="audit-list">
+          <div class="audit-empty">Загрузка журнала…</div>
+        </div>
+      </div>
+    </section>
+
 
   </main>
 
@@ -3561,5 +3623,6 @@
 
     })();
   </script>
+  <script src="/static/admin_premium.js?v=1"></script>
 </body>
 </html>

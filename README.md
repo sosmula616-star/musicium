@@ -34,7 +34,7 @@ Musicium — это мультиплатформенный музыкальны�
 
 * **Ядро:** Python 3.10+, `discord.py` v2.3+, `PyNaCl`, `davey`
 * **Веб-сервер и API:** `aiohttp` (асинхронный HTTP & WebSocket сервер)
-* **Аудио-пайплайн:** `yt-dlp`, `static-ffmpeg`, `yandex-music`, нативный Opus (`libopus`)
+* **Аудио-пайплайн:** `yt-dlp`, `static-ffmpeg`, нативный Opus (`libopus`)
 * **База данных:** PostgreSQL (`asyncpg`), пул соединений
 * **Фронтенд:** Vanilla JavaScript (ES6+), Glassmorphism CSS, Discord Embedded App SDK
 

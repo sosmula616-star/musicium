@@ -91,6 +91,8 @@
       this._listeners = new Set();
       this._lastLoadSimilarTime = 0;
       this._isEnqueuingAutoplay = false;
+      this._similarKey = null;      // трек, для которого уже подбирали похожие
+      this._enqueuedKey = null;     // трек, для которого уже подавали автотрек боту
       this._tickerInterval = null;
 
       this._initMediaSession();
@@ -351,6 +353,7 @@
 
       const seed = this.current || (this.history.length > 0 ? this.history[0] : null);
       if (!seed) return;
+      this._similarKey = this._trackKey(this.current);
 
       this.isLoadingSimilar = true;
       this.notify('loading_similar_start');
@@ -374,27 +377,11 @@
           }
         }
 
-        // 2. Fallback: /api/recommendations
-        if (fetched.length < 4) {
-          const recResp = await fetch('/api/recommendations');
-          if (recResp.ok) {
-            const recData = await recResp.json();
-            const pool = [
-              ...(recData.curated || []),
-              ...(recData.quick_picks || []),
-              ...(recData.youtube_charts || []),
-              ...(recData.soundcloud_charts || [])
-            ];
-            for (let i = pool.length - 1; i > 0; i--) {
-              const j = Math.floor(Math.random() * (i + 1));
-              [pool[i], pool[j]] = [pool[j], pool[i]];
-            }
-            fetched.push(...pool.map(t => normalizeTrack(t, true)));
-          }
-        }
+        // Общие рекомендации с главной в очередь больше не подмешиваются:
+        // автоподбор использует только /api/similar.
 
-        // Deduplication against current, queue, and last 20 history tracks
-        const historyRecent = this.history.slice(0, 20);
+        // Deduplication against current, queue, and the whole history
+        const historyRecent = this.history;
         const uniqueSimilar = [];
 
         for (const cand of fetched) {
@@ -415,8 +402,11 @@
 
           // Pre-enqueue 1st autoplay track to bot with play_now = false if bot queue has 0 tracks
           const botManualCount = this.queue.filter(t => !t.isAutoplay).length;
-          if (this.autoplay && this.isPlaying && this.current && botManualCount === 0 && !this._isEnqueuingAutoplay) {
+          const curKey = this._trackKey(this.current);
+          if (this.autoplay && this.isPlaying && this.current && botManualCount === 0 &&
+              !this._isEnqueuingAutoplay && this._enqueuedKey !== curKey) {
             this._isEnqueuingAutoplay = true;
+            this._enqueuedKey = curKey;
             if (typeof window.dispatchBotPlayTrack === 'function') {
               window.dispatchBotPlayTrack(uniqueSimilar[0], false, true).finally(() => {
                 setTimeout(() => { this._isEnqueuingAutoplay = false; }, 3000);
@@ -495,22 +485,25 @@
 
       // 4. Autoplay pre-enqueueing to Discord bot:
       // If queue has 0 manual tracks and bot is playing, feed next autoplay track to bot with play_now = false
-      if (this.autoplay && this.isPlaying && this.current && botQueue.length === 0 && !this._isEnqueuingAutoplay) {
+      // Делается не более одного раза на каждый играющий трек.
+      const curKey = this._trackKey(this.current);
+      if (this.autoplay && this.isPlaying && this.current && botQueue.length === 0 &&
+          !this._isEnqueuingAutoplay && this._enqueuedKey !== curKey) {
         const nextAuto = this.queue.find(t => t.isAutoplay);
         if (nextAuto) {
           this._isEnqueuingAutoplay = true;
+          this._enqueuedKey = curKey;
           if (typeof window.dispatchBotPlayTrack === 'function') {
             window.dispatchBotPlayTrack(nextAuto, false, true).finally(() => {
               setTimeout(() => { this._isEnqueuingAutoplay = false; }, 3000);
             });
           }
-        } else if (!this.isLoadingSimilar) {
-          this.loadSimilar();
         }
       }
 
-      // If autoplay is enabled and total queue is small, fetch recommendations
-      if (this.autoplay && this.current && this.queue.length <= 2 && !this.isLoadingSimilar) {
+      // Подбор похожих — один раз на трек и только если нет ни ручных, ни подобранных треков
+      if (this.autoplay && this.current && !this.isLoadingSimilar && this._similarKey !== curKey &&
+          botQueue.length === 0 && !this.queue.some(t => t.isAutoplay)) {
         this.loadSimilar();
       }
 
@@ -523,6 +516,10 @@
         // Micro position/playback update: does NOT rebuild queue DOM!
         this.notify('backend_tick', { elapsed: this.elapsed, duration: this.duration });
       }
+    }
+
+    _trackKey(t) {
+      return t ? String(t.id || t.url || t.title || '') : '';
     }
 
     // Helper: test track equality by url or fuzzy title

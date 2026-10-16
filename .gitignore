@@ -26,3 +26,6 @@ cache/
 downloads/
 temp/
 scratch/
+
+# Admin audit trail
+admin_audit.jsonl
