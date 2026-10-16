@@ -21,6 +21,20 @@
     try {
       localStorage.setItem(key, JSON.stringify(val));
     } catch (_) {}
+    if (key === 'musicium_liked_tracks' || key === 'musicium_history_tracks') setTimeout(syncLibraryCounts, 0);
+  }
+
+  // Счётчики «Любимое / История» на плитках главной и в меню должны быть верны сразу,
+  // а не только после захода в раздел: обновляем их при каждом сохранении списка.
+  function syncLibraryCounts() {
+    const set = (id, arr) => {
+      const node = document.getElementById(id);
+      if (node && Array.isArray(arr)) node.textContent = `${arr.length} треков`;
+    };
+    try {
+      set('likedCountText', state.likedTracks);
+      set('historyCountText', state.historyTracks);
+    } catch (_) {}
   }
 
   // Clean start for user playlists (no personal pre-filled playlists)
@@ -1255,7 +1269,7 @@
           </span>
         </div>
         <div class="live-card-thumb-wrap">
-          <img src="${getSafeImageUrl(thumb)}" alt="${escapeHtml(track.title || '')}" class="live-card-thumb" loading="lazy" onerror="this.src='/static/activity_icon.jpg';">
+          <img src="${getSafeImageUrl(thumb)}" alt="${escapeHtml(track.title || '')}" class="live-card-thumb" loading="lazy">
           <div class="square-card-play-btn" title="Включить этот трек">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="#000"><path d="M8 5v14l11-7z"/></svg>
           </div>
@@ -1310,7 +1324,7 @@
 
       card.innerHTML = `
         <div class="recent-card-thumb-wrap">
-          <img src="${getSafeImageUrl(thumb)}" alt="${escapeHtml(track.title || '')}" class="recent-card-thumb" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null; this.src='/static/activity_icon.jpg';">
+          <img src="${getSafeImageUrl(thumb)}" alt="${escapeHtml(track.title || '')}" class="recent-card-thumb" loading="lazy" referrerpolicy="no-referrer">
           <div class="square-card-play-btn" title="Слушать">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="#000"><path d="M8 5v14l11-7z"/></svg>
           </div>
@@ -1407,7 +1421,7 @@
       card.innerHTML = `
         <div class="chart-rank-box ${isTop3}">${rank}</div>
         <div class="chart-thumb-wrap">
-          <img src="${getSafeImageUrl(track.thumbnail)}" alt="${escapeHtml(track.title)}" class="chart-thumb" onerror="this.src='/static/activity_icon.jpg';">
+          <img src="${getSafeImageUrl(track.thumbnail)}" alt="${escapeHtml(track.title)}" class="chart-thumb">
           <div class="chart-play-btn" title="Слушать трек">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="#ffffff"><path d="M8 5v14l11-7z"/></svg>
           </div>
@@ -1596,7 +1610,7 @@
       card.innerHTML = `
         <div class="chart-rank-box ${isTop3}">${rank}</div>
         <div class="chart-thumb-wrap">
-          <img src="${getSafeImageUrl(track.thumbnail)}" alt="${escapeHtml(track.title)}" class="chart-thumb" onerror="this.src='/static/activity_icon.jpg';">
+          <img src="${getSafeImageUrl(track.thumbnail)}" alt="${escapeHtml(track.title)}" class="chart-thumb">
           <div class="chart-play-btn" title="Слушать трек">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="#ffffff"><path d="M8 5v14l11-7z"/></svg>
           </div>
@@ -1753,7 +1767,7 @@
 
       card.innerHTML = `
         <div class="album-thumb-wrap">
-          <img src="${getSafeImageUrl(album.cover)}" alt="${escapeHtml(album.title)}" class="album-thumb" onerror="this.src='/static/activity_icon.jpg';">
+          <img src="${getSafeImageUrl(album.cover)}" alt="${escapeHtml(album.title)}" class="album-thumb">
           <span class="album-platform-tag ${isYt ? 'tag-yt' : 'tag-sc'}">
             ${isYt ? 'YouTube Music' : 'SoundCloud'}
           </span>
@@ -1840,7 +1854,7 @@
       row.dataset.trackTitle = track.title || '';
       row.innerHTML = `
         <div class="compact-thumb-wrap">
-          <img src="${getSafeImageUrl(track.thumbnail)}" alt="${escapeHtml(track.title)}" class="compact-thumb" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null; this.src='/static/activity_icon.jpg';">
+          <img src="${getSafeImageUrl(track.thumbnail)}" alt="${escapeHtml(track.title)}" class="compact-thumb" loading="lazy" referrerpolicy="no-referrer">
           <div class="compact-play-hover" title="${t('track.playNowTitle')}">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="#ffffff"><path d="M8 5v14l11-7z"/></svg>
           </div>
@@ -1891,7 +1905,7 @@
       card.className = 'square-card';
       card.innerHTML = `
         <div class="square-card-thumb-wrap">
-          <img src="${getSafeImageUrl(item.thumbnail)}" alt="${escapeHtml(item.title)}" class="square-card-thumb" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null; this.src='/static/activity_icon.jpg';">
+          <img src="${getSafeImageUrl(item.thumbnail)}" alt="${escapeHtml(item.title)}" class="square-card-thumb" loading="lazy" referrerpolicy="no-referrer">
           <div class="square-card-play-btn" title="${t('track.playNowTitle')}">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="#000"><path d="M8 5v14l11-7z"/></svg>
           </div>
@@ -2200,7 +2214,7 @@
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M11 18c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2zm-2-8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6 4c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
           </span>
           <div class="queue-thumb-wrap">
-            <img src="${getSafeImageUrl(track.thumbnail)}" alt="" class="queue-thumb" onerror="this.src='/static/activity_icon.jpg';">
+            <img src="${getSafeImageUrl(track.thumbnail)}" alt="" class="queue-thumb">
           </div>
           <div class="queue-info-col">
             <span class="queue-item-title" title="${escapeHtml(track.title)}">${escapeHtml(track.title)}</span>
@@ -2334,7 +2348,7 @@
         const hItem = document.createElement('div');
         hItem.className = 'history-track-card';
         hItem.innerHTML = `
-          <img src="${getSafeImageUrl(hTrack.thumbnail)}" class="history-thumb" alt="" onerror="this.src='/static/activity_icon.jpg';">
+          <img src="${getSafeImageUrl(hTrack.thumbnail)}" class="history-thumb" alt="">
           <div class="history-info-col">
             <span class="history-item-title" title="${escapeHtml(hTrack.title)}">${escapeHtml(hTrack.title)}</span>
             <span class="history-item-artist" title="${escapeHtml(hTrack.artist)}">${escapeHtml(hTrack.artist)}</span>
@@ -2415,7 +2429,7 @@
       card.innerHTML = `
         <div class="community-card-thumb-wrap">
           <span class="community-rank-badge">#${rank}</span>
-          <img src="${getSafeImageUrl(coverUrl)}" alt="${escapeHtml(pl.title)}" class="community-card-thumb" loading="lazy" onerror="this.src='/static/activity_icon.jpg';">
+          <img src="${getSafeImageUrl(coverUrl)}" alt="${escapeHtml(pl.title)}" class="community-card-thumb" loading="lazy">
           <div class="square-card-play-btn" title="Слушать плейлист">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="#000"><path d="M8 5v14l11-7z"/></svg>
           </div>
@@ -2694,7 +2708,7 @@
       item.className = 'ytm-track-item';
       item.innerHTML = `
         <span class="track-index">${index + 1}</span>
-        <img src="${getSafeImageUrl(track.thumbnail)}" alt="${escapeHtml(track.title)}" class="track-thumb" onerror="this.src='/static/activity_icon.jpg';">
+        <img src="${getSafeImageUrl(track.thumbnail)}" alt="${escapeHtml(track.title)}" class="track-thumb">
         <div class="track-info-col">
           <span class="track-name" title="${escapeHtml(track.title)}">${escapeHtml(track.title)}</span>
           <span class="track-author" title="${escapeHtml(track.artist)}">${escapeHtml(track.artist)}</span>
@@ -2782,7 +2796,7 @@
       item.className = 'ytm-track-item';
       item.innerHTML = `
         <span class="track-index">${index + 1}</span>
-        <img src="${getSafeImageUrl(track.thumbnail)}" alt="${escapeHtml(track.title)}" class="track-thumb" onerror="this.src='/static/activity_icon.jpg';">
+        <img src="${getSafeImageUrl(track.thumbnail)}" alt="${escapeHtml(track.title)}" class="track-thumb">
         <div class="track-info-col">
           <span class="track-name" title="${escapeHtml(track.title)}">${escapeHtml(track.title)}</span>
           <span class="track-author" title="${escapeHtml(track.artist)}">${escapeHtml(track.artist)}</span>
@@ -2914,7 +2928,7 @@
       const thumb = track.thumbnail || '/static/activity_icon.jpg';
       el.addToPlaylistTrackInfo.innerHTML = `
         <div style="display:flex;align-items:center;gap:12px;background:rgba(255,255,255,0.04);padding:10px 12px;border-radius:10px;margin-bottom:14px;border:1px solid rgba(255,255,255,0.06);">
-          <img src="${getSafeImageUrl(thumb)}" style="width:44px;height:44px;border-radius:6px;object-fit:cover;" onerror="this.src='/static/activity_icon.jpg'">
+          <img src="${getSafeImageUrl(thumb)}" style="width:44px;height:44px;border-radius:6px;object-fit:cover;">
           <div style="min-width:0;flex:1;">
             <div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;">${escapeHtml(track.title)}</div>
             <div style="font-size:12px;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(track.artist || '')}</div>
@@ -2952,7 +2966,7 @@
       item.className = 'ytm-track-item';
       item.innerHTML = `
         <span class="track-index">${index + 1}</span>
-        <img src="${getSafeImageUrl(track.thumbnail)}" alt="${escapeHtml(track.title)}" class="track-thumb" onerror="this.src='/static/activity_icon.jpg';">
+        <img src="${getSafeImageUrl(track.thumbnail)}" alt="${escapeHtml(track.title)}" class="track-thumb">
         <div class="track-info-col">
           <span class="track-name" title="${escapeHtml(track.title)}">${escapeHtml(track.title)}</span>
           <span class="track-author" title="${escapeHtml(track.artist)}">${escapeHtml(track.artist)}</span>
@@ -3001,7 +3015,7 @@
       item.style.cursor = 'pointer';
       item.innerHTML = `
         <span class="track-index">${index + 1}</span>
-        <img src="${getSafeImageUrl(track.thumbnail)}" alt="${escapeHtml(track.title)}" class="track-thumb" onerror="this.src='/static/activity_icon.jpg';">
+        <img src="${getSafeImageUrl(track.thumbnail)}" alt="${escapeHtml(track.title)}" class="track-thumb">
         <div class="track-info-col">
           <span class="track-name" title="${escapeHtml(track.title)}">${escapeHtml(track.title)}</span>
           <span class="track-author" title="${escapeHtml(track.artist)}">${escapeHtml(track.artist)}</span>
@@ -3098,7 +3112,7 @@
       card.innerHTML = `
         <div class="card-top">
           <div class="card-thumb-wrapper">
-            <img src="${getSafeImageUrl(track.thumbnail)}" alt="${escapeHtml(track.title)}" class="card-thumb" loading="lazy" onerror="this.src='/static/activity_icon.jpg';">
+            <img src="${getSafeImageUrl(track.thumbnail)}" alt="${escapeHtml(track.title)}" class="card-thumb" loading="lazy">
             <div class="card-play-overlay" title="${t('track.playNowTitle')}">
               <svg viewBox="0 0 24 24" width="22" height="22" fill="#ffffff"><path d="M8 5v14l11-7z"/></svg>
             </div>
@@ -3387,7 +3401,7 @@
     if (track) {
       if (el.dockArt) {
         el.dockArt.src = getSafeImageUrl(track.thumbnail);
-        el.dockArt.onerror = function() { this.src = '/static/activity_icon.jpg'; };
+        el.dockArt.dataset.fb = ""; el.dockArt.dataset.t = track.title || ""; el.dockArt.dataset.a = track.artist || "";
       }
       if (el.dockTitle) {
         el.dockTitle.textContent = track.title;
@@ -3486,7 +3500,7 @@
 
     if (el.dockArt) {
       el.dockArt.src = getSafeImageUrl(track.thumbnail);
-      el.dockArt.onerror = function() { this.src = '/static/activity_icon.jpg'; };
+      el.dockArt.dataset.fb = ""; el.dockArt.dataset.t = track.title || ""; el.dockArt.dataset.a = track.artist || "";
     }
     if (el.dockTitle) {
       el.dockTitle.textContent = track.title;
@@ -4975,6 +4989,7 @@
 
   // Boot
   async function init() {
+    syncLibraryCounts();
     setLanguage(state.lang, false);
     setupThemeSwitcher();
     setupLyricsManager();

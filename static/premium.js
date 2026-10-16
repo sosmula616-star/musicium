@@ -538,15 +538,25 @@
     var wrap = im.closest('.coverflow-thumb-wrap');
     if (wrap) wrap.style.setProperty('--cover', "url('" + url + "')");
   }
+  function isCoverImg(im) { return /thumb|cover|art|poster/i.test(im.className || '') || !!im.closest(CARD_SEL); }
   document.addEventListener('error', function (e) {
     var im = e.target;
     if (!im || im.tagName !== 'IMG' || im.dataset.fb === '2') return;
     var title = im.dataset.t || im.alt;
+    var artist = im.dataset.a || '';
+    if (!title) {
+      // у миниатюр очереди/истории нет alt — берём название из соседнего текста строки
+      var row = im.closest('.queue-item, .chart-item, .history-item, .track-card, .compact-card, .square-card, .recent-card, .live-card, li, tr, [class*="item"], [class*="row"]');
+      var tEl = row && row.querySelector('[class*="title"]');
+      var aEl = row && row.querySelector('[class*="artist"], [class*="author"], [class*="sub"]');
+      title = tEl ? tEl.textContent.trim() : '';
+      artist = aEl ? aEl.textContent.trim() : artist;
+    }
     var stage = im.dataset.fb ? 2 : 1;
     im.dataset.fb = String(stage);
     var finalFallback = function () { im.dataset.fb = '2'; if (title) im.src = placeholder(title); };
-    if (stage === 2 || !title || /^(cover|avatar|logo|musicium)$/i.test(title) || !im.closest(CARD_SEL)) { if (title && im.closest(CARD_SEL)) finalFallback(); return; }
-    var q = new URLSearchParams({ title: title, artist: im.dataset.a || '' }).toString();
+    if (stage === 2 || !title || /^(cover|avatar|logo|musicium)$/i.test(title) || !isCoverImg(im)) { if (title && isCoverImg(im)) finalFallback(); return; }
+    var q = new URLSearchParams({ title: title, artist: artist }).toString();
     var go = function (u) {
       if (!u) return finalFallback();
       var proxied = '/api/proxy-image?url=' + encodeURIComponent(u);

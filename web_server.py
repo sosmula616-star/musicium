@@ -1138,7 +1138,7 @@ class WebServer:
 
         # 2. Setup persistent proxy session
         if not self._image_proxy_session or self._image_proxy_session.closed:
-            timeout = aiohttp.ClientTimeout(total=4.0, connect=2.0)
+            timeout = aiohttp.ClientTimeout(total=6.0, connect=3.0)
             self._image_proxy_session = aiohttp.ClientSession(timeout=timeout)
 
         # Candidate URLs
@@ -1173,6 +1173,8 @@ class WebServer:
             urls_to_try.append(f"https://wsrv.nl/?url={clean_url}&output=jpg")
         else:
             urls_to_try.append(url)
+            # зеркало на случай, если исходный хост режет запросы с сервера
+            urls_to_try.append(f"https://wsrv.nl/?url={urllib.parse.quote(url, safe='')}&output=jpg")
 
         for try_url in urls_to_try:
             try:
@@ -1207,11 +1209,9 @@ class WebServer:
             except Exception as e:
                 logger.debug(f"Failed to fetch proxy image {try_url}: {e}")
 
-        # Fallback to local default activity icon with HTTP 200 so the browser never breaks
-        static_icon = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "activity_icon.jpg")
-        if os.path.exists(static_icon):
-            return web.FileResponse(static_icon, headers={"Cache-Control": "public, max-age=86400", "Access-Control-Allow-Origin": "*"})
-        return web.Response(status=404)
+        # Картинка недоступна: отдаём 404, а не логотип — клиент по событию error подберёт обложку
+        # на другой площадке (/api/cover) или нарисует заглушку с названием трека.
+        return web.Response(status=404, headers={"Cache-Control": "public, max-age=300", "Access-Control-Allow-Origin": "*"})
 
     async def handle_cover(self, request: web.Request) -> web.Response:
         """Ищет обложку трека на другой площадке (iTunes, затем Deezer), когда штатная не загрузилась."""
