@@ -2642,6 +2642,34 @@ class WebServer:
             asyncio.create_task(admin_service.apply_saved_presence(self.bot))
         except Exception as presence_err:
             logger.debug(f"Could not schedule presence restore: {presence_err}")
+        self._beat_task = asyncio.create_task(self._beat_loop())
+
+    async def _beat_loop(self):
+        """~12 раз в секунду рассылает клиентам уровень громкости и удары играющих плееров (для визуализации)."""
+        last_seq: Dict[int, int] = {}
+        while True:
+            try:
+                await asyncio.sleep(0.08)
+                pm = self.player_manager
+                if not pm.ws_clients:
+                    continue
+                for guild_id, player in list(pm.players.items()):
+                    src = getattr(player, "audio_source", None)
+                    if not src or not hasattr(src, "beat_seq") or not player.is_playing or player.is_paused:
+                        continue
+                    seq = src.beat_seq
+                    beat = seq != last_seq.get(guild_id, seq)
+                    last_seq[guild_id] = seq
+                    await pm.broadcast_event(
+                        "beat",
+                        {"guild_id": str(guild_id), "level": round(float(src.level), 3), "beat": beat},
+                        target_guild_id=guild_id,
+                    )
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.debug(f"Beat loop error: {e}")
+                await asyncio.sleep(1.0)
 
     async def stop(self):
         if self.site:

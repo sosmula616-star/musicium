@@ -729,3 +729,53 @@ document.addEventListener('click', function (e) {
     if (typeof window.musiciumRecoverCover === 'function') window.musiciumRecoverCover(im);
   }, true);
 })();
+
+/* ============================================================
+   V19: визуализация «под бит». Сервер шлёт уровень громкости и удары плеера
+   (событие WebSocket «beat»), здесь они превращаются в движение: эквалайзер,
+   пульс обложки, свечение плеера и центральной карточки карусели.
+   ============================================================ */
+(function () {
+  'use strict';
+  var root = document.documentElement;
+  var dock = document.getElementById('playerDock');
+  var eq = document.getElementById('equalizerBars');
+  var bars = eq ? eq.querySelectorAll('span') : [];
+  var art = document.getElementById('dockArt');
+  var LATENCY = 140;           // задержка Discord-войса: подгоняем картинку под звук
+  var target = 0, level = 0, kick = 0, lastBeatAt = 0, raf = 0;
+
+  window.addEventListener('musicium:beat', function (e) {
+    var d = e.detail || {};
+    setTimeout(function () {
+      target = Math.max(0, Math.min(1, Number(d.level) || 0));
+      if (d.beat) { kick = 1; lastBeatAt = performance.now(); }
+      if (!raf) raf = requestAnimationFrame(frame);
+    }, LATENCY);
+  });
+
+  function frame(now) {
+    // быстрое нарастание, плавный спад
+    level += (target - level) * (target > level ? 0.6 : 0.16);
+    kick *= 0.86;
+    var idle = now - lastBeatAt > 1500 && target < 0.02 && kick < 0.01 && level < 0.01;
+
+    root.style.setProperty('--beat', level.toFixed(3));
+    root.style.setProperty('--kick', kick.toFixed(3));
+    if (eq) {
+      eq.classList.add('is-reactive');
+      for (var i = 0; i < bars.length; i++) {
+        var phase = 0.55 + 0.45 * Math.sin(now / (130 + i * 47) + i * 1.7);
+        var h = 14 + 86 * Math.min(1, level * 1.15 * phase + kick * 0.5);
+        bars[i].style.height = h.toFixed(0) + '%';
+      }
+    }
+    if (idle) {
+      root.style.removeProperty('--beat'); root.style.removeProperty('--kick');
+      if (eq) { eq.classList.remove('is-reactive'); for (var j = 0; j < bars.length; j++) bars[j].style.height = ''; }
+      raf = 0;
+      return;
+    }
+    raf = requestAnimationFrame(frame);
+  }
+})();

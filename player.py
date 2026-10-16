@@ -23,6 +23,46 @@ class _NoLock:
     async def __aexit__(self, *exc):
         return False
 
+
+class LevelPCMTransformer(discord.PCMVolumeTransformer):
+    """PCMVolumeTransformer, который заодно измеряет громкость кадров и ловит удары (биты).
+
+    Читает те же 20-мс кадры, что уходят в Discord, поэтому визуализация в мини-приложении
+    совпадает с тем, что слышно в войсе. Нагрузка минимальна: выборка каждого 6-го отсчёта.
+    """
+
+    def __init__(self, original, volume: float = 1.0):
+        super().__init__(original, volume)
+        self.level: float = 0.0          # сглаженная громкость 0..1
+        self.beat_seq: int = 0           # растёт на каждый обнаруженный удар
+        self._energies: List[float] = []
+        self._since_beat: int = 99
+
+    def read(self) -> bytes:
+        data = super().read()
+        if data:
+            try:
+                samples = memoryview(data).cast("h")[::6]
+                n = len(samples)
+                if n:
+                    energy = (sum(s * s for s in samples) / n) ** 0.5 / 32768.0
+                    energy /= max(self.volume, 0.05)          # не зависеть от ползунка громкости
+                    energy = min(1.0, energy * 2.2)
+                    hist = self._energies
+                    hist.append(energy)
+                    if len(hist) > 43:
+                        hist.pop(0)
+                    avg = sum(hist) / len(hist)
+                    self._since_beat += 1
+                    if energy > 0.08 and energy > avg * 1.32 and self._since_beat >= 9:
+                        self.beat_seq += 1
+                        self._since_beat = 0
+                    # быстрое нарастание, плавный спад
+                    self.level = energy if energy > self.level else self.level * 0.86 + energy * 0.14
+            except Exception:
+                pass
+        return data
+
 def find_ffmpeg() -> str:
     # 1. On Linux, prefer system ffmpeg if available
     if sys.platform != "win32":
@@ -411,7 +451,7 @@ class GuildPlayer:
                 executable=exec_bin,
                 **ffmpeg_opts
             )
-            self.audio_source = discord.PCMVolumeTransformer(audio, volume=self.volume)
+            self.audio_source = LevelPCMTransformer(audio, volume=self.volume)
 
             self.current_track = track
             self.vote_skips.clear()
@@ -719,7 +759,7 @@ class GuildPlayer:
                 executable=exec_bin,
                 **ffmpeg_opts
             )
-            self.audio_source = discord.PCMVolumeTransformer(audio, volume=self.volume)
+            self.audio_source = LevelPCMTransformer(audio, volume=self.volume)
 
             self.is_paused = False
             self.start_time = time.time() - seconds

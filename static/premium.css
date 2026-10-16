@@ -2030,3 +2030,52 @@ html[data-view="home"] .user-profile-wrap::before {
 .vision-coverflow-stage.cf-from-left { animation: cfFromLeft 0.55s cubic-bezier(0.22, 1, 0.36, 1); }
 @keyframes cfFromRight { from { transform: translateX(110px); opacity: 0.35; } to { transform: none; opacity: 1; } }
 @keyframes cfFromLeft { from { transform: translateX(-110px); opacity: 0.35; } to { transform: none; opacity: 1; } }
+
+/* Карточки позиционирует JS (непрерывная раскладка), классы pos-* больше не используются */
+.coverflow-card.is-center {
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 36px 80px rgba(0, 0, 0, 0.7), 0 0 60px rgba(var(--accent-rgb), 0.28);
+}
+.vision-coverflow-stage.cf-from-right, .vision-coverflow-stage.cf-from-left { animation: none; }
+
+/* ---------- Визуализация под бит (переменные --beat / --kick задаёт premium.js) ---------- */
+.capsule-equalizer.is-reactive { display: flex; }
+.capsule-equalizer.is-reactive span { animation: none !important; transition: height 0.06s linear; }
+#dockArt { transform: scale(calc(1 + var(--kick, 0) * 0.07)); }
+.player-dock, .vision-capsule-dock {
+  box-shadow: var(--glass-rim-light, inset 0 1px 0 rgba(255,255,255,0.3)), 0 18px 44px rgba(0, 0, 0, 0.55), 0 0 calc(10px + var(--beat, 0) * 46px) rgba(var(--accent-rgb), calc(var(--beat, 0) * 0.5)) !important;
+}
+.coverflow-card.is-center .coverflow-thumb { transform: scale(calc(1 + var(--kick, 0) * 0.035)); }
+.coverflow-card.is-center { box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 36px 80px rgba(0,0,0,0.7), 0 0 calc(40px + var(--beat, 0) * 70px) rgba(var(--accent-rgb), calc(0.28 + var(--beat, 0) * 0.35)); }
+.vision-ambient-backdrop { opacity: calc(0.6 + var(--beat, 0) * 0.35) !important; }
+
+/* ============================================================
+   V20 — шапка: единая стеклянная капсула управления + отдельный профиль
+   ============================================================ */
+.hdr-group {
+  display: inline-flex; align-items: center; gap: 0; padding: 4px; height: 50px; box-sizing: border-box; border-radius: 26px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.025));
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.26), 0 8px 22px rgba(0, 0, 0, 0.3);
+}
+.hdr-group > * {
+  position: relative; height: 40px !important; display: inline-flex; align-items: center; box-sizing: border-box;
+  background: none !important; border: none !important; box-shadow: none !important; border-radius: 20px !important; margin: 0 !important;
+}
+.hdr-group > * + *::before {
+  content: ''; position: absolute; left: -1px; top: 10px; bottom: 10px; width: 1px;
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.22), transparent); pointer-events: none;
+}
+.hdr-group .ytm-online-pill { padding: 0 16px 0 14px; }
+.hdr-group .lang-switch { padding: 0 6px; }
+.hdr-group .theme-switch-btn { height: 40px !important; padding: 0 14px; background: none !important; border: none !important; box-shadow: none !important; }
+.hdr-group #headerAdminPill { padding: 0 16px !important; color: #e8c88a; }
+.hdr-group > *:hover { background: rgba(255, 255, 255, 0.06) !important; }
+.hdr-group .theme-dropdown { top: calc(100% + 14px); }
+
+/* Профиль — отдельная капсула того же стекла, одной высоты с группой */
+html[data-view="home"] .user-profile-wrap::before { display: none; }
+html[data-view="home"] .user-profile-wrap { margin-left: 4px; padding-left: 0; }
+.user-profile-wrap > button, .user-profile-wrap .user-pill-btn, .user-profile-wrap > div:first-child { min-height: 50px; border-radius: 26px; }
+html[data-view="home"] .ytm-header-right { gap: 12px; }
+@media (max-width: 900px) { .hdr-group .ytm-online-pill { display: none !important; } .hdr-group { height: 44px; } .hdr-group > * { height: 36px !important; } }

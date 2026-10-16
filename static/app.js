@@ -1994,22 +1994,68 @@
 
   // Состояние «листания» карусели: смещение фокуса относительно текущего трека.
   const coverflowBrowse = { curKey: '', offset: 0, dir: 0 };
+  const normTitle = (s) => String(s || '').toLowerCase().replace(/\(.*?\)|\[.*?\]/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 
-  // Листание карусели свайпом (мышь/палец) с живой анимацией: сцена едет за пальцем,
-  // после отпускания фокус смещается на нужное число карточек. Воспроизведение не меняется.
+  // Подборка «по вкусу» для пустых мест карусели: сначала /api/discover (новое в стиле лайков), пока грузится — сами лайки
+  const tasteCache = { list: [], at: 0, loading: false };
+  function getTastePool() {
+    if (tasteCache.list.length) return tasteCache.list;
+    return Array.isArray(state.likedTracks) ? state.likedTracks.slice(0, 20) : [];
+  }
+  function requestTastePool() {
+    const uid = state.userId;
+    if (!uid || tasteCache.loading || Date.now() - tasteCache.at < 60000) return;
+    tasteCache.loading = true; tasteCache.at = Date.now();
+    fetch(`/api/discover?user_id=${encodeURIComponent(uid)}&limit=12`)
+      .then(r => r.json())
+      .then(d => {
+        if (d && Array.isArray(d.tracks) && d.tracks.length) {
+          tasteCache.list = d.tracks;
+          if (state.currentView === 'home' && !window.__coverflowDragged) renderAllTabQueueView();
+        }
+      })
+      .catch(() => {})
+      .finally(() => { tasteCache.loading = false; });
+  }
+
+  // Непрерывная раскладка карточки по дробному смещению e (0 — центр, ±1 — соседи…).
+  // Одна кривая для всех экранов: размеры берутся от ширины карточки, поэтому на телефоне тоже работает.
+  function cfPlace(card, e, animate) {
+    const a = Math.abs(e), sgn = e < 0 ? -1 : 1;
+    const c1 = Math.min(a, 1), c2 = Math.max(0, Math.min(a - 1, 1)), c3 = Math.max(0, Math.min(a - 2, 1)), c4 = Math.max(0, a - 3);
+    const W = card.offsetWidth || 275;
+    const x = sgn * W * (0.62 * c1 + 0.48 * c2 + 0.40 * c3 + 0.35 * c4);
+    const rot = -sgn * (32 * c1 + 12 * c2 + 8 * c3);
+    const scale = 1 - 0.15 * c1 - 0.13 * c2 - 0.12 * c3;
+    const z = -10 * c1 - 90 * c2 - 85 * c3;
+    const opacity = Math.max(0, (1 - 0.08 * c1 - 0.24 * c2 - 0.26 * c3) * Math.min(1, Math.max(0, 3.6 - a)));
+    const bright = 1 - 0.18 * c1 - 0.16 * c2 - 0.16 * c3;
+    card.style.transition = animate ? 'transform 0.42s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.42s, filter 0.42s' : 'none';
+    card.style.transform = `translate3d(${x.toFixed(1)}px, 0, ${z.toFixed(1)}px) rotateY(${rot.toFixed(1)}deg) scale(${scale.toFixed(3)})`;
+    card.style.opacity = opacity.toFixed(3);
+    card.style.filter = `brightness(${bright.toFixed(3)})`;
+    card.style.zIndex = String(Math.round(60 - a * 10));
+    card.style.pointerEvents = a > 3.2 ? 'none' : '';
+    card.classList.toggle('is-center', a < 0.5);
+  }
+
+  // Листание карусели свайпом (мышь/палец): карточки едут за жестом в реальном времени,
+  // при отпускании доезжают до ближайшей позиции. Воспроизведение не меняется.
   function setupCoverflowSwipe() {
     const host = el.allQueueView;
     if (!host || host.__swipeReady) return;
     host.__swipeReady = true;
-    const CARD_STEP = 95;
-    let startX = 0, dxNow = 0, active = false, moved = false, pid = null;
+    const STEP = 150;
+    let startX = 0, startT = 0, dxNow = 0, active = false, moved = false, pid = null, busy = false;
     const inViewport = (t) => t && t.closest && t.closest('.vision-coverflow-viewport');
     const getStage = () => host.querySelector('#coverflowStage');
+    const limits = (stage) => [Number(stage.dataset.min) || 0, Number(stage.dataset.max) || 0];
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
     host.style.touchAction = 'pan-y';
 
     host.addEventListener('pointerdown', (e) => {
-      if (!inViewport(e.target) || (e.pointerType === 'mouse' && e.button !== 0)) return;
-      active = true; moved = false; dxNow = 0; startX = e.clientX; pid = e.pointerId;
+      if (busy || !inViewport(e.target) || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      active = true; moved = false; dxNow = 0; startX = e.clientX; startT = performance.now(); pid = e.pointerId;
       window.__coverflowDragged = false;
     });
     host.addEventListener('pointermove', (e) => {
@@ -2022,10 +2068,12 @@
         const vp = host.querySelector('.vision-coverflow-viewport');
         if (vp) vp.classList.add('is-dragging');
       }
-      if (moved) {
-        const stage = getStage();
-        if (stage) { stage.style.transition = 'none'; stage.style.transform = `translateX(${Math.max(-220, Math.min(220, dxNow * 0.55))}px)`; }
-      }
+      if (!moved) return;
+      const stage = getStage();
+      if (!stage) return;
+      const [lo, hi] = limits(stage);
+      const sf = clamp(-dxNow / STEP, lo - 0.35, hi + 0.35); // за краями — лёгкое «резиновое» сопротивление
+      stage.querySelectorAll('.coverflow-card').forEach(c => cfPlace(c, Number(c.dataset.offset) - sf, false));
     });
     const end = () => {
       if (!active) return;
@@ -2034,15 +2082,23 @@
       if (vp) vp.classList.remove('is-dragging');
       if (!moved) return;
       setTimeout(() => { window.__coverflowDragged = false; }, 150);
-      const steps = Math.round(-dxNow / CARD_STEP);
-      if (steps !== 0) {
-        coverflowBrowse.offset += steps;
-        coverflowBrowse.dir = steps > 0 ? 1 : -1;
-        renderAllTabQueueView();
-      } else {
-        const stage = getStage();
-        if (stage) { stage.style.transition = 'transform 0.4s cubic-bezier(0.22, 1, 0.36, 1)'; stage.style.transform = ''; }
-      }
+      const stage = getStage();
+      if (!stage) return;
+      const [lo, hi] = limits(stage);
+      let sf = -dxNow / STEP;
+      const fast = performance.now() - startT < 260 && Math.abs(dxNow) > 28; // короткий быстрый «бросок» = один шаг
+      let s = Math.round(sf);
+      if (s === 0 && fast) s = dxNow < 0 ? 1 : -1;
+      s = clamp(s, lo, hi);
+      busy = true;
+      stage.querySelectorAll('.coverflow-card').forEach(c => cfPlace(c, Number(c.dataset.offset) - s, true));
+      setTimeout(() => {
+        busy = false;
+        if (s !== 0) {
+          coverflowBrowse.offset += s;
+          renderAllTabQueueView(); // новая раскладка совпадает с итоговой позицией — скачка нет
+        }
+      }, 430);
     };
     window.addEventListener('pointerup', end);
     window.addEventListener('pointercancel', end);
@@ -2093,24 +2149,37 @@
 
     // ---- Последовательность карусели: история (старые слева) → текущий → очередь ----
     // Свайп листает карусель (смещает фокус), а не переключает воспроизведение.
+    const centerTrack = current || (queue[0] || fallbackList[2] || { title: 'Blinding Lights', artist: 'The Weeknd', thumbnail: '/static/activity_icon.jpg' });
     const seq = [];
     for (let i = Math.min(history.length, 12) - 1; i >= 0; i--) seq.push({ track: history[i], type: 'history', hIdx: i });
-    const centerTrack = current || (queue[0] || fallbackList[2] || { title: 'Blinding Lights', artist: 'The Weeknd', thumbnail: '/static/activity_icon.jpg' });
     const currentIdx = seq.length;
     seq.push({ track: centerTrack, type: 'current' });
     queue.slice(0, 12).forEach((t, i) => seq.push({ track: t, type: 'queue', qIdx: i }));
 
-    // Заполняем недостающие места по бокам подборкой-заглушкой, чтобы сцена не была пустой
-    let fbL = 0, fbR = 2;
+    // По бокам пусто — предлагаем треки по вкусу: подборка по лайкам (/api/discover), пока грузится — сами лайки.
+    const taken = new Set(seq.map(s => normTitle(s.track.title)));
+    const tastePool = getTastePool().filter(t => t && t.title && !taken.has(normTitle(t.title)));
+    const NEED = 3;
     let leftCount = currentIdx, rightCount = seq.length - currentIdx - 1;
-    for (; leftCount < 2 && fallbackList[fbL]; leftCount++, fbL++) seq.unshift({ track: { ...fallbackList[fbL], isFallback: true }, type: 'fallback' });
+    const asTaste = (t) => ({ track: { ...t, isFallback: true, isTaste: true }, type: 'taste' });
+    let ti = 0;
+    for (; rightCount < NEED && ti < tastePool.length; rightCount++, ti++) seq.push(asTaste(tastePool[ti]));
+    let tj = tastePool.length - 1;
+    for (; leftCount < NEED && tj >= ti; leftCount++, tj--) seq.unshift(asTaste(tastePool[tj]));
+    // Совсем нет данных о вкусе (новый пользователь) — общая заглушка-подборка
+    let fbL = 0, fbR = 2;
     for (; rightCount < 2 && fallbackList[fbR]; rightCount++, fbR++) seq.push({ track: { ...fallbackList[fbR], isFallback: true, isAutoplay: true }, type: 'fallback' });
+    for (; leftCount < 2 && fallbackList[fbL]; leftCount++, fbL++) seq.unshift({ track: { ...fallbackList[fbL], isFallback: true }, type: 'fallback' });
+    if (tastePool.length === 0) requestTastePool();
     const curPos = seq.findIndex(s => s.type === 'current');
 
     const curKey = String(centerTrack.url || centerTrack.title || '');
     if (coverflowBrowse.curKey !== curKey) { coverflowBrowse.curKey = curKey; coverflowBrowse.offset = 0; }
     coverflowBrowse.offset = Math.max(-curPos, Math.min(seq.length - 1 - curPos, coverflowBrowse.offset));
     const focus = curPos + coverflowBrowse.offset;
+    stage.dataset.focus = String(focus);
+    stage.dataset.min = String(-focus);
+    stage.dataset.max = String(seq.length - 1 - focus);
 
     const playItem = (item) => {
       if (!item) return;
@@ -2123,25 +2192,25 @@
       }
     };
 
-    for (let rel = -2; rel <= 2; rel++) {
+    for (let rel = -3; rel <= 3; rel++) {
       const item = seq[focus + rel];
       if (!item || !item.track) continue;
       const track = item.track;
       const cardEl = document.createElement('div');
-      cardEl.className = `coverflow-card pos-${rel}`;
+      cardEl.className = 'coverflow-card';
       cardEl.dataset.offset = rel;
       cardEl.title = `${track.title} — ${track.artist}`;
 
       const thumbUrl = getSafeImageUrl(track.thumbnail);
       cardEl.innerHTML = `
         <div class="coverflow-thumb-wrap" style="--cover:url('${thumbUrl}')">
-          <img src="${thumbUrl}" alt="${escapeHtml(track.title)}" class="coverflow-thumb" data-t="${escapeHtml(track.title)}" data-a="${escapeHtml(track.artist || '')}" referrerpolicy="no-referrer">
+          <img src="${thumbUrl}" alt="${escapeHtml(track.title)}" class="coverflow-thumb" data-t="${escapeHtml(track.title)}" data-a="${escapeHtml(track.artist || '')}" referrerpolicy="no-referrer" draggable="false">
           <div class="coverflow-thumb-overlay"></div>
         </div>
         <div class="coverflow-card-bottom">
           <div class="coverflow-card-title">${escapeHtml(track.title)}</div>
           <div class="coverflow-card-artist">${escapeHtml(track.artist)}</div>
-          ${track.isAutoplay ? `<span class="coverflow-card-badge autoplay">✦ Похоже</span>` : ''}
+          ${item.type === 'taste' ? `<span class="coverflow-card-badge autoplay">♥ По вкусу</span>` : (track.isAutoplay ? `<span class="coverflow-card-badge autoplay">✦ Похоже</span>` : '')}
           ${item.type === 'current' && isPlaying ? `<span class="coverflow-card-badge playing">● В эфире</span>` : ''}
         </div>
       `;
@@ -2152,11 +2221,11 @@
         playItem(item);
       });
 
+      cfPlace(cardEl, rel);
       stage.appendChild(cardEl);
     }
 
     if (coverflowBrowse.dir) {
-      stage.classList.add(coverflowBrowse.dir > 0 ? 'cf-from-right' : 'cf-from-left');
       coverflowBrowse.dir = 0;
     }
 
@@ -3737,6 +3806,9 @@
               return;
             }
             updatePlayerUI(msg.data);
+          } else if (msg.event === 'beat' && msg.data) {
+            if (state.guildId && msg.data.guild_id && String(msg.data.guild_id) !== String(state.guildId)) return;
+            window.dispatchEvent(new CustomEvent('musicium:beat', { detail: msg.data }));
           }
         } catch (e) {
           console.error('WS parse error:', e);
