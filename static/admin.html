@@ -1378,7 +1378,7 @@
       .guilds-grid { grid-template-columns: 1fr; }
     }
   </style>
-  <link rel="stylesheet" href="/static/admin_premium.css?v=6">
+  <link rel="stylesheet" href="/static/admin_premium.css?v=7">
 </head>
 <body>
   <!-- Заставка загрузки -->
@@ -1608,7 +1608,7 @@
         <span>Live Логи & Оповещения</span>
       </button>
       <button class="tab-btn" data-tab="tab-audit">
-        <span class="svg-icon" data-icon="shield"></span>
+        <span class="svg-icon" data-icon="list"></span>
         <span>Журнал действий</span>
       </button>
     </div>
@@ -2704,7 +2704,7 @@
               playerHtml = `
                 <div class="guild-player-box">
                   <div class="track-row">
-                    <img src="${track.thumbnail || '/static/activity_icon.jpg'}" alt="cover" class="track-thumb" onerror="this.src='/static/activity_icon.jpg'">
+                    <img src="${track.thumbnail || coverFallback(track.title)}" alt="" class="track-thumb" referrerpolicy="no-referrer" loading="lazy" data-t="${escapeHtml(track.title || '')}" onerror="this.onerror=null;this.src=coverFallback(this.dataset.t)">
                     <div class="track-info">
                       <div class="track-title" title="${escapeHtml(track.title)}">${escapeHtml(track.title)}</div>
                       <div class="track-artist">${escapeHtml(track.artist || 'Неизвестный исполнитель')} • ${p.volume}% громкости</div>
@@ -2897,6 +2897,12 @@
         const m = Math.floor(sec / 60);
         const s = Math.floor(sec % 60);
         return `${m}:${s < 10 ? '0' : ''}${s}`;
+      }
+
+      function coverFallback(title) {
+        var ch = (String(title || 'M').trim().charAt(0) || 'M').toUpperCase().replace(/[<>&"']/g, 'M');
+        var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3a2f22"/><stop offset="1" stop-color="#14120f"/></linearGradient></defs><rect width="64" height="64" fill="url(#g)"/><text x="32" y="42" text-anchor="middle" font-family="Arial,sans-serif" font-size="30" font-weight="700" fill="#e8c88a">' + ch + '</text></svg>';
+        return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
       }
 
       function escapeHtml(text) {
@@ -3774,6 +3780,6 @@
 
     })();
   </script>
-  <script src="/static/admin_premium.js?v=2"></script>
+  <script src="/static/admin_premium.js?v=3"></script>
 </body>
 </html>

@@ -47,7 +47,7 @@
     }
   </script>
   <link rel="stylesheet" href="/static/style.css?v=visionos-4.0-lyrics5">
-  <link rel="stylesheet" href="/static/premium.css?v=premium-13.1">
+  <link rel="stylesheet" href="/static/premium.css?v=premium-13.2">
   <style>
     /* Language switching rules */
     html[data-lang="ru"] .lang-en,
@@ -1530,6 +1530,7 @@
   <div class="vision-lyrics-modal-overlay" id="visionLyricsModal" style="display: none;">
     <div class="vision-lyrics-backdrop" id="lyricsBackdropClose"></div>
     <div class="vision-lyrics-panel">
+      <div class="lyrics-bg" id="lyricsBg" aria-hidden="true"></div>
       <!-- Top Bar -->
       <div class="vision-lyrics-header">
         <div class="lyrics-header-meta">
@@ -1544,7 +1545,7 @@
         <div class="lyrics-header-right">
           <div class="lyrics-synced-pill" id="lyricsSyncedBadge" style="display: none;">
             <span class="live-dot-pulse"></span>
-            <span>КАРАОКЕ</span>
+            <span>Синхронно</span>
           </div>
           <button type="button" class="lyrics-close-btn" id="btnCloseLyricsModal" title="Закрыть">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
@@ -1569,13 +1570,15 @@
         <div class="lyrics-lines-wrapper" id="lyricsLinesWrapper"></div>
       </div>
 
-      <!-- Bottom Mini Floating Player inside Lyrics view -->
+      <!-- Нижняя панель: перемотка и пауза -->
       <div class="lyrics-bottom-bar">
-        <span class="lyrics-hint-text">Нажмите на любую строку для мгновенной перемотки</span>
-        <button type="button" class="btn-lyrics-quick-play" id="lyricsQuickPlayBtn">
-          <span id="lyricsQuickPlayIcon">⏸</span>
-          <span id="lyricsQuickPlayLabel">Пауза</span>
+        <button type="button" class="btn-lyrics-quick-play" id="lyricsQuickPlayBtn" aria-label="Пауза">
+          <span id="lyricsQuickPlayIcon" class="lyrics-play-ico"></span>
         </button>
+        <span class="lyrics-time" id="lyricsTimeNow">0:00</span>
+        <div class="lyrics-progress" id="lyricsProgress" title="Перемотка"><div class="lyrics-progress-fill" id="lyricsProgressFill"></div></div>
+        <span class="lyrics-time" id="lyricsTimeTotal">0:00</span>
+        <span class="lyrics-hint-text">Нажмите на строку — перемотка</span>
       </div>
     </div>
   </div>
@@ -1630,7 +1633,7 @@
 
   <!-- Unified Player Store & Autoplay Engine -->
   <script src="/static/player_store.js"></script>
-  <script src="/static/app.js?v=visionos-4.0-lyrics6"></script>
+  <script src="/static/app.js?v=visionos-4.0-lyrics7"></script>
   <script src="/static/premium.js?v=7"></script>
 </body>
 

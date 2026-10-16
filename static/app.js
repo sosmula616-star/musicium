@@ -101,6 +101,8 @@
     historyTracks: loadJson('musicium_history_tracks', []),
   };
 
+  const LYR_PLAY = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+  const LYR_PAUSE = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
   const SVG_ICONS = {
     play: '<svg viewBox="0 0 24 24" width="22" height="22" fill="#000"><path d="M8 5v14l11-7z"/></svg>',
     pause: '<svg viewBox="0 0 24 24" width="22" height="22" fill="#000"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>',
@@ -3414,7 +3416,7 @@
     }
     const lIcon = document.getElementById('lyricsQuickPlayIcon');
     const lLabel = document.getElementById('lyricsQuickPlayLabel');
-    if (lIcon) lIcon.textContent = state.isPlaying ? '⏸' : '▶';
+    if (lIcon) lIcon.innerHTML = state.isPlaying ? LYR_PAUSE : LYR_PLAY;
     if (lLabel) lLabel.textContent = state.isPlaying ? 'Пауза' : 'Играть';
 
     if (el.equalizerBars) {
@@ -4751,7 +4753,21 @@
     return result;
   }
 
+  function updateLyricsProgress() {
+    const fill = document.getElementById('lyricsProgressFill');
+    if (!fill) return;
+    const cur = state.player ? state.player.current_track : null;
+    const dur = cur && cur.duration ? Number(cur.duration) : 0;
+    const now = state.elapsed || 0;
+    fill.style.width = dur ? Math.min(100, (now / dur) * 100) + '%' : '0%';
+    const tn = document.getElementById('lyricsTimeNow');
+    const tt = document.getElementById('lyricsTimeTotal');
+    if (tn) tn.textContent = formatTime(now);
+    if (tt) tt.textContent = dur ? formatTime(dur) : '0:00';
+  }
+
   function updateLyricsSync() {
+    if (lyricsState.isOpen) updateLyricsProgress();
     if (!lyricsState.isOpen || !lyricsState.syncedLines.length) return;
 
     const currentSec = state.elapsed || 0;
@@ -4770,6 +4786,11 @@
         lyricsState.syncedLines[lyricsState.activeIdx].el.classList.remove('active');
       }
       lyricsState.activeIdx = newActiveIdx;
+      // эффект глубины: чем дальше строка от текущей, тем она тусклее и размытее
+      lyricsState.syncedLines.forEach((l, i) => {
+        l.el.dataset.d = Math.min(Math.abs(i - newActiveIdx), 4);
+        l.el.classList.toggle('is-past', i < newActiveIdx);
+      });
       if (newActiveIdx >= 0 && lyricsState.syncedLines[newActiveIdx]) {
         const activeEl = lyricsState.syncedLines[newActiveIdx].el;
         activeEl.classList.add('active');
@@ -4798,6 +4819,9 @@
     if (titleEl) titleEl.textContent = cur ? cur.title : 'Текст песни';
     if (artistEl) artistEl.textContent = cur ? (cur.artist || '—') : '—';
     if (thumbEl && cur && cur.thumbnail) thumbEl.src = getSafeImageUrl(cur.thumbnail);
+    const lyrBg = document.getElementById('lyricsBg');
+    if (lyrBg) lyrBg.style.backgroundImage = cur && cur.thumbnail ? `url(${getSafeImageUrl(cur.thumbnail)})` : 'none';
+    updateLyricsProgress();
 
     const trackKey = cur ? `${cur.title}_${cur.artist}` : '';
     if (trackKey === lyricsState.trackKey && linesWrap && linesWrap.children.length > 0) {
@@ -4895,6 +4919,20 @@
     if (btn2) btn2.addEventListener('click', openLyricsModal);
     if (btnClose) btnClose.addEventListener('click', closeLyricsModal);
     if (backdrop) backdrop.addEventListener('click', closeLyricsModal);
+
+    const lyrProg = document.getElementById('lyricsProgress');
+    if (lyrProg) {
+      lyrProg.addEventListener('click', (e) => {
+        const cur = state.player ? state.player.current_track : null;
+        const dur = cur && cur.duration ? Number(cur.duration) : 0;
+        if (!dur) return;
+        const r = lyrProg.getBoundingClientRect();
+        const sec = Math.floor(Math.min(Math.max((e.clientX - r.left) / r.width, 0), 1) * dur);
+        sendPlayerAction('seek', { seconds: sec });
+        state.elapsed = sec;
+        updateLyricsSync();
+      });
+    }
 
     if (quickPlay) {
       quickPlay.addEventListener('click', () => {

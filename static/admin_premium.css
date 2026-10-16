@@ -380,3 +380,8 @@ body { background-image:
 .bot-diag-row b.bad { color: #f4a8a4; }
 
 @media (max-width: 900px) { .bot-columns, .bot-form { grid-template-columns: minmax(0, 1fr); } }
+
+/* Вкладки на широких экранах переносятся, а не обрезаются у края */
+@media (min-width: 901px) {
+  .tabs-bar { flex-wrap: wrap; overflow: visible; }
+}
