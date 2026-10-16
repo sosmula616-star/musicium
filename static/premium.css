@@ -1947,3 +1947,16 @@ html[data-view="home"] .ytm-header-right > * { flex-shrink: 0; }
 
 /* Панель чипов (источники) нужна только странице поиска; на главной и остальных разделах её нет */
 html:not([data-view="search"]) .ytm-category-chips-bar { display: none !important; }
+
+/* Шапка главной: статус комнаты слева, управление — компактной группой справа */
+html[data-view="home"] .ytm-header-right { justify-content: flex-end; gap: 10px; }
+html[data-view="home"] .ytm-voice-widget { margin-right: auto; }
+html[data-view="home"] .lang-switch,
+html[data-view="home"] .theme-switch-btn,
+html[data-view="home"] #headerAdminPill,
+html[data-view="home"] .ytm-voice-widget { height: 40px; box-sizing: border-box; display: inline-flex; align-items: center; }
+html[data-view="home"] .user-profile-wrap { margin-left: 6px; padding-left: 14px; position: relative; }
+html[data-view="home"] .user-profile-wrap::before {
+  content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 1px;
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+}
