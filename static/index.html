@@ -47,7 +47,7 @@
     }
   </script>
   <link rel="stylesheet" href="/static/style.css?v=visionos-4.0-lyrics5">
-  <link rel="stylesheet" href="/static/premium.css?v=premium-14.0">
+  <link rel="stylesheet" href="/static/premium.css?v=premium-15.0">
   <style>
     /* Language switching rules */
     html[data-lang="ru"] .lang-en,
@@ -383,6 +383,19 @@
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5zm0-5.5c-.55 0-1 .45-1 1s.45 1 1 1 1-.45 1-1-.45-1-1-1z"/>
           </svg>
           <span data-i18n="source.albums">Альбомы</span>
+        </button>
+        <span class="chip-divider" aria-hidden="true"></span>
+        <button class="source-chip source-chip-open" data-source="audius" id="chipAudius" title="Audius — независимые артисты, полные треки">
+          <svg class="chip-svg" viewBox="0 0 24 24" width="16" height="16" fill="#cc0fe0"><path d="M12 3 2.5 19.5h4.1L12 10.2l5.4 9.3h4.1L12 3zm0 9.6-2.6 4.5h5.2L12 12.6z"/></svg>
+          <span>Audius</span>
+        </button>
+        <button class="source-chip source-chip-open" data-source="mixcloud" id="chipMixcloud" title="Mixcloud — DJ-сеты и радиошоу">
+          <svg class="chip-svg" viewBox="0 0 24 24" width="16" height="16" fill="#5000ff"><path d="M3 14.5a3.5 3.5 0 0 1 2.2-3.2 5 5 0 0 1 9.6-1A4 4 0 0 1 20 14.5a3.5 3.5 0 0 1-3.5 3.5h-10A3.5 3.5 0 0 1 3 14.5z"/></svg>
+          <span>Mixcloud</span>
+        </button>
+        <button class="source-chip source-chip-open" data-source="archive" id="chipArchive" title="Internet Archive — лайвы, нетлейблы, архивные записи">
+          <svg class="chip-svg" viewBox="0 0 24 24" width="16" height="16" fill="#a8b0c0"><path d="M3 4h18v4H3V4zm1 5h16v11H4V9zm5 2v2h6v-2H9z"/></svg>
+          <span>Archive</span>
         </button>
       </div>
 
@@ -1633,7 +1646,7 @@
 
   <!-- Unified Player Store & Autoplay Engine -->
   <script src="/static/player_store.js"></script>
-  <script src="/static/app.js?v=visionos-4.0-lyrics8"></script>
+  <script src="/static/app.js?v=visionos-4.0-lyrics9"></script>
   <script src="/static/premium.js?v=8"></script>
 </body>
 

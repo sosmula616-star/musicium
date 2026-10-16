@@ -9,6 +9,7 @@ import urllib.parse
 from typing import List, Optional, Dict, Any, Tuple, Set
 import yt_dlp
 import db
+import open_sources
 
 logger = logging.getLogger("music_service")
 
@@ -624,9 +625,12 @@ class MusicService:
             tasks.append(self._search_youtube(query, limit=fetch_limit))
         elif source == "soundcloud":
             tasks.append(self._search_soundcloud(query, limit=fetch_limit))
+        elif source in open_sources.SOURCE_LABELS:
+            tasks.append(self._search_open_source(source, query, limit=fetch_limit))
         else:
             tasks.append(self._search_youtube(query, limit=fetch_limit))
             tasks.append(self._search_soundcloud(query, limit=max(4, limit // 2)))
+            tasks.append(self._search_open_source("audius", query, limit=3))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
         all_tracks: List[Track] = []
@@ -655,7 +659,18 @@ class MusicService:
         except Exception:
             pass
 
+    async def _search_open_source(self, source: str, query: str, limit: int = 6) -> List[Track]:
+        """Audius / Internet Archive / Mixcloud: открытые API без ключей. Таймаут не даёт им тормозить общий поиск."""
+        try:
+            return await asyncio.wait_for(open_sources.search_source(Track, source, query, limit), timeout=6.0)
+        except Exception as e:
+            logger.info(f"Open source '{source}' search failed: {e}")
+            return []
+
     async def _resolve_direct_url(self, url: str) -> List[Track]:
+        own = await open_sources.resolve_url(Track, url)
+        if own is not None:
+            return own
         cleaned = clean_youtube_url(url)
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, self._extract_url_info, cleaned)
@@ -708,6 +723,9 @@ class MusicService:
         source = "youtube"
         if "soundcloud" in extractor or "soundcloud.com" in webpage_url:
             source = "soundcloud"
+        elif extractor and not any(k in extractor for k in ("youtube", "generic")):
+            # Bandcamp, Mixcloud, Audiomack, Vimeo и прочие сайты, которые понимает yt-dlp
+            source = "mixcloud" if "mixcloud" in extractor else re.sub(r"[^a-z0-9]", "", extractor.split(":")[0]) or "web"
 
         title = entry.get("title") or "Неизвестный трек"
         artist = entry.get("uploader") or entry.get("channel") or entry.get("artist") or "Неизвестный автор"
@@ -967,7 +985,11 @@ class MusicService:
 
         stream: Optional[str] = None
         try:
-            if self.streaming_settings.get("mode") == "soundcloud_first":
+            if track.source in ("audius", "archive"):
+                stream = await open_sources.stream_url(track)
+            elif track.source not in ("youtube", "soundcloud", None, ""):
+                stream = await self._get_generic_stream(track)
+            elif self.streaming_settings.get("mode") == "soundcloud_first":
                 stream = await self._get_soundcloud_stream(track)
                 if not stream:
                     stream = await self._get_youtube_stream(track)
@@ -989,6 +1011,27 @@ class MusicService:
                     inflight.pop(cache_key, None)
 
         return stream
+
+    async def _get_generic_stream(self, track: Track) -> Optional[str]:
+        """Любой другой сайт (Mixcloud, Bandcamp, Audiomack…): yt-dlp разбирает ссылку на аудио без ключей."""
+        def _get():
+            opts = {
+                "format": "bestaudio/best", "quiet": True, "no_warnings": True, "extract_flat": False,
+                "noplaylist": True, "ignoreerrors": True, "skip_download": True, "socket_timeout": 8,
+                "source_address": "0.0.0.0",
+            }
+            try:
+                with yt_dlp.YoutubeDL(opts) as ydl:
+                    info = ydl.extract_info(track.url, download=False)
+                    if info and not track.duration and info.get("duration"):
+                        track.duration = int(info["duration"])
+                        track.duration_str = format_duration(track.duration)
+                    return self._extract_audio_stream_url(info)
+            except Exception as e:
+                logger.warning(f"Generic extraction failed for {track.url}: {e}")
+                return None
+
+        return await asyncio.to_thread(_get)
 
     async def _get_soundcloud_stream(self, track: Track) -> Optional[str]:
         def _get():

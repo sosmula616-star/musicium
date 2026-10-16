@@ -4066,9 +4066,20 @@
           chip.classList.add('active');
           const src = chip.dataset.source || 'all';
           state.currentSource = src;
-          state.activeHomeFilter = src;
+          // Audius / Mixcloud / Archive — только поиск: для главной у них нет чартов
+          const searchOnly = chip.classList.contains('source-chip-open');
+          state.activeHomeFilter = searchOnly ? 'all' : src;
 
-          if (state.currentView === 'search') {
+          if (searchOnly && state.currentView !== 'search') {
+            const q = el.searchInput ? el.searchInput.value.trim() : '';
+            if (q) {
+              switchView('search');
+              performSearch(q);
+            } else {
+              showToast(`Введите запрос — поиск пойдёт по ${chip.textContent.trim()}`, 'info');
+              if (el.searchInput) el.searchInput.focus();
+            }
+          } else if (state.currentView === 'search') {
             const currentQ = el.searchInput ? el.searchInput.value.trim() : '';
             if (currentQ) {
               performSearch(currentQ);
