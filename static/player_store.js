@@ -360,7 +360,19 @@
       try {
         let fetched = [];
 
-        // 1. Try smart endpoint /api/similar
+        // 0. Персональный автоподбор: новое в стиле, языке и вайбе лайкнутых треков
+        const uid = typeof window.getMusiciumUserId === 'function' ? window.getMusiciumUserId() : '';
+        if (uid) {
+          try {
+            const dr = await fetch(`/api/discover?user_id=${encodeURIComponent(uid)}&limit=10`);
+            if (dr.ok) {
+              const dd = await dr.json();
+              if (dd && Array.isArray(dd.tracks) && dd.tracks.length > 0) fetched = dd.tracks.map(t => normalizeTrack(t, true));
+            }
+          } catch (_) {}
+        }
+
+        // 1. Запасной вариант — /api/similar по текущему треку
         const params = new URLSearchParams({
           title: seed.title || '',
           artist: seed.artist || '',
@@ -368,8 +380,8 @@
           genre: seed.genre || '',
           limit: '8'
         });
-        const resp = await fetch(`/api/similar?${params.toString()}`);
-        if (resp.ok) {
+        const resp = fetched.length ? null : await fetch(`/api/similar?${params.toString()}`);
+        if (resp && resp.ok) {
           const data = await resp.json();
           if (data && Array.isArray(data.tracks) && data.tracks.length > 0) {
             fetched = data.tracks.map(t => normalizeTrack(t, true));

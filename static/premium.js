@@ -580,6 +580,7 @@
       .then(function (d) { coverCache[q] = d && d.url || null; go(coverCache[q]); })
       .catch(finalFallback);
   }
+  window.musiciumRecoverCover = recoverCover;
   document.addEventListener('error', function (e) {
     if (e.target && e.target.tagName === 'IMG') recoverCover(e.target);
   }, true);
@@ -713,3 +714,18 @@ document.addEventListener('click', function (e) {
   e.preventDefault();
   sdk.commands.openExternalLink({ url: a.href }).catch(function () {});
 }, true);
+
+/* Прокси раньше отдавал логотип как «успешную» картинку. Узнаём его по размеру и ищем настоящую обложку. */
+(function () {
+  'use strict';
+  var logoSize = null;
+  var probe = new Image();
+  probe.onload = function () { logoSize = probe.naturalWidth + 'x' + probe.naturalHeight; };
+  probe.src = '/static/activity_icon.jpg';
+  document.addEventListener('load', function (e) {
+    var im = e.target;
+    if (!logoSize || !im || im.tagName !== 'IMG' || !/proxy-image/.test(im.src || '') || im.dataset.fb) return;
+    if (im.naturalWidth + 'x' + im.naturalHeight !== logoSize) return;
+    if (typeof window.musiciumRecoverCover === 'function') window.musiciumRecoverCover(im);
+  }, true);
+})();

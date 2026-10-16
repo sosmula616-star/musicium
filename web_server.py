@@ -15,6 +15,7 @@ from player_manager import PlayerManager
 
 import db
 import admin_service
+import taste
 import anticrash_service
 from anticrash_service import anticrash
 
@@ -73,6 +74,7 @@ class WebServer:
         self.app.router.add_get("/api/cover", self.handle_cover)
         self.app.router.add_get("/api/recommendations", self.handle_recommendations)
         self.app.router.add_get("/api/similar", self.handle_similar)
+        self.app.router.add_get("/api/discover", self.handle_discover)
         self.app.router.add_get("/api/lyrics", self.handle_lyrics)
 
         # User Database routes (PostgreSQL)
@@ -1487,6 +1489,21 @@ class WebServer:
             "best_albums": best_albums,
             "albums": best_albums
         })
+
+    async def handle_discover(self, request: web.Request) -> web.Response:
+        """Автоподбор по вкусу: новое в стиле, языке и вайбе лайкнутых треков пользователя."""
+        user_id = request.query.get("user_id", "").strip()
+        limit = max(1, min(safe_int(request.query.get("limit", 8)) or 8, 20))
+        if not user_id:
+            return web.json_response({"tracks": []})
+        try:
+            liked = await db.get_user_liked_tracks(user_id)
+            history = await db.get_user_history(user_id, 50)
+            tracks = await taste.discover(self.music_service, liked or [], history or [], limit=limit)
+            return web.json_response({"tracks": tracks, "based_on_likes": len(liked or [])})
+        except Exception as e:
+            logger.warning(f"Discover failed for user {user_id}: {e}")
+            return web.json_response({"tracks": []})
 
     async def handle_similar(self, request: web.Request) -> web.Response:
         """Returns smart similar / recommended tracks based on current or previous track."""

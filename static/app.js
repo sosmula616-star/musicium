@@ -1992,7 +1992,41 @@
   let isDrawerExpanded = true;
   let lastCoverUrl = '';
 
+  // Листание карусели свайпом (мышь/палец). Слушатели висят на постоянном контейнере: сама сцена
+  // пересоздаётся при каждом шаге, и жест не должен прерываться.
+  function setupCoverflowSwipe() {
+    const host = el.allQueueView;
+    if (!host || host.__swipeReady) return;
+    host.__swipeReady = true;
+    const STEP = 70;
+    let startX = 0, lastStepX = 0, active = false, moved = false;
+    const inViewport = (t) => t && t.closest && t.closest('.vision-coverflow-viewport');
+    host.style.touchAction = 'pan-y';
+    host.addEventListener('pointerdown', (e) => {
+      if (!inViewport(e.target) || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      active = true; moved = false; startX = lastStepX = e.clientX;
+      window.__coverflowDragged = false;
+    });
+    host.addEventListener('pointermove', (e) => {
+      if (!active) return;
+      const dx = e.clientX - lastStepX;
+      if (Math.abs(e.clientX - startX) > 8) { moved = true; window.__coverflowDragged = true; }
+      if (Math.abs(dx) >= STEP && window.playerStore) {
+        lastStepX = e.clientX;
+        if (dx < 0) window.playerStore.next(); else window.playerStore.prev();
+      }
+    });
+    const end = () => {
+      if (!active) return;
+      active = false;
+      if (moved) setTimeout(() => { window.__coverflowDragged = false; }, 150);
+    };
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+  }
+
   function renderAllTabQueueView() {
+    setupCoverflowSwipe();
     if (!el.allQueueView) return;
     const storeState = window.playerStore ? window.playerStore.getState() : null;
     if (!storeState) return;
@@ -2017,32 +2051,6 @@
     // 1. 3D VISIONOS COVERFLOW VIEWPORT
     const viewport = document.createElement('div');
     viewport.className = 'vision-coverflow-viewport';
-
-    // Left Navigation Chevron (<)
-    const btnPrev = document.createElement('button');
-    btnPrev.className = 'coverflow-nav-btn prev';
-    btnPrev.id = 'coverflowBtnPrev';
-    btnPrev.title = 'Предыдущий трек (←)';
-    btnPrev.setAttribute('aria-label', 'Предыдущий трек');
-    btnPrev.innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>`;
-    btnPrev.addEventListener('click', (e) => {
-      e.stopPropagation();
-      window.playerStore.prev();
-    });
-    viewport.appendChild(btnPrev);
-
-    // Right Navigation Chevron (>)
-    const btnNext = document.createElement('button');
-    btnNext.className = 'coverflow-nav-btn next';
-    btnNext.id = 'coverflowBtnNext';
-    btnNext.title = 'Следующий трек (→)';
-    btnNext.setAttribute('aria-label', 'Следующий трек');
-    btnNext.innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>`;
-    btnNext.addEventListener('click', (e) => {
-      e.stopPropagation();
-      window.playerStore.next();
-    });
-    viewport.appendChild(btnNext);
 
     // 3D Stage Container
     const stage = document.createElement('div');
@@ -2103,8 +2111,10 @@
 
       // Card click interaction
       cardEl.addEventListener('click', () => {
+        if (window.__coverflowDragged) return; // жест свайпа не считается кликом
         if (spec.offset === 0) {
-          window.playerStore.toggle();
+          if (current) window.playerStore.toggle();
+          else window.playerStore.play(spec.track, { isManual: true });
         } else if (spec.offset === -1) {
           window.playerStore.prev();
         } else if (spec.offset === -2) {
@@ -3275,6 +3285,7 @@
   window.dispatchBotPlayTrack = sendPlayRequestToBot;
   window.dispatchBotAction = sendPlayerAction;
   window.showToast = showToast;
+  window.getMusiciumUserId = () => state.userId || "";
 
   // Send player action (checks if user is in voice, except for volume setting)
   async function sendPlayerAction(action, payload = {}) {

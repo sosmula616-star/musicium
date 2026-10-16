@@ -659,6 +659,28 @@ class MusicService:
         except Exception:
             pass
 
+    async def get_youtube_radio(self, video_id: str, limit: int = 15) -> List[Dict[str, Any]]:
+        """«Радио» YouTube Music по треку (RD-микс): похожие треки в том же стиле. Без ключей."""
+        def _fetch() -> List[Dict[str, Any]]:
+            opts = dict(self.ydl_opts)
+            opts.update({"extract_flat": True, "playlistend": limit + 2, "noplaylist": False})
+            url = f"https://www.youtube.com/watch?v={video_id}&list=RD{video_id}"
+            out: List[Dict[str, Any]] = []
+            try:
+                with yt_dlp.YoutubeDL(opts) as ydl:
+                    info = ydl.extract_info(url, download=False)
+                for entry in (info or {}).get("entries") or []:
+                    if not entry or str(entry.get("id") or "") == video_id:
+                        continue
+                    out.append(self._parse_flat_entry(entry, default_source="youtube").to_dict())
+                    if len(out) >= limit:
+                        break
+            except Exception as e:
+                logger.info(f"YouTube radio failed for {video_id}: {e}")
+            return out
+
+        return await asyncio.to_thread(_fetch)
+
     async def _search_open_source(self, source: str, query: str, limit: int = 6) -> List[Track]:
         """Audius / Internet Archive / Mixcloud: открытые API без ключей. Таймаут не даёт им тормозить общий поиск."""
         try:
