@@ -46,8 +46,8 @@
       }
     }
   </script>
-  <link rel="stylesheet" href="/static/style.css?v=visionos-4.0-lyrics4">
-  <link rel="stylesheet" href="/static/premium.css?v=premium-11.0">
+  <link rel="stylesheet" href="/static/style.css?v=visionos-4.0-lyrics5">
+  <link rel="stylesheet" href="/static/premium.css?v=premium-13.0">
   <style>
     /* Language switching rules */
     html[data-lang="ru"] .lang-en,
@@ -219,6 +219,10 @@
           </button>
           <button type="button" class="sb-tool" id="sbKeysBtn" title="Горячие клавиши (?)">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M20 5H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zM5 8h2v2H5V8zm0 3h2v2H5v-2zm3 6H5v-2h3v2zm9 0H8v-2h9v2zm2-4h-2v-2h2v2zm0-3h-2V8h2v2zm0 0"/></svg>
+          </button>
+          <button type="button" class="sb-tool" id="sbNewsBtn" title="Что нового">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4L12 2z"/></svg>
+            <span class="news-dot" id="newsDot"></span>
           </button>
           <button type="button" class="sb-tool" id="sbCollapseBtn" title="Свернуть / развернуть меню">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
@@ -737,7 +741,7 @@
       <div class="capsule-track-meta">
         <div class="cap-title-row">
           <div class="dock-title-marquee">
-            <a href="#" target="_blank" id="dockTitle" class="capsule-title" data-i18n="player.noTrack">Трек не выбран</a>
+            <a target="_blank" rel="noopener noreferrer" id="dockTitle" class="capsule-title" data-i18n="player.noTrack">Трек не выбран</a>
           </div>
           <span id="dockSourceBadge" class="cap-source-badge"></span>
         </div>
@@ -1579,6 +1583,23 @@
   <!-- Accessibility Live Region for Track Changes -->
   <div id="trackAnnouncer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
+  <!-- Modal: Что нового (журнал обновлений) -->
+  <div class="custom-modal-overlay" id="changelogModal" style="display: none;">
+    <div class="custom-modal-box changelog-box">
+      <div class="custom-modal-header">
+        <div class="modal-title-with-icon">
+          <h3><span class="lang-ru">Что нового</span><span class="lang-en">What's new</span></h3>
+        </div>
+        <button class="btn-close-legal" id="closeChangelogBtn" title="Закрыть">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="changelog-list" id="changelogList">
+        <div class="changelog-empty">Загрузка…</div>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal: Горячие клавиши -->
   <div class="custom-modal-overlay" id="shortcutsModal" style="display: none;">
     <div class="custom-modal-box shortcuts-box">
@@ -1609,8 +1630,8 @@
 
   <!-- Unified Player Store & Autoplay Engine -->
   <script src="/static/player_store.js"></script>
-  <script src="/static/app.js?v=visionos-4.0-lyrics4"></script>
-  <script src="/static/premium.js?v=5"></script>
+  <script src="/static/app.js?v=visionos-4.0-lyrics5"></script>
+  <script src="/static/premium.js?v=7"></script>
 </body>
 
 </html>

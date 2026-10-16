@@ -1378,7 +1378,7 @@
       .guilds-grid { grid-template-columns: 1fr; }
     }
   </style>
-  <link rel="stylesheet" href="/static/admin_premium.css?v=5">
+  <link rel="stylesheet" href="/static/admin_premium.css?v=6">
 </head>
 <body>
   <!-- Заставка загрузки -->
@@ -1589,6 +1589,10 @@
         <span class="svg-icon" data-icon="broadcast"></span>
         <span>Серверы & Боты</span>
         <span id="tabVoiceCountBadge" class="tab-badge">0</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-botctl">
+        <span class="svg-icon" data-icon="bolt"></span>
+        <span>Управление ботом</span>
       </button>
       <button class="tab-btn" data-tab="tab-anticrash">
         <span class="svg-icon" data-icon="shield"></span>
@@ -2026,6 +2030,79 @@
       </div>
     </section>
 
+    <!-- TAB: BOT CONTROL (управление ботом) -->
+    <section id="tab-botctl" class="tab-content">
+      <div class="bot-grid">
+        <div class="bot-stat"><div class="k">Плееров всего</div><div class="v" id="botStatPlayers">0</div></div>
+        <div class="bot-stat"><div class="k">Сейчас играют</div><div class="v ok" id="botStatPlaying">0</div></div>
+        <div class="bot-stat"><div class="k">Голосовых подключений</div><div class="v" id="botStatVoice">0</div></div>
+        <div class="bot-stat"><div class="k">Треков в очередях</div><div class="v" id="botStatQueued">0</div></div>
+        <div class="bot-stat"><div class="k">Пинг шлюза</div><div class="v" id="botStatPing">—</div></div>
+        <div class="bot-stat"><div class="k">Кэш потоков</div><div class="v" id="botStatCache">0</div></div>
+      </div>
+
+      <div class="bot-columns">
+        <div class="section-card bot-card">
+          <h3 class="section-title"><span class="svg-icon" data-icon="shield" style="color: var(--accent-amber);"></span> Режим обслуживания</h3>
+          <p class="bot-hint">Пока режим включён, обычные пользователи не смогут запускать треки — они увидят сообщение ниже. Администраторы не ограничиваются.</p>
+          <textarea id="botMaintMessage" class="setting-input" style="width: 100%; height: 72px; resize: vertical;" maxlength="300" placeholder="Сообщение для пользователей"></textarea>
+          <div class="bot-row">
+            <label class="bot-switch"><input type="checkbox" id="botMaintToggle"><span class="bot-switch-ui"></span><span id="botMaintLabel">Выключен</span></label>
+            <button class="btn btn-primary" id="botMaintSave"><span class="svg-icon" data-icon="check"></span> Применить</button>
+          </div>
+        </div>
+
+        <div class="section-card bot-card">
+          <h3 class="section-title"><span class="svg-icon" data-icon="discord" style="color: var(--accent-cyan);"></span> Статус и активность бота</h3>
+          <div class="bot-form">
+            <div><label class="setting-label">Статус</label>
+              <select id="botPresStatus" class="channel-select" style="width: 100%;">
+                <option value="online">🟢 В сети</option><option value="idle">🌙 Нет на месте</option>
+                <option value="dnd">⛔ Не беспокоить</option><option value="invisible">⚫ Невидимка</option>
+              </select></div>
+            <div><label class="setting-label">Тип активности</label>
+              <select id="botPresType" class="channel-select" style="width: 100%;">
+                <option value="listening">Слушает</option><option value="playing">Играет в</option>
+                <option value="watching">Смотрит</option><option value="competing">Соревнуется в</option>
+              </select></div>
+          </div>
+          <label class="setting-label" style="margin-top: 10px; display: block;">Текст активности</label>
+          <input type="text" id="botPresText" class="setting-input" style="width: 100%;" maxlength="128" placeholder="например: /play — музыка для вашего сервера">
+          <div class="bot-row"><span class="bot-hint" style="margin: 0;">Сохраняется и применяется после перезапуска.</span>
+            <button class="btn btn-primary" id="botPresSave"><span class="svg-icon" data-icon="check"></span> Применить</button></div>
+        </div>
+
+        <div class="section-card bot-card">
+          <h3 class="section-title"><span class="svg-icon" data-icon="bolt" style="color: var(--accent-cyan);"></span> Быстрые действия</h3>
+          <div class="bot-actions">
+            <button class="btn" id="botActStopAll"><span class="svg-icon" data-icon="stop"></span> Остановить везде</button>
+            <button class="btn btn-danger" id="botActDisconnectAll"><span class="svg-icon" data-icon="logout"></span> Выйти из всех войсов</button>
+            <button class="btn" onclick="window.adminClearCache()"><span class="svg-icon" data-icon="broom"></span> Очистить кэш потоков</button>
+            <button class="btn" onclick="window.adminSyncCommands()"><span class="svg-icon" data-icon="rotate"></span> Синхронизировать команды</button>
+            <button class="btn" onclick="window.openBroadcastModal()"><span class="svg-icon" data-icon="bullhorn"></span> Оповещение в канал</button>
+          </div>
+        </div>
+
+        <div class="section-card bot-card">
+          <h3 class="section-title"><span class="svg-icon" data-icon="microchip" style="color: var(--accent-green);"></span> Диагностика</h3>
+          <div id="botDiag" class="bot-diag"><div class="audit-empty">Загрузка…</div></div>
+        </div>
+
+        <div class="section-card bot-card bot-card-wide">
+          <h3 class="section-title"><span class="svg-icon" data-icon="list" style="color: var(--accent-cyan);"></span> Журнал обновлений для пользователей</h3>
+          <p class="bot-hint">Запись появится у всех пользователей в окне «Что нового» в приложении.</p>
+          <div class="bot-form">
+            <div><label class="setting-label">Версия</label><input type="text" id="clVersion" class="setting-input" style="width: 100%;" maxlength="20" placeholder="2.1.0"></div>
+            <div><label class="setting-label">Заголовок</label><input type="text" id="clTitle" class="setting-input" style="width: 100%;" maxlength="120" placeholder="Что нового в этом обновлении"></div>
+          </div>
+          <label class="setting-label" style="margin-top: 10px; display: block;">Изменения (по одному в строке)</label>
+          <textarea id="clItems" class="setting-input" style="width: 100%; height: 120px; resize: vertical;" placeholder="Добавлен таймер сна&#10;Исправлена перемотка"></textarea>
+          <div class="bot-row"><span class="bot-hint" id="clLatest" style="margin: 0;"></span>
+            <button class="btn btn-primary" id="clPublish"><span class="svg-icon" data-icon="send"></span> Опубликовать</button></div>
+        </div>
+      </div>
+    </section>
+
     <!-- TAB 6: AUDIT (журнал действий) -->
     <section id="tab-audit" class="tab-content">
       <div class="audit-summary">
@@ -2112,8 +2189,9 @@
       function renderSvgIcons() {
         document.querySelectorAll('.svg-icon[data-icon]').forEach(el => {
           const key = el.getAttribute('data-icon');
-          if (key && SVG_MAP[key]) {
+          if (key && SVG_MAP[key] && el.dataset.rendered !== key) {
             el.innerHTML = SVG_MAP[key];
+            el.dataset.rendered = key;
           }
         });
       }
@@ -2598,7 +2676,7 @@
           return;
         }
 
-        grid.innerHTML = filtered.map(g => {
+        const cardsHtml = filtered.map(g => {
           const isConn = g.is_connected;
           const isPlaying = g.player && g.player.is_playing;
           const curCh = g.current_channel;
@@ -2647,7 +2725,7 @@
                         <span class="svg-icon" data-icon="list"></span> Очередь (${queueItems.length})
                       </button>
                     </div>
-                    <span style="font-size: 0.74rem; color: var(--text-dim); font-family: monospace;">
+                    <span style="font-size: 0.74rem; color: var(--text-dim); font-family: monospace;" data-time>
                       ${formatTime(p.elapsed)} / ${formatTime(p.duration)}
                     </span>
                   </div>
@@ -2682,7 +2760,7 @@
           }).join('');
 
           return `
-            <div class="guild-card ${isConn ? 'connected' : ''} ${isPlaying ? 'playing' : ''}">
+            <div class="guild-card ${isConn ? 'connected' : ''} ${isPlaying ? 'playing' : ''}" data-gid="${g.id}">
               <div class="guild-header">
                 ${g.icon 
                   ? `<img src="${g.icon}" alt="${escapeHtml(g.name)}" class="guild-icon">` 
@@ -2736,7 +2814,80 @@
               </div>
             </div>
           `;
-        }).join('');
+        });
+
+        patchGuildGrid(grid, filtered.map(g => String(g.id)), cardsHtml);
+      }
+
+      // Обновление сетки серверов «на месте»: перерисовываются только изменившиеся
+      // карточки. Раньше каждые 4 секунды весь список пересоздавался целиком, из-за
+      // чего клики пропадали (кнопка исчезала между нажатием и отпусканием), а
+      // выбранный канал, открытая очередь и введённая ссылка сбрасывались.
+      const guildHtmlCache = {};
+      let adminPointerDown = false;
+      document.addEventListener('pointerdown', () => { adminPointerDown = true; }, true);
+      ['pointerup', 'pointercancel', 'dragend'].forEach(ev => document.addEventListener(ev, () => { adminPointerDown = false; }, true));
+
+      function guildSignature(html) {
+        return html.replace(/(data-time[^>]*>)[^<]*/g, '$1');
+      }
+      function guildTimeText(html) {
+        const m = html.match(/data-time[^>]*>\s*([^<]*?)\s*</);
+        return m ? m[1] : '';
+      }
+
+      function patchGuildGrid(grid, ids, htmls) {
+        // убираем заглушки («серверы не найдены») и устаревшие карточки
+        Array.from(grid.children).forEach(ch => { if (!ch.dataset || !ch.dataset.gid) ch.remove(); });
+        const existing = {};
+        Array.from(grid.children).forEach(ch => { existing[ch.dataset.gid] = ch; });
+        const wanted = new Set(ids);
+        Object.keys(existing).forEach(id => {
+          if (!wanted.has(id)) { existing[id].remove(); delete existing[id]; delete guildHtmlCache[id]; }
+        });
+
+        let prev = null;
+        ids.forEach((id, i) => {
+          const html = htmls[i];
+          const sig = guildSignature(html);
+          let node = existing[id];
+
+          if (node && guildHtmlCache[id] === sig) {
+            // ничего не изменилось — обновляем только время трека
+            const t = node.querySelector('[data-time]');
+            if (t) t.textContent = guildTimeText(html);
+          } else if (node && (adminPointerDown || node.contains(document.activeElement))) {
+            // пользователь сейчас взаимодействует с карточкой — не трогаем, обновим в следующий раз
+          } else {
+            const tpl = document.createElement('template');
+            tpl.innerHTML = html.trim();
+            const fresh = tpl.content.firstElementChild;
+            if (node) {
+              // сохраняем состояние интерфейса: выбранный канал, ссылку и открытую очередь
+              const oldSel = node.querySelector('select');
+              const oldInp = node.querySelector('input[type="text"]');
+              const drawerOpen = !!node.querySelector('.guild-queue-drawer.open');
+              const newSel = fresh.querySelector('select');
+              const newInp = fresh.querySelector('input[type="text"]');
+              if (oldSel && newSel && oldSel.value && Array.from(newSel.options).some(o => o.value === oldSel.value)) {
+                if (oldSel.dataset.userPicked) { newSel.value = oldSel.value; newSel.dataset.userPicked = '1'; }
+              }
+              if (oldInp && newInp) newInp.value = oldInp.value;
+              if (drawerOpen) { const d = fresh.querySelector('.guild-queue-drawer'); if (d) d.classList.add('open'); }
+              node.replaceWith(fresh);
+            }
+            node = fresh;
+            const sel = node.querySelector('select');
+            if (sel) sel.addEventListener('change', () => { sel.dataset.userPicked = '1'; });
+            guildHtmlCache[id] = sig;
+            existing[id] = node;
+          }
+
+          // порядок карточек в DOM = порядок в списке
+          const wantedNext = prev ? prev.nextElementSibling : grid.firstElementChild;
+          if (node !== wantedNext) grid.insertBefore(node, wantedNext);
+          prev = node;
+        });
 
         renderSvgIcons();
       }
@@ -3623,6 +3774,6 @@
 
     })();
   </script>
-  <script src="/static/admin_premium.js?v=1"></script>
+  <script src="/static/admin_premium.js?v=2"></script>
 </body>
 </html>

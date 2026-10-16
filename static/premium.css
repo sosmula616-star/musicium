@@ -1491,6 +1491,60 @@ html, body { overflow-x: clip !important; overflow-y: visible; }
 }
 
 /* ============================================================
+   V12 — липкая панель чипов, меню действий трека
+   ============================================================ */
+.ytm-category-chips-bar {
+  margin: 0 16px; padding: 12px 8px 10px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-base) 92%, transparent), color-mix(in srgb, var(--bg-base) 70%, transparent));
+  backdrop-filter: blur(18px) saturate(150%); -webkit-backdrop-filter: blur(18px) saturate(150%);
+  border-radius: 0 0 22px 22px;
+}
+@media (max-width: 640px) { .ytm-category-chips-bar { margin: 0; border-radius: 0; } }
+
+/* Меню действий трека («•••» в плеере) */
+.track-menu {
+  position: fixed; z-index: 400; min-width: 230px; padding: 6px; border-radius: 18px;
+  background: rgba(20, 22, 29, 0.78); border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(30px) saturate(160%); -webkit-backdrop-filter: blur(30px) saturate(160%);
+  box-shadow: var(--bevel-lg), 0 28px 60px rgba(0, 0, 0, 0.6);
+  transform-origin: bottom right; animation: menuPop 0.28s var(--ease) both;
+}
+@keyframes menuPop { from { opacity: 0; transform: translateY(8px) scale(0.96); } to { opacity: 1; transform: none; } }
+.track-menu-head { padding: 8px 12px 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 4px; }
+.track-menu-head b { display: block; font-size: 13px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
+.track-menu-head span { font-size: 11px; color: var(--text-tertiary); }
+.track-menu button {
+  width: 100%; display: flex; align-items: center; gap: 11px; padding: 9px 12px; border: none; border-radius: 12px; background: transparent;
+  color: var(--text-secondary); font-family: inherit; font-size: 13px; text-align: left; cursor: pointer; transition: background 0.2s, color 0.2s, transform 0.25s var(--ease);
+}
+.track-menu button svg { width: 17px; height: 17px; flex-shrink: 0; color: var(--accent); }
+.track-menu button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.07); color: #fff; transform: translateX(2px); }
+.track-menu button:disabled { opacity: 0.4; cursor: default; }
+
+/* Плейсхолдер обложки (генерируется скриптом) */
+img.cover-ph { object-fit: cover; }
+
+/* ---------- Читаемость при прокрутке: контент не «просвечивает» под панелями ---------- */
+.ytm-header, html.lg-refract .ytm-header {
+  background-color: rgba(14, 15, 19, 0.80) !important;
+  backdrop-filter: blur(30px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(30px) saturate(150%) !important;
+}
+.player-dock, .vision-capsule-dock, html.lg-refract .player-dock, html.lg-refract .vision-capsule-dock {
+  background-color: rgba(14, 15, 19, 0.78) !important;
+  backdrop-filter: blur(30px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(30px) saturate(150%) !important;
+}
+.ytm-category-chips-bar {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-base) 96%, transparent), color-mix(in srgb, var(--bg-base) 84%, transparent)) !important;
+}
+/* затухание контента у верхнего края экрана под липкими панелями */
+body::before {
+  content: ''; position: fixed; left: 0; right: 0; top: 0; height: 150px; pointer-events: none; z-index: 80;
+  background: linear-gradient(180deg, var(--bg-base) 0%, color-mix(in srgb, var(--bg-base) 82%, transparent) 55%, transparent 100%);
+}
+@media (max-width: 640px) { body::before { height: 120px; } }
+/* ============================================================
    RESPONSIVE
    Брейкпоинты: ≤1180 ноутбук · ≤900 планшет · ≤640 телефон · ≤400 узкий телефон
    ============================================================ */
@@ -1716,3 +1770,40 @@ html, body { overflow-x: clip !important; overflow-y: visible; }
   .home-tile-txt b { font-size: 13px; }
   .home-hello { padding-bottom: 14px; }
 }
+
+/* Левое меню: убрана горизонтальная полоса прокрутки в списке плейлистов */
+.ytm-playlists-scroll, .ytm-custom-playlists-container { overflow-x: hidden !important; min-width: 0; }
+.ytm-playlists-scroll::-webkit-scrollbar:horizontal { display: none; height: 0; }
+.ytm-playlist-item { min-width: 0; max-width: 100%; }
+.ytm-playlist-meta { min-width: 0; flex: 1; }
+
+/* Градиентный текст обрезал нижние выносные элементы (g, р, у, ц) — добавлен запас */
+.home-title, .ytm-brand-name, .legal-brand-name strong, .splash-word, .hero-title, .brand-title > span:first-child {
+  padding-bottom: 0.14em;
+  line-height: 1.2;
+}
+
+/* ---------- Журнал обновлений ---------- */
+#sbNewsBtn { flex: 0 0 36px; position: relative; }
+.news-dot { position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); opacity: 0; transform: scale(0); transition: opacity 0.3s, transform 0.4s var(--ease); }
+.news-dot.on { opacity: 1; transform: scale(1); animation: newsPulse 1.8s ease-in-out infinite; }
+@keyframes newsPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.6); } 50% { box-shadow: 0 0 0 6px rgba(var(--accent-rgb), 0); } }
+html.sb-collapsed #sbNewsBtn { width: 44px; flex: none; }
+
+.changelog-box { width: 560px; max-width: 94vw; max-height: 84dvh; display: flex; flex-direction: column; }
+.changelog-list { overflow-y: auto; padding-right: 4px; display: flex; flex-direction: column; gap: 14px; }
+.changelog-entry {
+  position: relative; padding: 16px 18px 14px 22px; border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.09); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+.changelog-entry::before { content: ''; position: absolute; left: 0; top: 16px; bottom: 16px; width: 3px; border-radius: 3px; background: linear-gradient(180deg, var(--accent), transparent); opacity: 0.7; }
+.changelog-entry.is-new { border-color: rgba(var(--accent-rgb), 0.45); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 0 28px rgba(var(--accent-rgb), 0.12); }
+.changelog-entry header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.changelog-ver { font-family: 'Outfit', var(--font); font-weight: 600; font-size: 13px; color: var(--accent); letter-spacing: 0.04em; }
+.changelog-badge { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; background: rgba(var(--accent-rgb), 0.18); color: var(--accent); border: 1px solid rgba(var(--accent-rgb), 0.4); }
+.changelog-date { margin-left: auto; font-size: 11.5px; color: var(--text-tertiary); }
+.changelog-entry h4 { font-family: 'Outfit', var(--font); font-size: 17px; font-weight: 600; margin-bottom: 8px; color: #fff; }
+.changelog-entry ul { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.changelog-entry li { position: relative; padding-left: 16px; font-size: 13px; line-height: 1.5; color: var(--text-secondary); }
+.changelog-entry li::before { content: ''; position: absolute; left: 2px; top: 8px; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); opacity: 0.8; }
+.changelog-empty { padding: 30px 0; text-align: center; color: var(--text-tertiary); }

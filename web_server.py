@@ -112,6 +112,13 @@ class WebServer:
         self.app.router.add_get("/api/admin/logs/download", self.handle_admin_logs_download)
         self.app.router.add_get("/api/admin/audit", self.handle_admin_audit)
         self.app.router.add_get("/api/admin/audit/download", self.handle_admin_audit_download)
+        self.app.router.add_get("/api/admin/bot/overview", self.handle_admin_bot_overview)
+        self.app.router.add_post("/api/admin/bot/maintenance", self.handle_admin_maintenance)
+        self.app.router.add_post("/api/admin/bot/presence", self.handle_admin_presence)
+        self.app.router.add_post("/api/admin/bot/stop-all", self.handle_admin_stop_all)
+        self.app.router.add_post("/api/admin/bot/disconnect-all", self.handle_admin_disconnect_all)
+        self.app.router.add_post("/api/admin/changelog", self.handle_admin_changelog_add)
+        self.app.router.add_get("/api/changelog", self.handle_changelog)
         self.app.router.add_post("/api/admin/broadcast", self.handle_admin_broadcast)
         self.app.router.add_get("/api/admin/cookies", self.handle_admin_cookies)
         self.app.router.add_post("/api/admin/cookies", self.handle_admin_cookies)
@@ -496,6 +503,11 @@ class WebServer:
         user_id = safe_int(user_id_str, default=0)
         guild_id = safe_int(guild_id_str)
         channel_id = safe_int(channel_id_str)
+
+        # Режим обслуживания (администраторы не блокируются)
+        m_blocked, m_msg = admin_service.is_maintenance_blocked(user_id)
+        if m_blocked:
+            return web.json_response({"success": False, "error": f"🛠 {m_msg}", "restricted": True}, status=503)
 
         # Anti-Crash restriction check
         if user_id and anticrash.is_restricted(user_id):
@@ -2080,6 +2092,11 @@ class WebServer:
         "/api/admin/logs/clear": "Очистка буфера логов",
         "/api/admin/logs/download": "Скачивание логов",
         "/api/admin/audit/download": "Скачивание журнала действий",
+        "/api/admin/bot/maintenance": "Режим обслуживания",
+        "/api/admin/bot/presence": "Изменение статуса бота",
+        "/api/admin/bot/stop-all": "Остановка воспроизведения на всех серверах",
+        "/api/admin/bot/disconnect-all": "Отключение бота от всех голосовых каналов",
+        "/api/admin/changelog": "Публикация записи в журнале обновлений",
         "/api/admin/broadcast": "Оповещение в канал",
         "/api/admin/cookies": "Загрузка cookies",
         "/api/admin/cookies/clear": "Очистка cookies",
@@ -2450,6 +2467,87 @@ class WebServer:
             logger.error(f"Error syncing slash commands: {e}", exc_info=True)
             return web.json_response({"ok": False, "error": str(e)}, status=500)
 
+    # --- Управление ботом ---------------------------------------------------
+
+    async def handle_admin_bot_overview(self, request: web.Request) -> web.Response:
+        is_adm, _ = self._verify_admin(request)
+        if not is_adm:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+        try:
+            data = await admin_service.get_bot_overview(self.bot, self.player_manager, self.music_service)
+            return web.json_response(data)
+        except Exception as e:
+            logger.error(f"Error in handle_admin_bot_overview: {e}", exc_info=True)
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_admin_maintenance(self, request: web.Request) -> web.Response:
+        is_adm, _ = self._verify_admin(request)
+        if not is_adm:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+        try:
+            data = await request.json()
+            state = admin_service.set_maintenance(bool(data.get("enabled")), data.get("message"))
+            msg = "Режим обслуживания включён" if state["enabled"] else "Режим обслуживания выключен"
+            return web.json_response({"ok": True, "message": msg, "maintenance": state})
+        except Exception as e:
+            return web.json_response({"ok": False, "error": str(e)}, status=500)
+
+    async def handle_admin_presence(self, request: web.Request) -> web.Response:
+        is_adm, _ = self._verify_admin(request)
+        if not is_adm:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+        try:
+            data = await request.json()
+            ok, msg = await admin_service.apply_presence(
+                self.bot, data.get("status"), data.get("activity_type"), data.get("text")
+            )
+            return web.json_response({"ok": ok, "message": msg}, status=200 if ok else 400)
+        except Exception as e:
+            return web.json_response({"ok": False, "error": str(e)}, status=500)
+
+    async def handle_admin_stop_all(self, request: web.Request) -> web.Response:
+        is_adm, _ = self._verify_admin(request)
+        if not is_adm:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+        try:
+            count = await admin_service.stop_all_players(self.player_manager)
+            return web.json_response({"ok": True, "message": f"Воспроизведение остановлено на серверах: {count}"})
+        except Exception as e:
+            return web.json_response({"ok": False, "error": str(e)}, status=500)
+
+    async def handle_admin_disconnect_all(self, request: web.Request) -> web.Response:
+        is_adm, _ = self._verify_admin(request)
+        if not is_adm:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+        try:
+            count = await admin_service.disconnect_all_voice(self.bot, self.player_manager)
+            return web.json_response({"ok": True, "message": f"Бот отключён от голосовых каналов: {count}"})
+        except Exception as e:
+            return web.json_response({"ok": False, "error": str(e)}, status=500)
+
+    async def handle_changelog(self, request: web.Request) -> web.Response:
+        """Публичный журнал обновлений — доступен всем пользователям."""
+        entries = admin_service.load_changelog()
+        return web.json_response({"entries": entries, "latest": entries[0]["version"] if entries else None})
+
+    async def handle_admin_changelog_add(self, request: web.Request) -> web.Response:
+        is_adm, user = self._verify_admin(request)
+        if not is_adm:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+        try:
+            data = await request.json()
+            items = data.get("items") or []
+            if isinstance(items, str):
+                items = [line for line in items.splitlines()]
+            entry = admin_service.add_changelog_entry(
+                data.get("version", ""), data.get("title", ""), items, str((user or {}).get("name") or "")
+            )
+            return web.json_response({"ok": True, "message": f"Запись {entry['version']} опубликована", "entry": entry})
+        except ValueError as ve:
+            return web.json_response({"ok": False, "error": str(ve)}, status=400)
+        except Exception as e:
+            return web.json_response({"ok": False, "error": str(e)}, status=500)
+
     async def start(self):
         try:
             await db.init_db()
@@ -2460,6 +2558,10 @@ class WebServer:
         self.site = web.TCPSite(self.runner, self.host, self.port)
         await self.site.start()
         logger.info(f"Web server running on http://{self.host}:{self.port}")
+        try:
+            asyncio.create_task(admin_service.apply_saved_presence(self.bot))
+        except Exception as presence_err:
+            logger.debug(f"Could not schedule presence restore: {presence_err}")
 
     async def stop(self):
         if self.site:

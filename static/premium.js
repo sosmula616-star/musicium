@@ -403,3 +403,205 @@
     st.seek(Math.max(0, (st.elapsed || 0) + delta));
   }, true);
 })();
+
+/* ============================================================
+   V12: меню действий трека и красивые плейсхолдеры обложек
+   ============================================================ */
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+  function toast(msg, type) { if (typeof window.showToast === 'function') window.showToast(msg, type || 'info'); }
+
+  // ---------- 1. Меню «•••» ----------
+  var moreBtn = $('btnAddToPlCurrent');
+  var menu = null;
+  var bypass = false;
+
+  var ICONS = {
+    plus: '<path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z"/>',
+    link: '<path d="M3.9 12a3.1 3.1 0 0 1 3.1-3.1h4V7H7a5 5 0 0 0 0 10h4v-1.9H7A3.1 3.1 0 0 1 3.9 12zM8 13h8v-2H8v2zm9-6h-4v1.9h4a3.1 3.1 0 0 1 0 6.2h-4V17h4a5 5 0 0 0 0-10z"/>',
+    open: '<path d="M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>',
+    text: '<path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/>',
+    copy: '<path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z"/>',
+    moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>'
+  };
+  function item(key, label, id, disabled) {
+    return '<button type="button" data-act="' + id + '"' + (disabled ? ' disabled' : '') +
+      '><svg viewBox="0 0 24 24" fill="currentColor">' + ICONS[key] + '</svg><span>' + label + '</span></button>';
+  }
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+  function closeMenu() { if (menu) { menu.remove(); menu = null; } }
+
+  function openMenu() {
+    closeMenu();
+    var st = window.playerStore;
+    var cur = st && st.current;
+    menu = document.createElement('div');
+    menu.className = 'track-menu';
+    menu.innerHTML =
+      '<div class="track-menu-head"><b>' + esc(cur ? cur.title : 'Ничего не играет') + '</b><span>' + esc(cur ? cur.artist : 'Выберите трек, чтобы увидеть действия') + '</span></div>' +
+      item('plus', 'Добавить в плейлист', 'playlist', !cur) +
+      item('link', 'Копировать ссылку', 'copylink', !cur || !cur.url) +
+      item('copy', 'Копировать название', 'copytitle', !cur) +
+      item('open', 'Открыть в источнике', 'open', !cur || !cur.url) +
+      item('text', 'Текст песни', 'lyrics', !cur) +
+      item('moon', 'Таймер сна', 'sleep', false);
+    document.body.appendChild(menu);
+    var r = moreBtn.getBoundingClientRect();
+    var w = menu.offsetWidth, h = menu.offsetHeight;
+    var left = Math.min(Math.max(8, r.right - w), window.innerWidth - w - 8);
+    var top = Math.max(8, r.top - h - 12);
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+  }
+
+  function run(act) {
+    var st = window.playerStore;
+    var cur = st && st.current;
+    if (act === 'playlist') { bypass = true; moreBtn.click(); bypass = false; }
+    else if (act === 'copylink' && cur && cur.url) copy(cur.url, 'Ссылка скопирована');
+    else if (act === 'copytitle' && cur) copy(cur.artist + ' — ' + cur.title, 'Название скопировано');
+    else if (act === 'open' && cur && cur.url) window.open(cur.url, '_blank', 'noopener');
+    else if (act === 'lyrics') { var l = $('btnDockLyrics'); if (l) l.click(); }
+    else if (act === 'sleep') { var s = $('sbSleepBtn'); if (s) s.click(); }
+  }
+  function copy(text, okMsg) {
+    var done = function () { toast(okMsg, 'success'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function () { toast('Не удалось скопировать', 'error'); });
+    else { toast('Копирование недоступно в этом окне', 'warning'); }
+  }
+
+  if (moreBtn) {
+    // перехватываем клик раньше старого обработчика (он только открывал «в плейлист»)
+    moreBtn.addEventListener('click', function (e) {
+      if (bypass) return;
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      if (menu) closeMenu(); else openMenu();
+    }, true);
+    document.addEventListener('click', function (e) {
+      if (!menu) return;
+      var b = e.target.closest && e.target.closest('.track-menu button');
+      if (b) { var act = b.getAttribute('data-act'); closeMenu(); run(act); return; }
+      if (!menu.contains(e.target) && e.target !== moreBtn) closeMenu();
+    });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeMenu(); });
+    window.addEventListener('resize', closeMenu);
+  }
+
+  // ---------- 2. Плейсхолдеры обложек вместо логотипа ----------
+  function hash(str) {
+    var h = 0;
+    for (var i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
+    return Math.abs(h);
+  }
+  function placeholder(title) {
+    var t = (title || 'Musicium').trim();
+    var h = hash(t) % 360;
+    var words = t.replace(/[^\p{L}\p{N} ]/gu, '').split(/\s+/).filter(Boolean);
+    var letters = ((words[0] || '♪')[0] + (words[1] ? words[1][0] : '')).toUpperCase();
+    var svg =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">' +
+      '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">' +
+      '<stop offset="0" stop-color="hsl(' + h + ',48%,42%)"/><stop offset="1" stop-color="hsl(' + ((h + 50) % 360) + ',52%,16%)"/></linearGradient>' +
+      '<radialGradient id="s" cx="0.2" cy="0.1" r="0.9"><stop offset="0" stop-color="#fff" stop-opacity="0.35"/><stop offset="0.6" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>' +
+      '<rect width="200" height="200" fill="url(#g)"/><rect width="200" height="200" fill="url(#s)"/>' +
+      '<circle cx="100" cy="100" r="62" fill="none" stroke="#fff" stroke-opacity="0.14" stroke-width="2"/>' +
+      '<circle cx="100" cy="100" r="30" fill="none" stroke="#fff" stroke-opacity="0.10" stroke-width="2"/>' +
+      '<text x="100" y="118" text-anchor="middle" font-family="Outfit,Inter,sans-serif" font-size="56" font-weight="600" fill="#fff" fill-opacity="0.92">' +
+      esc(letters) + '</text></svg>';
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  }
+
+  var area = $('ytmContentArea');
+  var CARD = '.album-thumb-wrap, .chart-thumb-wrap, .square-card, .recent-card, .live-card, .community-card, .track-card, .queue-item, .ytm-tracklist-container, .curated-compact-grid, .coverflow-card';
+  function fixImages(scope) {
+    var imgs = (scope || document).querySelectorAll('img[src*="activity_icon"]');
+    imgs.forEach(function (im) {
+      if (im.classList.contains('cover-ph') || !im.alt || /^(cover|avatar|logo)$/i.test(im.alt)) return;
+      if (!im.closest(CARD)) return;
+      im.classList.add('cover-ph');
+      im.src = placeholder(im.alt);
+    });
+  }
+  if (area) {
+    fixImages(area);
+    var busy = false;
+    new MutationObserver(function () {
+      if (busy) return;
+      busy = true;
+      requestAnimationFrame(function () { busy = false; fixImages(area); });
+    }).observe(area, { childList: true, subtree: true, attributes: true, attributeFilter: ['src'] });
+  }
+  var dockWrap = document.querySelector('.vision-coverflow-wrapper, #allQueueView');
+  if (dockWrap) fixImages(dockWrap);
+})();
+
+/* ============================================================
+   Журнал обновлений для всех пользователей («Что нового»)
+   ============================================================ */
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var modal = $('changelogModal');
+  var btn = $('sbNewsBtn');
+  var dot = $('newsDot');
+  var list = $('changelogList');
+  if (!modal || !list) return;
+
+  var KEY = 'musicium_seen_changelog';
+  var latest = null;
+  var entries = [];
+
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function seen() { try { return localStorage.getItem(KEY); } catch (_) { return null; } }
+  function markSeen() { try { if (latest) localStorage.setItem(KEY, latest); } catch (_) {} if (dot) dot.classList.remove('on'); }
+  function fmtDate(iso) {
+    try { return new Date(iso + 'T00:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }); }
+    catch (_) { return iso || ''; }
+  }
+
+  function render() {
+    if (!entries.length) { list.innerHTML = '<div class="changelog-empty">Записей пока нет.</div>'; return; }
+    var prev = seen();
+    list.innerHTML = entries.map(function (e, i) {
+      var isNew = i === 0 && prev !== e.version;
+      return '<article class="changelog-entry' + (isNew ? ' is-new' : '') + '">' +
+        '<header><span class="changelog-ver">v' + esc(e.version) + '</span>' +
+        (isNew ? '<span class="changelog-badge">Новое</span>' : '') +
+        '<span class="changelog-date">' + esc(fmtDate(e.date)) + '</span></header>' +
+        '<h4>' + esc(e.title) + '</h4>' +
+        '<ul>' + (e.items || []).map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul></article>';
+    }).join('');
+  }
+
+  function open() { render(); modal.style.display = 'flex'; markSeen(); }
+  function close() { modal.style.display = 'none'; }
+
+  if (btn) btn.addEventListener('click', open);
+  var closeBtn = $('closeChangelogBtn');
+  if (closeBtn) closeBtn.addEventListener('click', close);
+  modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && modal.style.display !== 'none') close(); });
+
+  fetch('/api/changelog').then(function (r) { return r.json(); }).then(function (d) {
+    entries = d.entries || [];
+    latest = d.latest || null;
+    if (!latest) return;
+    var prev = seen();
+    if (prev !== latest && dot) dot.classList.add('on');
+    // вернувшемуся пользователю показываем окно один раз после загрузки; новичку — только точку
+    if (prev && prev !== latest) {
+      setTimeout(function () {
+        var auth = $('authDiscordModal');
+        var busyModal = document.querySelector('.custom-modal-overlay:not(#changelogModal)');
+        var authVisible = auth && auth.style.display !== 'none';
+        var otherOpen = busyModal && busyModal.style.display !== 'none' && busyModal !== auth;
+        if (!authVisible && !otherOpen) open();
+      }, 3500);
+    }
+  }).catch(function () {});
+})();

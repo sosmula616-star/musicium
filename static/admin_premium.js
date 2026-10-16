@@ -159,3 +159,131 @@
   });
   audit.timer = setInterval(tick, 5000);
 })();
+
+/* ============================================================
+   Управление ботом
+   ============================================================ */
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+  if (!$('tab-botctl')) return;
+
+  function token() {
+    try {
+      var q = new URLSearchParams(window.location.search).get('token');
+      return q || localStorage.getItem('musicium_admin_token') || sessionStorage.getItem('musicium_admin_token') || '';
+    } catch (_) { return ''; }
+  }
+  function api(url, opts) {
+    opts = opts || {};
+    var t = token();
+    opts.headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {}, t ? { Authorization: 'Bearer ' + t } : {});
+    opts.credentials = 'include';
+    return fetch(url, opts).then(function (r) { return r.json().then(function (d) { d.__status = r.status; return d; }); });
+  }
+  function toast(msg, type) {
+    var c = $('toastContainer');
+    if (!c) return;
+    var n = document.createElement('div');
+    n.className = 'toast-item ' + (type || 'info');
+    n.textContent = msg;
+    c.appendChild(n);
+    setTimeout(function () { n.style.opacity = '0'; n.style.transition = 'opacity .3s'; setTimeout(function () { n.remove(); }, 320); }, 3800);
+  }
+  function busy(btn, on) { if (btn) { btn.disabled = on; btn.classList.toggle('is-loading', on); } }
+
+  var loaded = false;
+
+  function diagRow(label, ok, text) {
+    var cls = ok === null ? '' : (ok ? 'ok' : 'bad');
+    return '<div class="bot-diag-row"><span>' + label + '</span><b class="' + cls + '">' + text + '</b></div>';
+  }
+
+  function render(d) {
+    var p = d.players || {};
+    $('botStatPlayers').textContent = p.total || 0;
+    $('botStatPlaying').textContent = p.playing || 0;
+    $('botStatVoice').textContent = p.voice_connections || 0;
+    $('botStatQueued').textContent = p.queued_tracks || 0;
+    $('botStatPing').textContent = (d.latency_ms || 0) + ' мс';
+    $('botStatCache').textContent = (d.caches && d.caches.streams) || 0;
+
+    if (!loaded) {
+      var m = d.maintenance || {};
+      $('botMaintToggle').checked = !!m.enabled;
+      $('botMaintMessage').value = m.message || '';
+      var pr = d.presence || {};
+      $('botPresStatus').value = pr.status || 'online';
+      $('botPresType').value = pr.activity_type || 'listening';
+      $('botPresText').value = pr.text || '';
+      loaded = true;
+    }
+    $('botMaintLabel').textContent = $('botMaintToggle').checked ? 'Включён' : 'Выключен';
+
+    var g = d.diagnostics || {};
+    $('botDiag').innerHTML =
+      diagRow('Python', null, g.python || '—') +
+      diagRow('discord.py', null, g.discord_py || '—') +
+      diagRow('yt-dlp', !!g.yt_dlp, g.yt_dlp || 'не найден') +
+      diagRow('FFmpeg', !!g.ffmpeg, g.ffmpeg ? 'найден' : 'не найден') +
+      diagRow('Opus (голос)', !!g.opus, g.opus ? 'загружен' : 'не загружен') +
+      diagRow('База данных', !!g.database, g.database ? 'подключена' : 'недоступна') +
+      diagRow('Система', null, g.platform || '—');
+  }
+
+  function load() {
+    return api('/api/admin/bot/overview').then(function (d) {
+      if (d.__status === 401) return;
+      render(d);
+    }).catch(function () {});
+  }
+
+  function post(url, body, btn, okFallback) {
+    busy(btn, true);
+    return api(url, { method: 'POST', body: JSON.stringify(body || {}) }).then(function (d) {
+      toast(d.ok ? (d.message || okFallback || 'Готово') : (d.error || d.message || 'Ошибка'), d.ok ? 'success' : 'error');
+      busy(btn, false);
+      load();
+      return d;
+    }).catch(function () { busy(btn, false); toast('Ошибка связи с сервером', 'error'); });
+  }
+
+  $('botMaintToggle').addEventListener('change', function () {
+    $('botMaintLabel').textContent = this.checked ? 'Включён' : 'Выключен';
+  });
+  $('botMaintSave').addEventListener('click', function () {
+    post('/api/admin/bot/maintenance', { enabled: $('botMaintToggle').checked, message: $('botMaintMessage').value }, this);
+  });
+  $('botPresSave').addEventListener('click', function () {
+    post('/api/admin/bot/presence', { status: $('botPresStatus').value, activity_type: $('botPresType').value, text: $('botPresText').value }, this);
+  });
+  $('botActStopAll').addEventListener('click', function () {
+    if (confirm('Остановить воспроизведение на всех серверах?')) post('/api/admin/bot/stop-all', {}, this);
+  });
+  $('botActDisconnectAll').addEventListener('click', function () {
+    if (confirm('Отключить бота от всех голосовых каналов?')) post('/api/admin/bot/disconnect-all', {}, this);
+  });
+  $('clPublish').addEventListener('click', function () {
+    var items = $('clItems').value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+    post('/api/admin/changelog', { version: $('clVersion').value, title: $('clTitle').value, items: items }, this).then(function (d) {
+      if (d && d.ok) { $('clItems').value = ''; $('clTitle').value = ''; refreshLatest(); }
+    });
+  });
+
+  function refreshLatest() {
+    fetch('/api/changelog').then(function (r) { return r.json(); }).then(function (d) {
+      $('clLatest').textContent = d.latest ? 'Последняя опубликованная версия: ' + d.latest : 'Записей пока нет';
+    }).catch(function () {});
+  }
+
+  document.querySelectorAll('.tab-btn').forEach(function (b) {
+    b.addEventListener('click', function () {
+      if (b.getAttribute('data-tab') === 'tab-botctl') { load(); refreshLatest(); }
+    });
+  });
+  setInterval(function () {
+    var tab = $('tab-botctl');
+    if (tab && tab.classList.contains('active') && !document.hidden) load();
+  }, 6000);
+})();

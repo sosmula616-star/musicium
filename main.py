@@ -425,6 +425,10 @@ async def slash_miniapp(interaction: discord.Interaction):
 @bot.tree.command(name="play", description="Включить музыку по названию или ссылке")
 @app_commands.describe(query="Название трека, артист или прямая ссылка (YouTube, SoundCloud, Яндекс)")
 async def slash_play(interaction: discord.Interaction, query: str):
+    m_blocked, m_msg = admin_service.is_maintenance_blocked(interaction.user.id)
+    if m_blocked:
+        await interaction.response.send_message(f"🛠 {m_msg}", ephemeral=True)
+        return
     if anticrash.is_restricted(interaction.user.id):
         info = anticrash.get_restriction(interaction.user.id)
         r_reason = info.get("reason", "Превышение лимита запросов (спам)") if info else "Ограничение доступа"
@@ -919,6 +923,10 @@ async def cmd_player(ctx):
 
 @bot.command(name="play")
 async def cmd_play(ctx, *, query: str):
+    m_blocked, m_msg = admin_service.is_maintenance_blocked(ctx.author.id)
+    if m_blocked:
+        await ctx.send(f"🛠 {m_msg}")
+        return
     if anticrash.is_restricted(ctx.author.id):
         info = anticrash.get_restriction(ctx.author.id)
         r_reason = info.get("reason", "Превышение лимита запросов (спам)") if info else "Ограничение доступа"

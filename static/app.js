@@ -715,6 +715,13 @@
       return `/api/proxy-image?url=${encodeURIComponent(upgraded)}`;
     }
 
+    // Миниатюры YouTube hq/sd/maxres содержат чёрные полосы сверху и снизу
+    // (кадр 16:9 в рамке 4:3). mqdefault — чистый кадр 16:9 без полос, он
+    // корректно обрезается до квадрата через object-fit: cover.
+    if (/(?:i\.ytimg\.com|img\.youtube\.com)\/vi(?:_webp)?\//.test(url)) {
+      url = url.replace(/\/(?:hq|sd|maxres)default(?:_live)?\.(jpg|webp)/i, '/mqdefault.$1');
+    }
+
     // In Discord Activity & Mini Apps, external domains are blocked by iframe CSP.
     // Proxy through same-origin /api/proxy-image to guarantee 100% loading!
     if (isMiniApp) {

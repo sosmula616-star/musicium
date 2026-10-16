@@ -690,3 +690,221 @@ def export_audit_text() -> str:
 
 
 _load_audit_tail()
+
+
+# --- Bot management: maintenance mode, presence, diagnostics, bulk actions ---
+
+BOT_SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bot_settings.json")
+_DEFAULT_BOT_SETTINGS: Dict[str, Any] = {
+    "maintenance": {"enabled": False, "message": "Бот временно на техническом обслуживании. Попробуйте позже."},
+    "presence": {"status": "online", "activity_type": "listening", "text": ""},
+}
+bot_settings: Dict[str, Any] = json.loads(json.dumps(_DEFAULT_BOT_SETTINGS))
+
+
+def _load_bot_settings() -> None:
+    try:
+        if os.path.exists(BOT_SETTINGS_FILE):
+            with open(BOT_SETTINGS_FILE, "r", encoding="utf-8") as f:
+                saved = json.load(f)
+            for key in _DEFAULT_BOT_SETTINGS:
+                if isinstance(saved.get(key), dict):
+                    bot_settings[key].update(saved[key])
+    except Exception as e:
+        logging.getLogger("admin_service").warning(f"Не удалось загрузить bot_settings.json: {e}")
+
+
+def _save_bot_settings() -> None:
+    try:
+        with open(BOT_SETTINGS_FILE, "w", encoding="utf-8") as f:
+            json.dump(bot_settings, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logging.getLogger("admin_service").warning(f"Не удалось сохранить bot_settings.json: {e}")
+
+
+def get_maintenance() -> Dict[str, Any]:
+    return dict(bot_settings["maintenance"])
+
+
+def set_maintenance(enabled: bool, message: Optional[str] = None) -> Dict[str, Any]:
+    bot_settings["maintenance"]["enabled"] = bool(enabled)
+    if message is not None and message.strip():
+        bot_settings["maintenance"]["message"] = message.strip()[:300]
+    _save_bot_settings()
+    return get_maintenance()
+
+
+def is_maintenance_blocked(user_id: Any) -> Tuple[bool, str]:
+    """True, если включён режим обслуживания и пользователь не администратор."""
+    m = bot_settings["maintenance"]
+    if not m.get("enabled"):
+        return False, ""
+    try:
+        if user_id is not None and is_admin_id(user_id):
+            return False, ""
+    except Exception:
+        pass
+    return True, str(m.get("message") or "Бот на обслуживании.")
+
+
+_STATUS_MAP = {
+    "online": discord.Status.online,
+    "idle": discord.Status.idle,
+    "dnd": discord.Status.dnd,
+    "invisible": discord.Status.invisible,
+}
+
+
+async def apply_presence(bot: discord.Client, status: str, activity_type: str, text: str) -> Tuple[bool, str]:
+    status = (status or "online").lower()
+    activity_type = (activity_type or "listening").lower()
+    text = (text or "").strip()[:128]
+    if status not in _STATUS_MAP:
+        return False, "Неизвестный статус"
+    activity = None
+    if text:
+        if activity_type == "playing":
+            activity = discord.Game(name=text)
+        elif activity_type == "watching":
+            activity = discord.Activity(type=discord.ActivityType.watching, name=text)
+        elif activity_type == "competing":
+            activity = discord.Activity(type=discord.ActivityType.competing, name=text)
+        else:
+            activity_type = "listening"
+            activity = discord.Activity(type=discord.ActivityType.listening, name=text)
+    try:
+        await bot.change_presence(status=_STATUS_MAP[status], activity=activity)
+    except Exception as e:
+        return False, f"Не удалось изменить статус: {e}"
+    bot_settings["presence"] = {"status": status, "activity_type": activity_type, "text": text}
+    _save_bot_settings()
+    return True, "Статус бота обновлён"
+
+
+async def apply_saved_presence(bot: discord.Client) -> None:
+    """Применяет сохранённый статус после готовности бота."""
+    try:
+        await bot.wait_until_ready()
+        p = bot_settings["presence"]
+        if p.get("text") or p.get("status") != "online":
+            await apply_presence(bot, p.get("status"), p.get("activity_type"), p.get("text"))
+    except Exception as e:
+        logging.getLogger("admin_service").debug(f"apply_saved_presence: {e}")
+
+
+async def stop_all_players(player_manager: Any) -> int:
+    stopped = 0
+    for player in list(getattr(player_manager, "players", {}).values()):
+        try:
+            if player.current_track or player.queue:
+                await player.stop()
+                stopped += 1
+        except Exception as e:
+            logging.getLogger("admin_service").debug(f"stop_all_players: {e}")
+    return stopped
+
+
+async def disconnect_all_voice(bot: discord.Client, player_manager: Any) -> int:
+    count = 0
+    for guild in list(getattr(bot, "guilds", [])):
+        vc = getattr(guild, "voice_client", None)
+        if vc and vc.is_connected():
+            ok, _ = await disconnect_bot_voice(bot, player_manager, guild.id)
+            if ok:
+                count += 1
+    return count
+
+
+def _which(cmd: str) -> Optional[str]:
+    import shutil
+    return shutil.which(cmd)
+
+
+async def get_bot_overview(bot: discord.Client, player_manager: Any, music_service: Any) -> Dict[str, Any]:
+    import platform
+    diag: Dict[str, Any] = {
+        "python": platform.python_version(),
+        "platform": platform.system() + " " + platform.release(),
+        "discord_py": getattr(discord, "__version__", "?"),
+    }
+    try:
+        import yt_dlp
+        diag["yt_dlp"] = yt_dlp.version.__version__
+    except Exception:
+        diag["yt_dlp"] = None
+    try:
+        import player as _player
+        ff = getattr(_player, "FFMPEG_EXECUTABLE", None)
+        diag["ffmpeg"] = bool(ff and (os.path.isfile(ff) or _which(ff)))
+    except Exception:
+        diag["ffmpeg"] = False
+    try:
+        diag["opus"] = bool(discord.opus.is_loaded())
+    except Exception:
+        diag["opus"] = False
+    try:
+        import db as _db
+        diag["database"] = getattr(_db, "_pool", None) is not None
+    except Exception:
+        diag["database"] = False
+
+    players = getattr(player_manager, "players", {}) or {}
+    playing = sum(1 for p in players.values() if getattr(p, "is_playing", False))
+    queued = sum(len(getattr(p, "queue", []) or []) for p in players.values())
+    voice_conns = 0
+    for g in getattr(bot, "guilds", []):
+        vc = getattr(g, "voice_client", None)
+        if vc and vc.is_connected():
+            voice_conns += 1
+    latency = getattr(bot, "latency", 0) or 0
+    if latency != latency:  # NaN, пока бот не подключён
+        latency = 0
+    return {
+        "maintenance": get_maintenance(),
+        "presence": dict(bot_settings["presence"]),
+        "diagnostics": diag,
+        "players": {"total": len(players), "playing": playing, "queued_tracks": queued, "voice_connections": voice_conns},
+        "caches": {
+            "streams": len(getattr(music_service, "_stream_cache", {}) or {}),
+            "trending": len(getattr(music_service, "_sc_trending_cache", {}) or {}),
+        },
+        "latency_ms": int(latency * 1000),
+    }
+
+
+# --- Changelog (публичный журнал обновлений) ---
+
+CHANGELOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "changelog.json")
+
+
+def load_changelog() -> List[Dict[str, Any]]:
+    try:
+        with open(CHANGELOG_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def add_changelog_entry(version: str, title: str, items: List[str], author: str = "") -> Dict[str, Any]:
+    version = (version or "").strip()[:20]
+    title = (title or "").strip()[:120]
+    clean_items = [str(i).strip()[:300] for i in (items or []) if str(i).strip()][:30]
+    if not version or not title or not clean_items:
+        raise ValueError("Нужны версия, заголовок и хотя бы один пункт")
+    entries = load_changelog()
+    entry = {
+        "version": version,
+        "title": title,
+        "date": datetime.date.today().isoformat(),
+        "items": clean_items,
+        "author": author or "",
+    }
+    entries = [e for e in entries if e.get("version") != version]
+    entries.insert(0, entry)
+    with open(CHANGELOG_FILE, "w", encoding="utf-8") as f:
+        json.dump(entries[:100], f, ensure_ascii=False, indent=2)
+    return entry
+
+
+_load_bot_settings()
