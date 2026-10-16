@@ -47,7 +47,7 @@
     }
   </script>
   <link rel="stylesheet" href="/static/style.css?v=visionos-4.0-lyrics5">
-  <link rel="stylesheet" href="/static/premium.css?v=premium-16.4">
+  <link rel="stylesheet" href="/static/premium.css?v=premium-17.0">
   <style>
     /* Language switching rules */
     html[data-lang="ru"] .lang-en,
@@ -291,6 +291,7 @@
           </div>
 
           <!-- Language Switcher -->
+          <div class="ytm-online-pill" id="botOnlinePill" title="Где сейчас используется бот" style="display:none"><span class="online-dot"></span><span id="botOnlineText"></span></div>
           <div class="lang-switch" id="langSwitch" role="group" aria-label="Language switcher" title="Сменить язык / Switch language">
             <button type="button" class="lang-toggle-btn active" data-lang="ru" id="langBtnRu" title="Русский">
               <span>RU</span>
@@ -448,6 +449,26 @@
           <!-- Tab "Все": Unified Queue, Now Playing, and Similar Tracks Flow -->
           <div id="allQueueView" class="all-queue-view"></div>
 
+          <!-- Плейлисты пользователей: сразу под очередью -->
+          <div class="ytm-shelf" id="communityPlaylistsShelf">
+            <div class="ytm-shelf-header">
+              <div class="shelf-brand-title" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                <h2><span>Плейлисты пользователей</span></h2>
+                <button class="btn-create-pl-shelf" id="btnCreatePlHome" title="Создать свой плейлист">
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                  <span>Создать плейлист</span>
+                </button>
+              </div>
+              <div class="shelf-nav-arrows">
+                <button class="shelf-arrow-btn" id="commArrowLeft" title="Назад"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
+                <button class="shelf-arrow-btn" id="commArrowRight" title="Вперед"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></button>
+              </div>
+            </div>
+            <div class="community-cards-row" id="communityPlaylistsRow">
+              <!-- Injected by JS with user-created playlists from DB -->
+            </div>
+          </div>
+
           <!-- Section 1: Сейчас слушают на серверах (Live Now across Discord servers) -->
           <div class="ytm-shelf" id="liveServersShelf">
             <div class="ytm-shelf-header">
@@ -512,24 +533,7 @@
           </div>
 
           <!-- Section 5: Плейлисты пользователей (User & Community Playlists from DB) -->
-          <div class="ytm-shelf" id="communityPlaylistsShelf">
-            <div class="ytm-shelf-header">
-              <div class="shelf-brand-title" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-                <h2><span>Плейлисты пользователей</span></h2>
-                <button class="btn-create-pl-shelf" id="btnCreatePlHome" title="Создать свой плейлист">
-                  <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-                  <span>Создать плейлист</span>
-                </button>
-              </div>
-              <div class="shelf-nav-arrows">
-                <button class="shelf-arrow-btn" id="commArrowLeft" title="Назад"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
-                <button class="shelf-arrow-btn" id="commArrowRight" title="Вперед"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></button>
-              </div>
-            </div>
-            <div class="community-cards-row" id="communityPlaylistsRow">
-              <!-- Injected by JS with user-created playlists from DB -->
-            </div>
-          </div>
+          
         </section>
 
         <!-- ================= VIEW 2: SEARCH RESULTS ================= -->
@@ -1646,8 +1650,8 @@
 
   <!-- Unified Player Store & Autoplay Engine -->
   <script src="/static/player_store.js"></script>
-  <script src="/static/app.js?v=visionos-4.0-lyrics12"></script>
-  <script src="/static/premium.js?v=10"></script>
+  <script src="/static/app.js?v=visionos-4.0-lyrics13"></script>
+  <script src="/static/premium.js?v=11"></script>
 </body>
 
 </html>

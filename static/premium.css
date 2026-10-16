@@ -1965,3 +1965,16 @@ html[data-view="home"] .user-profile-wrap::before {
 @media (min-width: 641px) {
   .toast-container { top: auto; right: auto; bottom: 118px; left: 50%; transform: translateX(-50%); align-items: center; }
 }
+
+/* ---------- Индикатор онлайна бота в шапке ---------- */
+.ytm-online-pill {
+  display: inline-flex; align-items: center; gap: 9px; height: 38px; padding: 0 16px; border-radius: 999px; white-space: nowrap;
+  font-size: 12.5px; font-weight: 500; color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.045); border: 1px solid rgba(255, 255, 255, 0.13);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+.ytm-online-pill .online-dot { width: 8px; height: 8px; border-radius: 50%; background: #5b9a73; box-shadow: 0 0 0 0 rgba(91, 154, 115, 0.6); }
+.ytm-online-pill.is-live .online-dot { background: #3ddc84; animation: onlinePulse 2s ease-out infinite; }
+.ytm-online-pill.is-live { color: #fff; border-color: rgba(61, 220, 132, 0.35); }
+@keyframes onlinePulse { 0% { box-shadow: 0 0 0 0 rgba(61, 220, 132, 0.55); } 100% { box-shadow: 0 0 0 9px rgba(61, 220, 132, 0); } }
+@media (max-width: 1100px) { .ytm-online-pill { display: none !important; } }

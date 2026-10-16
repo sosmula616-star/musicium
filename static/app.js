@@ -2369,7 +2369,7 @@
       });
     }
 
-    drawer.appendChild(historySection);
+    // Блок «Недавно играли» убран из очереди: история доступна в разделе «История» меню
     wrapper.appendChild(drawer);
 
     el.allQueueView.appendChild(wrapper);

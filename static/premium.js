@@ -667,3 +667,34 @@
     }
   }).catch(function () {});
 })();
+
+/* ============================================================
+   V17: индикатор «где бот используется» в шапке
+   ============================================================ */
+(function () {
+  'use strict';
+  var pill = document.getElementById('botOnlinePill');
+  var text = document.getElementById('botOnlineText');
+  if (!pill || !text) return;
+
+  function plural(n, a, b, c) {
+    n = Math.abs(n) % 100; var d = n % 10;
+    if (n > 10 && n < 20) return c;
+    if (d > 1 && d < 5) return b;
+    return d === 1 ? a : c;
+  }
+  function refresh() {
+    fetch('/api/status').then(function (r) { return r.json(); }).then(function (d) {
+      if (!d || !d.online) { pill.style.display = 'none'; return; }
+      var g = d.guilds_count || 0, p = d.playing_servers || 0, l = d.listeners || 0;
+      var parts = [g + ' ' + plural(g, 'сервер', 'сервера', 'серверов')];
+      if (p) parts.push('играет на ' + p);
+      if (l) parts.push(l + ' ' + plural(l, 'слушатель', 'слушателя', 'слушателей'));
+      text.textContent = parts.join(' · ');
+      pill.classList.toggle('is-live', p > 0);
+      pill.style.display = '';
+    }).catch(function () { pill.style.display = 'none'; });
+  }
+  refresh();
+  setInterval(refresh, 20000);
+})();

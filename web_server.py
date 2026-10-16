@@ -180,10 +180,21 @@ class WebServer:
                 "avatar": self.bot.user.display_avatar.url if hasattr(self.bot.user, "display_avatar") else None,
             }
 
+        streams = []
+        connected = 0
+        try:
+            streams = self.player_manager.get_all_active_streams()
+            connected = sum(1 for g in self.bot.guilds if getattr(g, "voice_client", None) and g.voice_client.is_connected())
+        except Exception as e:
+            logger.debug(f"Status usage stats failed: {e}")
+
         return web.json_response({
             "online": self.bot.is_ready(),
             "bot": bot_user,
             "guilds_count": len(self.bot.guilds),
+            "voice_servers": connected,
+            "playing_servers": len(streams),
+            "listeners": sum(int(s.get("listeners_count") or 0) for s in streams),
         })
 
     async def handle_guilds(self, request: web.Request) -> web.Response:
