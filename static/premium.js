@@ -483,7 +483,13 @@
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, legacy);
     else legacy();
   }
+  // В мини-приложении Discord внешние ссылки открываются только через SDK
   function openUrl(url) {
+    var sdk = window.discordSdkInstance;
+    if (sdk && sdk.commands && sdk.commands.openExternalLink) {
+      sdk.commands.openExternalLink({ url: url }).catch(function () {});
+      return;
+    }
     var a = document.createElement('a');
     a.href = url; a.target = '_blank'; a.rel = 'noopener noreferrer';
     document.body.appendChild(a); a.click(); a.remove();
@@ -698,3 +704,12 @@
   refresh();
   setInterval(refresh, 20000);
 })();
+
+/* Ссылки target=_blank внутри Activity блокируются песочницей — отправляем их через Discord SDK */
+document.addEventListener('click', function (e) {
+  var a = e.target.closest && e.target.closest('a[target="_blank"][href^="http"]');
+  var sdk = window.discordSdkInstance;
+  if (!a || !sdk || !sdk.commands || !sdk.commands.openExternalLink) return;
+  e.preventDefault();
+  sdk.commands.openExternalLink({ url: a.href }).catch(function () {});
+}, true);
