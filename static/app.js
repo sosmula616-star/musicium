@@ -728,7 +728,7 @@
         .replace(/-badge\./i, '-t500x500.')
         .replace(/-small\./i, '-t500x500.')
         .replace(/-tiny\./i, '-t500x500.');
-      return `/api/proxy-image?url=${encodeURIComponent(upgraded)}`;
+      return `/api/proxy-image?url=${encodeURIComponent(upgraded)}&v=3`;
     }
 
     // Миниатюры YouTube hq/sd/maxres содержат чёрные полосы сверху и снизу
@@ -741,7 +741,7 @@
     // In Discord Activity & Mini Apps, external domains are blocked by iframe CSP.
     // Proxy through same-origin /api/proxy-image to guarantee 100% loading!
     if (isMiniApp) {
-      return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+      return `/api/proxy-image?url=${encodeURIComponent(url)}&v=3`;
     }
     return url;
   }

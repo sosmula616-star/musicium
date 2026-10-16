@@ -566,7 +566,7 @@
     var go = function (u) {
       delete im.dataset.fbBusy;
       if (!u) return finalFallback();
-      setCover(im, '/api/proxy-image?url=' + encodeURIComponent(u));
+      setCover(im, '/api/proxy-image?url=' + encodeURIComponent(u) + '&v=3');
     };
     im.dataset.fbBusy = '1';
     if (coverCache[q] !== undefined) return go(coverCache[q]);
