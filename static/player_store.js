@@ -430,6 +430,7 @@
       const isPlaying = Boolean(backendState.is_playing && !backendState.is_paused);
       const elapsed = Number(backendState.position !== undefined ? backendState.position : (backendState.elapsed_seconds || 0));
       const duration = Number(backendState.duration || (botTrack ? parseDuration(botTrack.duration_str || botTrack.duration) : 0));
+      const elapsedClamped = duration > 0 ? Math.min(elapsed, duration) : elapsed;
 
       const rawQueue = Array.isArray(backendState.queue) ? backendState.queue : [];
       const botQueue = rawQueue.map(t => normalizeTrack(t, false));
@@ -446,12 +447,12 @@
           if (this.history.length > MAX_HISTORY) this.history.pop();
         }
         this.current = botTrack;
-        this.elapsed = elapsed;
+        this.elapsed = elapsedClamped;
         this.duration = duration;
         this.isPlaying = isPlaying;
         trackChanged = true;
       } else {
-        this.elapsed = elapsed;
+        this.elapsed = elapsedClamped;
         if (duration > 0) this.duration = duration;
         this.isPlaying = isPlaying;
       }

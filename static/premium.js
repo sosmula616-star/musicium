@@ -463,14 +463,30 @@
     if (act === 'playlist') { bypass = true; moreBtn.click(); bypass = false; }
     else if (act === 'copylink' && cur && cur.url) copy(cur.url, 'Ссылка скопирована');
     else if (act === 'copytitle' && cur) copy(cur.artist + ' — ' + cur.title, 'Название скопировано');
-    else if (act === 'open' && cur && cur.url) window.open(cur.url, '_blank', 'noopener');
+    else if (act === 'open' && cur && cur.url) openUrl(cur.url);
     else if (act === 'lyrics') { var l = $('btnDockLyrics'); if (l) l.click(); }
     else if (act === 'sleep') { var s = $('sbSleepBtn'); if (s) s.click(); }
   }
   function copy(text, okMsg) {
     var done = function () { toast(okMsg, 'success'); };
-    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function () { toast('Не удалось скопировать', 'error'); });
-    else { toast('Копирование недоступно в этом окне', 'warning'); }
+    // в iframe (Discord Activity) Clipboard API часто запрещён — запасной путь через execCommand
+    var legacy = function () {
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;top:-100px;opacity:0';
+        document.body.appendChild(ta); ta.select();
+        var ok = document.execCommand('copy');
+        ta.remove();
+        if (ok) done(); else toast('Не удалось скопировать', 'error');
+      } catch (_) { toast('Не удалось скопировать', 'error'); }
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, legacy);
+    else legacy();
+  }
+  function openUrl(url) {
+    var a = document.createElement('a');
+    a.href = url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+    document.body.appendChild(a); a.click(); a.remove();
   }
 
   if (moreBtn) {
@@ -515,7 +531,35 @@
     return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
   }
 
+  // ---------- 2b. Не загрузилась обложка → ищем на другой площадке (iTunes / Deezer) ----------
+  var coverCache = {};
+  function setCover(im, url) {
+    im.src = url;
+    var wrap = im.closest('.coverflow-thumb-wrap');
+    if (wrap) wrap.style.setProperty('--cover', "url('" + url + "')");
+  }
+  document.addEventListener('error', function (e) {
+    var im = e.target;
+    if (!im || im.tagName !== 'IMG' || im.dataset.fb === '2') return;
+    var title = im.dataset.t || im.alt;
+    var stage = im.dataset.fb ? 2 : 1;
+    im.dataset.fb = String(stage);
+    var finalFallback = function () { im.dataset.fb = '2'; if (title) im.src = placeholder(title); };
+    if (stage === 2 || !title || /^(cover|avatar|logo|musicium)$/i.test(title) || !im.closest(CARD_SEL)) { if (title && im.closest(CARD_SEL)) finalFallback(); return; }
+    var q = new URLSearchParams({ title: title, artist: im.dataset.a || '' }).toString();
+    var go = function (u) {
+      if (!u) return finalFallback();
+      var proxied = '/api/proxy-image?url=' + encodeURIComponent(u);
+      setCover(im, proxied);
+    };
+    if (coverCache[q] !== undefined) return go(coverCache[q]);
+    fetch('/api/cover?' + q).then(function (r) { return r.json(); })
+      .then(function (d) { coverCache[q] = d && d.url || null; go(coverCache[q]); })
+      .catch(finalFallback);
+  }, true);
+
   var area = $('ytmContentArea');
+  var CARD_SEL = '.album-thumb-wrap, .chart-thumb-wrap, .square-card, .recent-card, .live-card, .community-card, .track-card, .queue-item, .ytm-tracklist-container, .curated-compact-grid, .coverflow-card, .cap-art-wrap, .lyrics-header-thumb-wrap';
   var CARD = '.album-thumb-wrap, .chart-thumb-wrap, .square-card, .recent-card, .live-card, .community-card, .track-card, .queue-item, .ytm-tracklist-container, .curated-compact-grid, .coverflow-card';
   function fixImages(scope) {
     var imgs = (scope || document).querySelectorAll('img[src*="activity_icon"]');

@@ -23,7 +23,7 @@ logger = logging.getLogger("web_server")
 @web.middleware
 async def cache_control_middleware(request: web.Request, handler):
     response = await handler(request)
-    if request.path.startswith("/static/") or request.path == "/":
+    if request.path.startswith("/static/") or request.path in ("/", "/admin"):
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
@@ -70,6 +70,7 @@ class WebServer:
         self.app.router.add_get("/api/auth/discord", self.handle_auth_discord)
         self.app.router.add_get("/api/auth/callback", self.handle_auth_callback)
         self.app.router.add_get("/api/proxy-image", self.handle_proxy_image)
+        self.app.router.add_get("/api/cover", self.handle_cover)
         self.app.router.add_get("/api/recommendations", self.handle_recommendations)
         self.app.router.add_get("/api/similar", self.handle_similar)
         self.app.router.add_get("/api/lyrics", self.handle_lyrics)
@@ -1211,6 +1212,57 @@ class WebServer:
         if os.path.exists(static_icon):
             return web.FileResponse(static_icon, headers={"Cache-Control": "public, max-age=86400", "Access-Control-Allow-Origin": "*"})
         return web.Response(status=404)
+
+    async def handle_cover(self, request: web.Request) -> web.Response:
+        """Ищет обложку трека на другой площадке (iTunes, затем Deezer), когда штатная не загрузилась."""
+        title = (request.query.get("title") or "").strip()[:160]
+        artist = (request.query.get("artist") or "").strip()[:120]
+        if not title:
+            return web.json_response({"url": None})
+
+        key = f"{artist}|{title}".lower()
+        cache = getattr(self, "_cover_cache", None)
+        if cache is None:
+            cache = self._cover_cache = {}
+        if key in cache:
+            return web.json_response({"url": cache[key]}, headers={"Cache-Control": "public, max-age=86400"})
+
+        term = f"{artist} {title}".strip()
+        found: Optional[str] = None
+        try:
+            timeout = aiohttp.ClientTimeout(total=4.0, connect=2.0)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                # 1) iTunes Search — квадратная обложка до 600x600
+                try:
+                    q = urllib.parse.urlencode({"term": term, "media": "music", "entity": "song", "limit": 1})
+                    async with session.get(f"https://itunes.apple.com/search?{q}") as r:
+                        if r.status == 200:
+                            data = await r.json(content_type=None)
+                            res = (data.get("results") or [])
+                            if res and res[0].get("artworkUrl100"):
+                                found = res[0]["artworkUrl100"].replace("100x100bb", "600x600bb")
+                except Exception as e:
+                    logger.debug(f"iTunes cover lookup failed: {e}")
+                # 2) Deezer
+                if not found:
+                    try:
+                        q = urllib.parse.urlencode({"q": term, "limit": 1})
+                        async with session.get(f"https://api.deezer.com/search?{q}") as r:
+                            if r.status == 200:
+                                data = await r.json(content_type=None)
+                                res = (data.get("data") or [])
+                                if res:
+                                    album = res[0].get("album") or {}
+                                    found = album.get("cover_xl") or album.get("cover_big")
+                    except Exception as e:
+                        logger.debug(f"Deezer cover lookup failed: {e}")
+        except Exception as e:
+            logger.debug(f"Cover lookup failed: {e}")
+
+        if len(cache) > 2000:
+            cache.clear()
+        cache[key] = found
+        return web.json_response({"url": found}, headers={"Cache-Control": "public, max-age=86400"})
 
     async def handle_recommendations(self, request: web.Request) -> web.Response:
         """Returns verified recommendation sections with valid YouTube & SoundCloud tracks."""

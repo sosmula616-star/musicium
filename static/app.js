@@ -2068,8 +2068,8 @@
 
       const thumbUrl = getSafeImageUrl(spec.track.thumbnail);
       cardEl.innerHTML = `
-        <div class="coverflow-thumb-wrap">
-          <img src="${thumbUrl}" alt="${escapeHtml(spec.track.title)}" class="coverflow-thumb" onerror="this.src='/static/activity_icon.jpg';">
+        <div class="coverflow-thumb-wrap" style="--cover:url('${thumbUrl}')">
+          <img src="${thumbUrl}" alt="${escapeHtml(spec.track.title)}" class="coverflow-thumb" data-t="${escapeHtml(spec.track.title)}" data-a="${escapeHtml(spec.track.artist || '')}" referrerpolicy="no-referrer">
           <div class="coverflow-thumb-overlay"></div>
         </div>
         <div class="coverflow-card-bottom">
@@ -3253,6 +3253,7 @@
   // Export handlers for playerStore
   window.dispatchBotPlayTrack = sendPlayRequestToBot;
   window.dispatchBotAction = sendPlayerAction;
+  window.showToast = showToast;
 
   // Send player action (checks if user is in voice, except for volume setting)
   async function sendPlayerAction(action, payload = {}) {
@@ -3365,7 +3366,7 @@
     if (playerState.elapsed_seconds !== undefined) elap = Number(playerState.elapsed_seconds);
     else if (playerState.position !== undefined) elap = Number(playerState.position);
     else elap = state.elapsed;
-    state.elapsed = (elap >= 0 && !isNaN(elap)) ? elap : 0;
+    state.elapsed = (elap >= 0 && !isNaN(elap)) ? (state.duration > 0 ? Math.min(elap, state.duration) : elap) : 0;
 
     // Track playback history
     if (track && (!state.historyTracks.length || state.historyTracks[0].title !== track.title)) {

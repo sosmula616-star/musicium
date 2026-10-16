@@ -14,6 +14,15 @@ from music_service import Track, MusicService, format_duration
 
 logger = logging.getLogger("player")
 
+
+class _NoLock:
+    """Заглушка вместо блокировки: для вызовов, где _lock уже захвачен."""
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
 def find_ffmpeg() -> str:
     # 1. On Linux, prefer system ffmpeg if available
     if sys.platform != "win32":
@@ -205,6 +214,9 @@ class GuildPlayer:
             elapsed = self.pause_start_time - self.start_time - self.total_paused_duration
         else:
             elapsed = time.time() - self.start_time - self.total_paused_duration
+        dur = self.current_track.duration or 0
+        if dur > 0:
+            elapsed = min(elapsed, dur)
         return max(0, int(elapsed))
 
     def get_non_bot_listeners(self) -> List[discord.Member]:
@@ -414,10 +426,14 @@ class GuildPlayer:
             def _after_play(err):
                 if current_gen != self._play_generation:
                     return
-                elapsed = (time.time() - self.start_time) if self.start_time > 0 else 0
+                elapsed = float(self.get_elapsed_seconds())  # позиция без пауз
                 expected_dur = track.duration or 0
-                prematurely_cut = (expected_dur > 30) and (elapsed < min(expected_dur - 25, expected_dur * 0.90))
-                is_failed = bool(err) or (elapsed < 3.0) or prematurely_cut
+                # дошли до конца — ошибка ffmpeg на EOF не считается сбоем (иначе трек перезапускается по кругу)
+                near_end = expected_dur > 0 and elapsed >= expected_dur - 5
+                prematurely_cut = (not near_end) and (expected_dur > 30) and (elapsed < min(expected_dur - 25, expected_dur * 0.90))
+                is_failed = (not near_end) and (bool(err) or (elapsed < 3.0) or prematurely_cut)
+                if is_failed and elapsed > 8:
+                    prematurely_cut = True  # сбой в середине трека: продолжаем с этого места, а не с нуля
 
                 if err:
                     logger.error(f"Playback error in {self.guild.name}: {err}")
@@ -477,9 +493,10 @@ class GuildPlayer:
                         if cut_off_at and cut_off_at > 5:
                             resume_sec = max(0, int(cut_off_at - 1))
                             logger.info(f"Seamlessly resuming '{track.title}' from {resume_sec}s...")
-                            await self.seek(resume_sec)
+                            await self.seek(resume_sec, _locked=True)
                         else:
                             await self._start_track(track)
+                            self._retried_current = True  # _start_track сбрасывает флаг — иначе бесконечный перезапуск
                         return
 
                 self._consecutive_failures += 1
@@ -656,8 +673,9 @@ class GuildPlayer:
                 "required": required_votes,
             }
 
-    async def seek(self, seconds: int) -> bool:
-        async with self._lock:
+    async def seek(self, seconds: int, _locked: bool = False) -> bool:
+        # _locked=True — вызов из _handle_track_finished_or_failed, где _lock уже взят (иначе взаимная блокировка)
+        async with (_NoLock() if _locked else self._lock):
             if not self.current_track or not self.voice_client or not self.voice_client.is_connected():
                 return False
 
@@ -714,8 +732,11 @@ class GuildPlayer:
                     return
                 elapsed = time.time() - seek_started_at
                 expected_remaining = (self.current_track.duration - seconds) if (self.current_track and self.current_track.duration) else 0
-                prematurely_cut = (expected_remaining > 20) and (elapsed < (expected_remaining - 12))
-                is_failed = bool(err) or (elapsed < 3.0) or prematurely_cut
+                near_end = bool(self.current_track and self.current_track.duration) and (seconds + elapsed) >= self.current_track.duration - 5
+                prematurely_cut = (not near_end) and (expected_remaining > 20) and (elapsed < (expected_remaining - 12))
+                is_failed = (not near_end) and (bool(err) or (elapsed < 3.0) or prematurely_cut)
+                if is_failed and elapsed > 8:
+                    prematurely_cut = True
 
                 if err:
                     logger.error(f"Playback error after seek: {err}")
