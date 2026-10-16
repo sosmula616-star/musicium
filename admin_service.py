@@ -580,3 +580,113 @@ async def play_url_on_guild(bot: discord.Client, player_manager: Any, music_serv
     logger.info(f"[ADMIN ACTION] Admin enqueued '{track.title}' on guild '{guild.name}'.")
     return True, f"Трек «{track.title}» успешно включен!"
 
+
+
+# --- Admin Audit Trail (журнал действий администраторов) ---
+
+AUDIT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "admin_audit.jsonl")
+AUDIT_MAXLEN = 2000
+_SENSITIVE_KEYS = ("password", "pass", "code", "pin", "key", "token", "secret", "cookie", "content", "authorization")
+
+audit_buffer: "deque[Dict[str, Any]]" = deque(maxlen=AUDIT_MAXLEN)
+_audit_seq = 0
+
+
+def _load_audit_tail() -> None:
+    """Подгружает последние записи журнала с диска, чтобы он переживал перезапуск."""
+    global _audit_seq
+    try:
+        if not os.path.exists(AUDIT_FILE):
+            return
+        with open(AUDIT_FILE, "r", encoding="utf-8") as f:
+            lines = f.readlines()[-AUDIT_MAXLEN:]
+        for line in lines:
+            try:
+                entry = json.loads(line)
+                audit_buffer.append(entry)
+                _audit_seq = max(_audit_seq, int(entry.get("id", 0)))
+            except Exception:
+                continue
+    except Exception as e:
+        logging.getLogger("admin_service").warning(f"Не удалось загрузить журнал аудита: {e}")
+
+
+def sanitize_audit_details(data: Any, depth: int = 0) -> Any:
+    """Убирает секреты из тела запроса и обрезает длинные значения."""
+    if depth > 3:
+        return "…"
+    if isinstance(data, dict):
+        out = {}
+        for k, v in data.items():
+            kl = str(k).lower()
+            if any(s in kl for s in _SENSITIVE_KEYS):
+                out[k] = "***"
+            else:
+                out[k] = sanitize_audit_details(v, depth + 1)
+        return out
+    if isinstance(data, list):
+        return [sanitize_audit_details(v, depth + 1) for v in data[:10]]
+    if isinstance(data, str):
+        return data if len(data) <= 200 else data[:200] + "…"
+    return data
+
+
+def record_audit(action: str, admin_id: str = "", admin_name: str = "", ip: str = "",
+                 method: str = "", path: str = "", status: int = 200,
+                 details: Optional[Dict[str, Any]] = None, message: str = "",
+                 duration_ms: int = 0) -> Dict[str, Any]:
+    """Добавляет запись в журнал действий (память + файл + общий лог)."""
+    global _audit_seq
+    _audit_seq += 1
+    now = time.time()
+    entry = {
+        "id": _audit_seq,
+        "ts": now,
+        "time": datetime.datetime.fromtimestamp(now).strftime("%Y-%m-%d %H:%M:%S"),
+        "action": action,
+        "admin_id": str(admin_id or ""),
+        "admin_name": admin_name or "",
+        "ip": ip,
+        "method": method,
+        "path": path,
+        "status": int(status),
+        "ok": 200 <= int(status) < 400,
+        "message": message or "",
+        "details": sanitize_audit_details(details or {}),
+        "duration_ms": duration_ms,
+    }
+    audit_buffer.append(entry)
+    try:
+        with open(AUDIT_FILE, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+    logging.getLogger("admin_audit").info(
+        "%s | admin=%s | status=%s | %s", action, entry["admin_name"] or entry["admin_id"] or "anonymous",
+        entry["status"], json.dumps(entry["details"], ensure_ascii=False)
+    )
+    return entry
+
+
+def get_audit(search: Optional[str] = None, status: Optional[str] = None,
+              action: Optional[str] = None, limit: int = 300) -> List[Dict[str, Any]]:
+    entries = list(audit_buffer)
+    if status == "ok":
+        entries = [e for e in entries if e["ok"]]
+    elif status == "error":
+        entries = [e for e in entries if not e["ok"]]
+    if action:
+        entries = [e for e in entries if e["action"] == action]
+    if search:
+        q = search.lower()
+        entries = [e for e in entries if q in json.dumps(e, ensure_ascii=False).lower()]
+    if limit and limit > 0:
+        entries = entries[-limit:]
+    return entries
+
+
+def export_audit_text() -> str:
+    return "\n".join(json.dumps(e, ensure_ascii=False) for e in audit_buffer)
+
+
+_load_audit_tail()

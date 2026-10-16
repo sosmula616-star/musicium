@@ -228,6 +228,8 @@ class MusicService:
 
         # Cache for resolved audio stream URLs: {key: (stream_url, expire_timestamp)}
         self._stream_cache: Dict[str, Tuple[str, float]] = {}
+        # cache_key -> Future с результатом уже запущенного разрешения потока
+        self._stream_inflight: Dict[str, "asyncio.Future[Optional[str]]"] = {}
 
         # Streaming & Cookies Mode configuration
         self.streaming_settings: Dict[str, Any] = {
@@ -948,20 +950,43 @@ class MusicService:
             else:
                 self._stream_cache.pop(cache_key, None)
 
-        if self.streaming_settings.get("mode") == "soundcloud_first":
-            stream = await self._get_soundcloud_stream(track)
-            if not stream:
-                stream = await self._get_youtube_stream(track)
-        elif track.source == "soundcloud" or (track.url and "soundcloud.com" in track.url) or (track.id and track.id.startswith("soundcloud_")):
-            stream = await self._get_soundcloud_stream(track)
-        else:
-            stream = await self._get_youtube_stream(track)
+        # Если этот же трек уже разрешается (например, фоновый прогрев и запуск
+        # воспроизведения одновременно) — присоединяемся к тому же запросу,
+        # а не запускаем вторую тяжёлую выгрузку yt-dlp.
+        inflight = self._stream_inflight
+        if cache_key and not force_refresh and cache_key in inflight:
+            try:
+                return await asyncio.shield(inflight[cache_key])
+            except Exception:
+                return None
 
-        if stream and cache_key:
-            # URLs are typically valid for 6h+, cache for 2.5h (9000s)
-            self._stream_cache[cache_key] = (stream, now + 9000)
-            if len(self._stream_cache) > 300:
-                self._stream_cache = {k: v for k, v in self._stream_cache.items() if v[1] > now}
+        shared: Optional["asyncio.Future[Optional[str]]"] = None
+        if cache_key:
+            shared = asyncio.get_running_loop().create_future()
+            inflight[cache_key] = shared
+
+        stream: Optional[str] = None
+        try:
+            if self.streaming_settings.get("mode") == "soundcloud_first":
+                stream = await self._get_soundcloud_stream(track)
+                if not stream:
+                    stream = await self._get_youtube_stream(track)
+            elif track.source == "soundcloud" or (track.url and "soundcloud.com" in track.url) or (track.id and track.id.startswith("soundcloud_")):
+                stream = await self._get_soundcloud_stream(track)
+            else:
+                stream = await self._get_youtube_stream(track)
+
+            if stream and cache_key:
+                # URLs are typically valid for 6h+, cache for 2.5h (9000s)
+                self._stream_cache[cache_key] = (stream, now + 9000)
+                if len(self._stream_cache) > 300:
+                    self._stream_cache = {k: v for k, v in self._stream_cache.items() if v[1] > now}
+        finally:
+            if shared is not None:
+                if not shared.done():
+                    shared.set_result(stream)
+                if inflight.get(cache_key) is shared:
+                    inflight.pop(cache_key, None)
 
         return stream
 

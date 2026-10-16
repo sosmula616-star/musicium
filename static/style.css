@@ -64,54 +64,6 @@
   --t-slow: 0.4s;
 }
 
-/* Theme: Aurora Borealis */
-[data-theme="aurora"] {
-  --accent:           #10b981;
-  --accent-secondary: #8b5cf6;
-  --accent-rgb:       16, 185, 129;
-  --accent-glow:      rgba(16, 185, 129, 0.35);
-  --glass-bg:         rgba(10, 25, 22, 0.68);
-  --glass-bg-hover:   rgba(16, 40, 34, 0.78);
-  --glass-bg-dock:    rgba(8, 22, 18, 0.85);
-  --glass-border-top: rgba(52, 211, 153, 0.35);
-}
-
-/* Theme: Sunset Glow */
-[data-theme="sunset"] {
-  --accent:           #f43f5e;
-  --accent-secondary: #fb923c;
-  --accent-rgb:       244, 63, 94;
-  --accent-glow:      rgba(244, 63, 94, 0.35);
-  --glass-bg:         rgba(30, 16, 26, 0.68);
-  --glass-bg-hover:   rgba(45, 22, 38, 0.78);
-  --glass-bg-dock:    rgba(24, 12, 20, 0.85);
-  --glass-border-top: rgba(244, 63, 94, 0.35);
-}
-
-/* Theme: Midnight visionOS */
-[data-theme="midnight"] {
-  --accent:           #3b82f6;
-  --accent-secondary: #6366f1;
-  --accent-rgb:       59, 130, 246;
-  --accent-glow:      rgba(59, 130, 246, 0.35);
-  --glass-bg:         rgba(10, 14, 28, 0.72);
-  --glass-bg-hover:   rgba(18, 25, 48, 0.82);
-  --glass-bg-dock:    rgba(8, 12, 24, 0.88);
-  --glass-border-top: rgba(96, 165, 250, 0.35);
-}
-
-/* Theme: Crystal Frost */
-[data-theme="frost"] {
-  --accent:           #38bdf8;
-  --accent-secondary: #e2e8f0;
-  --accent-rgb:       56, 189, 248;
-  --accent-glow:      rgba(56, 189, 248, 0.35);
-  --glass-bg:         rgba(15, 24, 38, 0.68);
-  --glass-bg-hover:   rgba(24, 36, 56, 0.78);
-  --glass-bg-dock:    rgba(12, 20, 32, 0.85);
-  --glass-border-top: rgba(226, 232, 240, 0.40);
-}
-
 /* ============================================================
    RESET & BASE
    ============================================================ */
@@ -2117,7 +2069,7 @@ html:not([data-lang="en"]) .lang-en { display: none !important; }
 
 .track-card:hover {
   background: var(--glass-bg-hover, rgba(255, 255, 255, 0.08)) !important;
-  border-color: rgba(0, 242, 254, 0.5) !important;
+  border-color: rgba(var(--accent-rgb), 0.5) !important;
   border-top-color: rgba(255, 255, 255, 0.75) !important;
   transform: translateY(-6px) scale(1.02) !important;
   box-shadow: 0 24px 50px rgba(0, 0, 0, 0.6), 0 0 28px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
@@ -4098,7 +4050,7 @@ html:not([data-lang="en"]) .lang-en { display: none !important; }
   background: rgba(18, 22, 34, 0.96);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: var(--r-md);
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.7), 0 0 20px rgba(0, 242, 254, 0.15);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.7), 0 0 20px rgba(var(--accent-rgb), 0.15);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   padding: 12px;
@@ -4116,7 +4068,7 @@ html:not([data-lang="en"]) .lang-en { display: none !important; }
   height: 40px;
   border-radius: 50%;
   object-fit: cover;
-  border: 1.5px solid rgba(0, 242, 254, 0.5);
+  border: 1.5px solid rgba(var(--accent-rgb), 0.5);
 }
 .menu-user-meta {
   flex: 1;
@@ -4585,7 +4537,7 @@ html:not([data-lang="en"]) .lang-en { display: none !important; }
 
 .album-card:hover {
   background: var(--glass-bg-hover, rgba(255, 255, 255, 0.08)) !important;
-  border-color: rgba(0, 242, 254, 0.45) !important;
+  border-color: rgba(var(--accent-rgb), 0.45) !important;
   border-top-color: rgba(255, 255, 255, 0.7) !important;
   transform: translateY(-6px) scale(1.02) !important;
   box-shadow: 0 24px 50px rgba(0, 0, 0, 0.55), 0 0 28px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
@@ -5284,8 +5236,8 @@ html:not([data-lang="en"]) .lang-en { display: none !important; }
   color: #ffffff !important;
   font-size: 25px !important;
   font-weight: 800 !important;
-  background: rgba(var(--accent-rgb, 0, 242, 254), 0.18) !important;
-  border: 1px solid rgba(var(--accent-rgb, 0, 242, 254), 0.5) !important;
+  background: rgba(var(--accent-rgb), 0.18) !important;
+  border: 1px solid rgba(var(--accent-rgb), 0.5) !important;
   border-top: 1px solid rgba(255, 255, 255, 0.7) !important;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), 0 0 28px var(--accent-glow) !important;
   transform: scale(1.02);
@@ -5636,9 +5588,9 @@ html:not([data-lang="en"]) .lang-en { display: none !important; }
 }
 
 .coverflow-card-badge.playing {
-  background: rgba(0, 242, 254, 0.15);
-  color: #00f2fe;
-  border: 1px solid rgba(0, 242, 254, 0.35);
+  background: rgba(var(--accent-rgb), 0.15);
+  color: var(--accent);
+  border: 1px solid rgba(var(--accent-rgb), 0.35);
 }
 
 .coverflow-card-badge.autoplay {

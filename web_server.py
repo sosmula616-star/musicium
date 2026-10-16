@@ -1,4 +1,5 @@
 import os
+import time
 import json
 import asyncio
 import logging
@@ -41,7 +42,7 @@ class WebServer:
         self.bot = bot
         self.player_manager = player_manager
         self.music_service = music_service
-        self.app = web.Application(middlewares=[cache_control_middleware])
+        self.app = web.Application(middlewares=[cache_control_middleware, self._audit_middleware])
         self.runner = None
         self.site = None
 
@@ -109,6 +110,8 @@ class WebServer:
         self.app.router.add_get("/api/admin/logs", self.handle_admin_logs)
         self.app.router.add_post("/api/admin/logs/clear", self.handle_admin_logs_clear)
         self.app.router.add_get("/api/admin/logs/download", self.handle_admin_logs_download)
+        self.app.router.add_get("/api/admin/audit", self.handle_admin_audit)
+        self.app.router.add_get("/api/admin/audit/download", self.handle_admin_audit_download)
         self.app.router.add_post("/api/admin/broadcast", self.handle_admin_broadcast)
         self.app.router.add_get("/api/admin/cookies", self.handle_admin_cookies)
         self.app.router.add_post("/api/admin/cookies", self.handle_admin_cookies)
@@ -2062,6 +2065,107 @@ class WebServer:
             return web.json_response({"ok": True, "message": f"Бот успешно покинул сервер {name}"})
         except Exception as e:
             return web.json_response({"ok": False, "error": str(e)}, status=500)
+
+    # --- Admin audit trail -------------------------------------------------
+
+    _AUDIT_LABELS = {
+        "/api/admin/auth/request-code": "Запрос кода входа",
+        "/api/admin/auth/verify-code": "Вход по коду",
+        "/api/admin/auth/login-key": "Вход по паролю/ключу",
+        "/api/admin/auth/logout": "Выход из панели",
+        "/api/admin/bot/switch-channel": "Перенос бота в другой канал",
+        "/api/admin/bot/disconnect": "Отключение бота от голосового канала",
+        "/api/admin/bot/player-action": "Управление плеером",
+        "/api/admin/bot/leave-guild": "Выход бота с сервера",
+        "/api/admin/logs/clear": "Очистка буфера логов",
+        "/api/admin/logs/download": "Скачивание логов",
+        "/api/admin/audit/download": "Скачивание журнала действий",
+        "/api/admin/broadcast": "Оповещение в канал",
+        "/api/admin/cookies": "Загрузка cookies",
+        "/api/admin/cookies/clear": "Очистка cookies",
+        "/api/admin/streaming/settings": "Изменение настроек стриминга",
+        "/api/admin/anticrash/unrestrict": "Снятие ограничения пользователя",
+        "/api/admin/anticrash/restrict": "Ограничение пользователя",
+        "/api/admin/anticrash/settings": "Настройки антикраша",
+        "/api/admin/bot/play-url": "Запуск трека по ссылке",
+        "/api/admin/bot/clear-queue": "Очистка очереди сервера",
+        "/api/admin/bot/clear-cache": "Очистка кэша",
+        "/api/admin/bot/sync-commands": "Синхронизация слэш-команд",
+    }
+
+    @web.middleware
+    async def _audit_middleware(self, request: web.Request, handler):
+        path = request.path
+        tracked = path.startswith("/api/admin/") and (
+            request.method in ("POST", "PUT", "PATCH", "DELETE") or path.endswith("/download")
+        )
+        if not tracked:
+            return await handler(request)
+
+        body: Dict[str, Any] = {}
+        if request.method != "GET" and request.can_read_body and "json" in (request.content_type or ""):
+            try:
+                raw = await request.read()
+                parsed = json.loads(raw) if raw else {}
+                body = parsed if isinstance(parsed, dict) else {}
+            except Exception:
+                body = {}
+
+        started = time.time()
+        status = 500
+        message = ""
+        try:
+            response = await handler(request)
+            status = response.status
+            try:
+                payload = json.loads(response.body) if getattr(response, "body", None) else {}
+                message = str(payload.get("message") or payload.get("error") or "")[:200]
+            except Exception:
+                pass
+            return response
+        except web.HTTPException as e:
+            status = e.status
+            raise
+        finally:
+            try:
+                is_adm, user = self._verify_admin(request)
+                user = user or {}
+                admin_id = str(user.get("uid") or body.get("user_id") or body.get("uid") or "")
+                fwd = request.headers.get("X-Forwarded-For", "")
+                ip = (fwd.split(",")[0].strip() if fwd else (request.remote or ""))
+                label = self._AUDIT_LABELS.get(path, path)
+                if not is_adm and status == 401:
+                    label = f"Отказано в доступе: {label}"
+                admin_service.record_audit(
+                    action=label, admin_id=admin_id, admin_name=str(user.get("name") or ""),
+                    ip=ip, method=request.method, path=path, status=status,
+                    details=body, message=message, duration_ms=int((time.time() - started) * 1000),
+                )
+            except Exception as audit_err:
+                logger.debug(f"Audit record failed: {audit_err}")
+
+    async def handle_admin_audit(self, request: web.Request) -> web.Response:
+        is_adm, _ = self._verify_admin(request)
+        if not is_adm:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+        entries = admin_service.get_audit(
+            search=request.query.get("search"),
+            status=request.query.get("status"),
+            action=request.query.get("action"),
+            limit=safe_int(request.query.get("limit"), 300),
+        )
+        actions = sorted({e["action"] for e in admin_service.audit_buffer})
+        return web.json_response({"entries": entries, "total": len(admin_service.audit_buffer), "actions": actions})
+
+    async def handle_admin_audit_download(self, request: web.Request) -> web.Response:
+        is_adm, _ = self._verify_admin(request)
+        if not is_adm:
+            return web.Response(text="Unauthorized", status=401)
+        return web.Response(
+            text=admin_service.export_audit_text(),
+            content_type="text/plain; charset=utf-8",
+            headers={"Content-Disposition": "attachment; filename=\"musicium_audit.jsonl\""},
+        )
 
     async def handle_admin_logs(self, request: web.Request) -> web.Response:
         is_adm, _ = self._verify_admin(request)

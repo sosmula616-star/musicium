@@ -2377,12 +2377,11 @@
 
     if (!communityPlaylistsCache || communityPlaylistsCache.length === 0) {
       const emptyCard = document.createElement('div');
-      emptyCard.className = 'community-card';
-      emptyCard.style.cssText = 'border: 1px dashed rgba(255,255,255,0.18); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 220px; text-align: center; padding: 24px; border-radius: 12px; background: rgba(255,255,255,0.02); flex: 0 0 220px;';
+      emptyCard.className = 'community-card community-empty';
       emptyCard.innerHTML = `
-        <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(255,0,0,0.15); display: flex; align-items: center; justify-content: center; color: #ff4d4d; font-size: 26px; margin-bottom: 12px; font-weight: 300;">+</div>
-        <span style="font-weight: 600; font-size: 14px; color: #fff;">Создать плейлист</span>
-        <span style="font-size: 12px; color: #888; margin-top: 4px; max-width: 170px;">Пока нет плейлистов сообщества. Создайте первый плейлист!</span>
+        <div class="community-empty-plus"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg></div>
+        <span class="community-empty-title">Создать плейлист</span>
+        <span class="community-empty-sub">Пока нет плейлистов сообщества. Создайте первый плейлист!</span>
       `;
       emptyCard.addEventListener('click', () => {
         openCreatePlaylistModal();
@@ -2609,11 +2608,17 @@
     return state.likedTracks.some(t => (t.url && t.url === track.url) || (t.title === track.title && t.artist === track.artist));
   }
 
+  let likeLockUntil = 0;
   function toggleLikeTrack(track) {
     if (!track) return;
+    // защита от двойного клика: иначе трек лайкается и тут же снимается
+    if (Date.now() < likeLockUntil) return;
+    likeLockUntil = Date.now() + 350;
     const isLiked = isTrackLiked(track);
     const idx = state.likedTracks.findIndex(t => (t.url && t.url === track.url) || (t.title === track.title && t.artist === track.artist));
     if (isLiked && idx >= 0) {
+      // на сервер уходит именно сохранённая запись (её url мог отличаться от url текущего трека)
+      track = state.likedTracks[idx];
       state.likedTracks.splice(idx, 1);
       saveJson('musicium_liked_tracks', state.likedTracks);
       showToast(t('toast.likedRemoved'), 'info', 'fa-heart-crack');
@@ -2623,9 +2628,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ user_id: state.userId, track: track, action: 'remove' })
         })
-        .then(r => r.json())
-        .then(d => console.log('DB unliked track:', d))
-        .catch(e => console.error('DB unlike failed:', e));
+        .catch(() => {});
       }
     } else {
       const newTrack = {
@@ -2646,9 +2649,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ user_id: state.userId, track: newTrack, action: 'add' })
         })
-        .then(r => r.json())
-        .then(d => console.log('DB liked track saved:', d))
-        .catch(e => console.error('DB like failed:', e));
+        .catch(() => {});
       }
     }
     updateDockLikeBtn();
@@ -3181,11 +3182,17 @@
     const effectiveGuildId = state.guildId;
     const effectiveChannelId = state.channelId;
 
+    // Сообщаем интерфейсу о старте запроса — плеер сразу показывает «загрузку» трека
+    const ctrl = (typeof AbortController === 'function') ? new AbortController() : null;
+    const abortTimer = ctrl ? setTimeout(() => ctrl.abort(), 35000) : null;
+    window.dispatchEvent(new CustomEvent('musicium:play-request', { detail: { track, playNow, silent, phase: 'start' } }));
+
     try {
       const explicitVol = (state.userExplicitVolume !== null) ? state.userExplicitVolume : (el.volumeSlider ? parseInt(el.volumeSlider.value) : 100);
       const resp = await fetch('/api/play', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: ctrl ? ctrl.signal : undefined,
         body: JSON.stringify({
           user_id: state.userId,
           guild_id: effectiveGuildId,
@@ -3196,7 +3203,7 @@
         })
       });
 
-      const data = await resp.json();
+      const data = await resp.json().catch(() => ({ success: false, error: t('toast.networkError') }));
       if (!data.success) {
         if (!silent) showToast(data.error || 'Error', data.restricted ? 'error' : 'warning', data.restricted ? 'fa-ban' : 'fa-triangle-exclamation');
         return;
@@ -3223,6 +3230,9 @@
       checkUserVoice();
     } catch (err) {
       if (!silent) showToast(t('toast.networkError'), 'error');
+    } finally {
+      if (abortTimer) clearTimeout(abortTimer);
+      window.dispatchEvent(new CustomEvent('musicium:play-request', { detail: { track, playNow, silent, phase: 'end' } }));
     }
   }
 
@@ -3518,8 +3528,26 @@
 
   function setupPlayerStoreIntegration() {
     if (!window.playerStore) return;
+    // Перерисовываем списки только если реально изменилось содержимое —
+    // иначе очередь «моргает» на каждый опрос бота.
+    let lastListsSig = '';
+    const listsSignature = (s) => {
+      const k = (t) => (t ? (t.id || t.url || t.title || '') : '');
+      return [
+        k(s.current),
+        s.queue.map(k).join('|'),
+        s.history.slice(0, 15).map(k).join('|'),
+        s.autoplay ? 1 : 0,
+        s.isPlaying ? 1 : 0,
+        s.isLoadingSimilar ? 1 : 0
+      ].join('§');
+    };
     window.playerStore.subscribe((storeState, type) => {
       syncBottomPlayerWithStore(storeState);
+
+      const sig = listsSignature(storeState);
+      const listsChanged = sig !== lastListsSig;
+      lastListsSig = sig;
 
       // If active tab is "all" in Home view:
       if (state.currentView === 'home' && (!state.activeHomeFilter || state.activeHomeFilter === 'all')) {
@@ -3536,14 +3564,14 @@
             el.progressFill.style.width = `${p}%`;
           }
         } else {
-          if (!isQueueDragging) {
+          if (!isQueueDragging && listsChanged) {
             renderAllTabQueueView();
           }
         }
       }
 
       // Also sync sidebar queue view if open
-      if (state.currentView === 'queue') {
+      if (state.currentView === 'queue' && listsChanged) {
         renderQueueView();
       }
     });
@@ -4556,12 +4584,13 @@
   // visionOS Liquid Glass Dynamic Theme Manager
   // ============================================================
   const THEMES = {
-    auto:     { name: 'Adaptive', emoji: '🪄' },
-    aurora:   { name: 'Aurora',   emoji: '🌌' },
-    sunset:   { name: 'Sunset',   emoji: '🌅' },
-    midnight: { name: 'Midnight', emoji: '🌑' },
-    frost:    { name: 'Frost',    emoji: '❄️' },
+    auto:      { name: 'Adaptive',  dot: 'dot-auto' },
+    champagne: { name: 'Champagne', dot: 'dot-champagne' },
+    platinum:  { name: 'Platinum',  dot: 'dot-platinum' },
+    sapphire:  { name: 'Amethyst',  dot: 'dot-sapphire' },
+    sage:      { name: 'Sage',      dot: 'dot-sage' },
   };
+  const THEME_INLINE_VARS = ['--accent', '--accent-rgb', '--accent-glow', '--glass-border-top'];
 
   function applyTheme(themeKey) {
     if (!THEMES[themeKey]) themeKey = 'auto';
@@ -4573,7 +4602,7 @@
 
     const btnEmoji = document.getElementById('themeBtnEmoji');
     const btnName  = document.getElementById('themeBtnName');
-    if (btnEmoji) btnEmoji.textContent = THEMES[themeKey].emoji;
+    if (btnEmoji) btnEmoji.className = 'theme-dot ' + THEMES[themeKey].dot;
     if (btnName) btnName.textContent = THEMES[themeKey].name;
 
     const items = document.querySelectorAll('.theme-dropdown-item');
@@ -4585,9 +4614,7 @@
     if (themeKey === 'auto') {
       applyAdaptiveColorsFromArtwork();
     } else {
-      document.documentElement.style.removeProperty('--accent');
-      document.documentElement.style.removeProperty('--accent-glow');
-      document.documentElement.style.removeProperty('--glass-border-top');
+      THEME_INLINE_VARS.forEach(v => document.documentElement.style.removeProperty(v));
     }
   }
 
@@ -4619,10 +4646,24 @@
             r = Math.round(r / count);
             g = Math.round(g / count);
             b = Math.round(b / count);
+            // Приглушаем цвет обложки: смешиваем с фирменным шампанским и
+            // не даём стать слишком тёмным/ядовитым — акцент остаётся в палитре.
+            r = Math.round((r + 205) / 2);
+            g = Math.round((g + 185) / 2);
+            b = Math.round((b + 140) / 2);
+            const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+            if (lum < 140) {
+              const k = 140 / Math.max(lum, 1);
+              r = Math.min(255, Math.round(r * k));
+              g = Math.min(255, Math.round(g * k));
+              b = Math.min(255, Math.round(b * k));
+            }
             const hex = '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
-            document.documentElement.style.setProperty('--accent', hex);
-            document.documentElement.style.setProperty('--accent-glow', `rgba(${r}, ${g}, ${b}, 0.35)`);
-            document.documentElement.style.setProperty('--glass-border-top', `rgba(${r}, ${g}, ${b}, 0.45)`);
+            const rootStyle = document.documentElement.style;
+            rootStyle.setProperty('--accent', hex);
+            rootStyle.setProperty('--accent-rgb', `${r}, ${g}, ${b}`);
+            rootStyle.setProperty('--accent-glow', `rgba(${r}, ${g}, ${b}, 0.16)`);
+            rootStyle.setProperty('--glass-border-top', `rgba(${r}, ${g}, ${b}, 0.35)`);
           }
         } catch (_) {}
       };

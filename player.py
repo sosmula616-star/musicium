@@ -99,6 +99,9 @@ FFMPEG_BEFORE_OPTIONS = (
     "-nostdin -user_agent \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36\""
 )
 FFMPEG_OPTIONS = "-vn"
+# Плавный вход каждого трека (убирает резкий «щелчок» и обрыв при переходах)
+FFMPEG_FADE_IN = "-af afade=t=in:st=0:d=0.9"
+FFMPEG_PLAY_OPTIONS = f"{FFMPEG_OPTIONS} {FFMPEG_FADE_IN}"
 IDLE_TIMEOUT_SECONDS = 180  # 3 minutes of inactivity before auto-disconnecting
 
 class GuildPlayer:
@@ -380,7 +383,7 @@ class GuildPlayer:
             # Create audio source
             ffmpeg_opts = {
                 "before_options": FFMPEG_BEFORE_OPTIONS,
-                "options": FFMPEG_OPTIONS,
+                "options": FFMPEG_PLAY_OPTIONS,
             }
             exec_bin = FFMPEG_EXECUTABLE
             if not os.path.isfile(exec_bin):
@@ -517,13 +520,17 @@ class GuildPlayer:
     async def _prefetch_next(self):
         """Pre-resolves stream URL for the upcoming track in queue to eliminate gap/latency."""
         try:
-            if self.queue:
-                next_t = self.queue[0]
-                if not next_t.stream_url:
-                    stream = await self.music_service.get_stream_url(next_t)
-                    if stream:
-                        next_t.stream_url = stream
-                        logger.debug(f"Prefetched stream URL for: {next_t.title}")
+            # Прогреваем два ближайших трека параллельно — после первого переход мгновенный
+            upcoming = [t for t in list(self.queue[:2]) if not t.stream_url]
+
+            async def _warm(t: Track):
+                stream = await self.music_service.get_stream_url(t)
+                if stream:
+                    t.stream_url = stream
+                    logger.debug(f"Prefetched stream URL for: {t.title}")
+
+            if upcoming:
+                await asyncio.gather(*(_warm(t) for t in upcoming), return_exceptions=True)
         except Exception as e:
             logger.debug(f"Prefetch error: {e}")
 
@@ -580,6 +587,21 @@ class GuildPlayer:
             return removed
         return None
 
+    async def _fade_out_current(self, duration: float = 0.3):
+        """Плавно приглушает текущий трек перед остановкой, чтобы переход не звучал как обрыв."""
+        vc = self.voice_client
+        src = self.audio_source
+        if not vc or not src or not vc.is_playing():
+            return
+        try:
+            start_vol = float(getattr(src, "volume", self.volume) or 0.0)
+            steps = 8
+            for i in range(1, steps + 1):
+                src.volume = start_vol * (1 - i / steps)
+                await asyncio.sleep(duration / steps)
+        except Exception as fade_err:
+            logger.debug(f"Fade-out skipped: {fade_err}")
+
     async def skip(self, forced: bool = False, user_id: Optional[int] = None) -> Dict[str, Any]:
         if not self.current_track:
             return {"skipped": False, "message": "Сейчас ничего не играет"}
@@ -592,6 +614,7 @@ class GuildPlayer:
         is_solo = len(listeners) <= 1
 
         if forced or is_requester or is_solo or user_id is None:
+            await self._fade_out_current()
             self._play_generation += 1
             self.vote_skips.clear()
             if self.voice_client and (self.voice_client.is_playing() or self.voice_client.is_paused()):
@@ -610,6 +633,7 @@ class GuildPlayer:
         current_votes = len(self.vote_skips)
 
         if current_votes >= required_votes:
+            await self._fade_out_current()
             self._play_generation += 1
             self.vote_skips.clear()
             if self.voice_client and (self.voice_client.is_playing() or self.voice_client.is_paused()):
@@ -661,7 +685,7 @@ class GuildPlayer:
             seek_before = f"{FFMPEG_BEFORE_OPTIONS} -ss {seconds}"
             ffmpeg_opts = {
                 "before_options": seek_before,
-                "options": FFMPEG_OPTIONS,
+                "options": FFMPEG_PLAY_OPTIONS,
             }
             exec_bin = FFMPEG_EXECUTABLE
             if not os.path.isfile(exec_bin):
