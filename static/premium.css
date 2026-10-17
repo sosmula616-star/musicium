@@ -2079,3 +2079,6 @@ html[data-view="home"] .user-profile-wrap { margin-left: 4px; padding-left: 0; }
 .user-profile-wrap > button, .user-profile-wrap .user-pill-btn, .user-profile-wrap > div:first-child { min-height: 50px; border-radius: 26px; }
 html[data-view="home"] .ytm-header-right { gap: 12px; }
 @media (max-width: 900px) { .hdr-group .ytm-online-pill { display: none !important; } .hdr-group { height: 44px; } .hdr-group > * { height: 36px !important; } }
+
+/* Кнопка «•••» в плеере убрана по просьбе пользователя */
+#btnAddToPlCurrent, .capsule-more-btn { display: none !important; }
