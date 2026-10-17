@@ -423,3 +423,4 @@ body { background-image:
 .card-note { margin-top: 10px; padding: 9px 12px; border-radius: 12px; font-size: 0.78rem; line-height: 1.4; word-break: break-word; }
 .card-note.error { color: #ffb4b4; background: rgba(255, 90, 90, 0.1); border: 1px solid rgba(255, 90, 90, 0.35); }
 .card-note.ok { color: #a8f0c6; background: rgba(61, 220, 132, 0.1); border: 1px solid rgba(61, 220, 132, 0.35); }
+.card-note.info { color: #cfd8ff; background: rgba(120, 140, 255, 0.1); border: 1px solid rgba(120, 140, 255, 0.35); }

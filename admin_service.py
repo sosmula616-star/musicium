@@ -1,4 +1,5 @@
 import os
+import asyncio
 import sys
 import time
 import json
@@ -472,9 +473,16 @@ async def switch_bot_channel(bot: discord.Client, player_manager: Any, guild_id:
     player = player_manager.get_or_create_player(guild)
     try:
         player._allow_move = True
-        await player.connect_to_channel(channel, force=True)
+        logger.info(f"[ADMIN ACTION] Connecting to '{channel.name}' in guild '{guild.name}'...")
+        # Без таймаута зависшее голосовое подключение держит запрос открытым, и админка «молчит»
+        await asyncio.wait_for(player.connect_to_channel(channel, force=True), timeout=25.0)
         logger.info(f"[ADMIN ACTION] Bot channel switched to '{channel.name}' in guild '{guild.name}'.")
         return True, f"Бот успешно переключен в канал «{channel.name}»"
+    except asyncio.TimeoutError:
+        logger.error(f"[ADMIN ACTION] Voice connect to '{channel.name}' timed out in guild '{guild.name}'")
+        return False, "Голосовое подключение не установилось за 25 секунд. Проверьте права бота (Подключаться / Говорить) в канале и версию discord.py + davey на хостинге."
+    except discord.Forbidden:
+        return False, f"У бота нет прав на вход в канал «{channel.name}» (нужны «Подключаться» и «Говорить»)."
     except Exception as e:
         logger.error(f"[ADMIN ACTION] Failed to switch channel: {e}", exc_info=True)
         return False, f"Ошибка переключения канала: {str(e)}"
@@ -572,7 +580,12 @@ async def play_url_on_guild(bot: discord.Client, player_manager: Any, music_serv
         if not target_vc and all_vcs:
             target_vc = all_vcs[0]
         if target_vc:
-            await player.connect_to_channel(target_vc, force=True)
+            try:
+                await asyncio.wait_for(player.connect_to_channel(target_vc, force=True), timeout=25.0)
+            except asyncio.TimeoutError:
+                return False, "Голосовое подключение не установилось за 25 секунд (права бота или версия discord.py/davey)."
+            except discord.Forbidden:
+                return False, f"У бота нет прав на вход в канал «{target_vc.name}»."
         else:
             return False, "На сервере нет доступных голосовых комнат."
 

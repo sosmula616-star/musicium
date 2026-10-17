@@ -1378,7 +1378,7 @@
       .guilds-grid { grid-template-columns: 1fr; }
     }
   </style>
-  <link rel="stylesheet" href="/static/admin_premium.css?v=9">
+  <link rel="stylesheet" href="/static/admin_premium.css?v=10">
 </head>
 <body>
   <!-- Заставка загрузки -->
@@ -2966,12 +2966,17 @@
           return;
         }
         if (btn) btn.disabled = true;
+        cardNote(guildId, 'Подключаюсь к голосовому каналу…', 'info');
+        const ctrl = new AbortController();
+        const killer = setTimeout(() => ctrl.abort(), 45000);
         try {
           const res = await adminFetch('/api/admin/bot/switch-channel', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ guild_id: guildId, channel_id: sel.value })
+            body: JSON.stringify({ guild_id: guildId, channel_id: sel.value }),
+            signal: ctrl.signal
           });
+          clearTimeout(killer);
           const d = await res.json();
           if (d.ok) {
             showToast(d.message || 'Канал бота переключен', 'success');
@@ -2983,8 +2988,11 @@
             cardNote(guildId, d.error || d.message || 'Ошибка переключения канала', 'error');
           }
         } catch (e) {
-          showToast('Ошибка связи с сервером', 'error');
+          const msg = e && e.name === 'AbortError' ? 'Сервер не ответил за 45 секунд' : 'Ошибка связи с сервером';
+          showToast(msg, 'error');
+          cardNote(guildId, msg, 'error');
         } finally {
+          clearTimeout(killer);
           if (btn) btn.disabled = false;
         }
       };
@@ -3078,6 +3086,7 @@
           showToast('Вставьте ссылку на трек', 'error');
           return;
         }
+        cardNote(guildId, 'Ищу трек и подключаюсь…', 'info');
         if (inp) inp.disabled = true;
         if (playBtn) {
           playBtn.disabled = true;
