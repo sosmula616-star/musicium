@@ -27,6 +27,7 @@
     'Что послушаем сегодня?': 'What shall we listen to today?', 'Пока пусто': 'Nothing yet', 'Новый плейлист': 'New playlist',
     'Собрать свой микс': 'Build your own mix', 'Треки и альбомы': 'Tracks and albums', 'Плейлисты пользователей': 'User playlists',
     'Сейчас слушают на серверах': 'Listening now on servers', 'Недавние прослушивания': 'Recent plays',
+    'Новинки SoundCloud': 'New on SoundCloud', 'Играть дальше: бот сам включает похожую музыку': 'Keep playing: the bot picks similar music on its own', 'Играть дальше': 'Keep playing',
     'Хиты SoundCloud & YouTube': 'SoundCloud & YouTube hits', 'Рекомендуем': 'Recommended', 'Предстоящие треки': 'Up next',
     'Далее в очереди': 'Up next', 'Автоподбор': 'Autoplay', 'Очистить очередь': 'Clear queue', 'Очистить': 'Clear',
     'Очистить историю': 'Clear history', 'Очередь воспроизведения': 'Playback queue',

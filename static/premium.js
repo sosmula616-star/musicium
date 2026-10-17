@@ -780,3 +780,24 @@ document.addEventListener('click', function (e) {
     raf = requestAnimationFrame(frame);
   }
 })();
+
+/* Тумблер «играть дальше»: бот сам подбирает похожую музыку, когда очередь закончилась */
+(function () {
+  'use strict';
+  var btn = document.getElementById('btnAutoplayDock');
+  if (!btn) return;
+  function sync() {
+    var st = window.playerStore;
+    if (!st) return;
+    btn.classList.toggle('active', !!st.autoplay);
+    btn.setAttribute('aria-pressed', st.autoplay ? 'true' : 'false');
+  }
+  btn.addEventListener('click', function () {
+    var st = window.playerStore;
+    if (!st) return;
+    st.setAutoplay(!st.autoplay);
+    sync();
+  });
+  if (window.playerStore && typeof window.playerStore.subscribe === 'function') window.playerStore.subscribe(sync);
+  sync();
+})();

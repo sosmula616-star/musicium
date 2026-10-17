@@ -2153,3 +2153,24 @@ html[data-view="home"] .ytm-header-right { gap: 12px; }
   .player-dock, .vision-capsule-dock { padding: 0 8px !important; gap: 8px !important; }
 }
 @media (max-width: 400px) { .cap-art-wrap, .cap-art-wrap .capsule-thumb { width: 34px; height: 34px; } .capsule-controls-left { gap: 0; } }
+
+/* ============================================================
+   V22 — «Новинки SoundCloud»: горизонтальная лента с подгрузкой
+   ============================================================ */
+.new-releases-row {
+  display: flex; gap: 16px; overflow-x: auto; overflow-y: hidden; padding: 4px 4px 14px; margin: 0 -4px;
+  scroll-snap-type: x proximity; scrollbar-width: none; -webkit-overflow-scrolling: touch; cursor: grab;
+}
+.new-releases-row::-webkit-scrollbar { display: none; }
+.new-releases-row.is-dragging { cursor: grabbing; scroll-snap-type: none; }
+.new-releases-row .square-card { flex: 0 0 176px; width: 176px; scroll-snap-align: start; cursor: pointer; }
+.new-releases-row .square-card-thumb { pointer-events: none; -webkit-user-drag: none; }
+.new-release-skeleton .square-card-thumb-wrap { background: linear-gradient(100deg, rgba(255,255,255,0.05) 30%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.05) 70%); background-size: 200% 100%; animation: nrShimmer 1.4s linear infinite; border-radius: 14px; }
+.new-release-skeleton .square-card-title, .new-release-skeleton .square-card-sub { background: rgba(255,255,255,0.06); border-radius: 6px; color: transparent; margin-top: 8px; }
+@keyframes nrShimmer { to { background-position: -200% 0; } }
+@media (max-width: 640px) { .new-releases-row .square-card { flex-basis: 140px; width: 140px; } .new-releases-row { gap: 12px; } }
+
+/* Тумблер «играть дальше» в плеере */
+#btnAutoplayDock { color: var(--text-tertiary); transition: color 0.25s, background 0.25s, box-shadow 0.25s, transform 0.3s var(--ease); }
+#btnAutoplayDock.active { color: var(--accent); background: rgba(var(--accent-rgb), 0.14); box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.35), 0 0 18px rgba(var(--accent-rgb), 0.18); }
+#btnAutoplayDock:not(.active) svg { opacity: 0.6; }

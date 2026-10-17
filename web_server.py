@@ -852,6 +852,11 @@ class WebServer:
                 self.player_manager.guild_volumes[player.guild.id] = new_vol
                 res_data["volume"] = int(new_vol * 100)
 
+            elif action == "autoplay":
+                player.autoplay = bool(data.get("value"))
+                res_data["autoplay"] = player.autoplay
+                asyncio.create_task(player._notify_change())
+
             elif action == "loop":
                 mode = data.get("mode", "")
                 new_mode = player.set_loop_mode(mode)
@@ -1498,11 +1503,27 @@ class WebServer:
         limit = max(1, min(safe_int(request.query.get("limit", 8)) or 8, 20))
         if not user_id:
             return web.json_response({"tracks": []})
+        # Подбор тяжёлый (yt-dlp): несколько клиентов одного пользователя не должны запускать его параллельно
+        cache = getattr(self, "_discover_cache", None)
+        if cache is None:
+            cache = self._discover_cache = {}
+            self._discover_locks = {}
+        hit = cache.get(user_id)
+        if hit and time.time() - hit[0] < 60:
+            return web.json_response({"tracks": hit[1][:limit], "based_on_likes": hit[2]})
+        lock = self._discover_locks.setdefault(user_id, asyncio.Lock())
         try:
-            liked = await db.get_user_liked_tracks(user_id)
-            history = await db.get_user_history(user_id, 50)
-            tracks = await taste.discover(self.music_service, liked or [], history or [], limit=limit)
-            return web.json_response({"tracks": tracks, "based_on_likes": len(liked or [])})
+            async with lock:
+                hit = cache.get(user_id)
+                if hit and time.time() - hit[0] < 60:
+                    return web.json_response({"tracks": hit[1][:limit], "based_on_likes": hit[2]})
+                liked = await db.get_user_liked_tracks(user_id)
+                history = await db.get_user_history(user_id, 50)
+                tracks = await taste.discover(self.music_service, liked or [], history or [], limit=20)
+                if len(cache) > 300:
+                    cache.clear()
+                cache[user_id] = (time.time(), tracks, len(liked or []))
+            return web.json_response({"tracks": tracks[:limit], "based_on_likes": len(liked or [])})
         except Exception as e:
             logger.warning(f"Discover failed for user {user_id}: {e}")
             return web.json_response({"tracks": []})

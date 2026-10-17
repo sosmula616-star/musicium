@@ -5,6 +5,7 @@ import math
 import random
 import shutil
 import asyncio
+import re
 import logging
 from typing import Optional, List, Set, Dict, Any, Callable
 import discord
@@ -168,6 +169,10 @@ class GuildPlayer:
         self.volume: float = 1.0  # 0.0 to 2.0
         self.is_paused: bool = False
         self.loop_mode: str = "off"  # "off", "track", "queue"
+        # Автоподбор: когда очередь кончилась, бот сам включает похожую музыку (переключается тумблером в приложении)
+        self.autoplay: bool = True
+        self._recent_norm: List[str] = []      # нормализованные названия недавно сыгранных (чтобы не повторяться)
+        self._auto_picks_without_play: int = 0  # защита от бесконечной цепочки неудачных подборов
 
         self.vote_skips: Set[int] = set()
 
@@ -389,7 +394,62 @@ class GuildPlayer:
                 await self._notify_change()
                 return {"action": "queued", "position": len(self.queue), "track": track.to_dict()}
 
+    async def _pick_similar(self, seed: Optional[Track]) -> Optional[Track]:
+        """Подбирает похожий трек (того же или другого исполнителя) для бесконечного воспроизведения."""
+        if not seed or self._auto_picks_without_play >= 4:
+            return None
+        try:
+            import taste
+            cyr_share = taste.taste_profile([{"title": seed.title, "artist": seed.artist}])["cyr_share"]
+            candidates: List[Dict[str, Any]] = []
+            vid = None
+            m = re.search(r"(?:v=|youtu\.be/|/shorts/)([A-Za-z0-9_-]{11})", seed.url or "")
+            if m:
+                vid = m.group(1)
+            elif seed.id and "_" in seed.id and len(seed.id.split("_", 1)[1]) == 11:
+                vid = seed.id.split("_", 1)[1]
+            if vid and seed.source == "youtube":
+                candidates += await asyncio.wait_for(self.music_service.get_youtube_radio(vid, limit=25), timeout=14.0)
+            if len(candidates) < 5:
+                q = f"{seed.artist} {seed.title}".strip()
+                res = await asyncio.wait_for(self.music_service.search(q, source=seed.source if seed.source in ("youtube", "soundcloud") else "all", limit=15), timeout=14.0)
+                candidates += [t.to_dict() for t in res]
+                if len(candidates) < 8 and seed.artist:
+                    res2 = await asyncio.wait_for(self.music_service.search(f"{seed.artist} radio", source="all", limit=15), timeout=14.0)
+                    candidates += [t.to_dict() for t in res2]
+
+            recent = set(self._recent_norm)
+            queued = {taste._norm(t.title) for t in self.queue}
+            pool: List[Dict[str, Any]] = []
+            for td in candidates:
+                n = taste._norm(td.get("title"))
+                dur = int(td.get("duration") or 0)
+                if not n or n in recent or n in queued:
+                    continue
+                if dur and not (90 <= dur <= 480):
+                    continue
+                if not taste._language_ok(td, cyr_share):
+                    continue
+                pool.append(td)
+            if not pool:
+                return None
+            pick = random.choice(pool[:8])
+            track = Track.from_dict(pick)
+            track.requester_name = "Автоподбор"
+            return track
+        except Exception as e:
+            logger.info(f"Autoplay pick failed in {self.guild.name}: {e}")
+            return None
+
     async def _play_next(self):
+        if not self.queue and self.autoplay and not self._explicit_stop:
+            # Очередь пуста, но тумблер «играть дальше» включён — подбираем похожий трек
+            seed = self.current_track or (self.history[0] if self.history else None)
+            picked = await self._pick_similar(seed)
+            if picked:
+                self._auto_picks_without_play += 1
+                self.queue.append(picked)
+                logger.info(f"Autoplay: queued '{picked.title}' after '{seed.title if seed else '?'}' in {self.guild.name}")
         if not self.queue:
             self.current_track = None
             self.vote_skips.clear()
@@ -493,6 +553,14 @@ class GuildPlayer:
                         raise
 
             logger.info(f"Started playing: {track.title} in {self.guild.name}")
+            self._auto_picks_without_play = 0
+            try:
+                import taste as _taste
+                self._recent_norm.append(_taste._norm(track.title))
+                if len(self._recent_norm) > 60:
+                    self._recent_norm.pop(0)
+            except Exception:
+                pass
             try:
                 import db
                 uid = str(track.requester_id) if track.requester_id else "bot_user"
@@ -908,6 +976,7 @@ class GuildPlayer:
             "is_paused": self.is_paused,
             "volume": int(self.volume * 100),
             "loop_mode": self.loop_mode,
+            "autoplay": self.autoplay,
             "current_track": self.current_track.to_dict() if self.current_track else None,
             "elapsed_seconds": self.get_elapsed_seconds(),
             "position": self.get_elapsed_seconds(),

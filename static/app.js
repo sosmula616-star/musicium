@@ -172,7 +172,7 @@
       'source.yt_albums': 'Альбомы',
       'source.albumYt': 'Альбом YouTube',
       'home.recommended': 'Рекомендуем',
-      'home.quickPicks': 'Хиты SoundCloud & YouTube',
+      'home.quickPicks': 'Новинки SoundCloud',
       'home.albums': 'Популярные альбомы',
       'results.searchTitle': 'Результаты поиска',
       'results.popular': 'Популярные рекомендации',
@@ -299,7 +299,7 @@
       'source.yt_albums': 'Albums',
       'source.albumYt': 'YouTube Album',
       'home.recommended': 'Recommended',
-      'home.quickPicks': 'SoundCloud & YouTube Hits',
+      'home.quickPicks': 'New on SoundCloud',
       'home.albums': 'Popular Albums',
       'results.searchTitle': 'Search Results',
       'results.popular': 'Trending Recommendations',
@@ -1901,40 +1901,112 @@
     });
   }
 
+  // «Новинки SoundCloud»: лента подгружается с сервера (/api/feed/soundcloud?genre=new) и листается без ограничений
+  const newReleases = { tracks: [], offset: 0, loading: false, done: false };
   let quickPicksShelfRendered = false;
+
+  function newReleaseCard(item) {
+    const card = document.createElement('div');
+    card.className = 'square-card new-release-card';
+    card.title = `${item.title} — ${item.artist}`;
+    card.innerHTML = `
+      <div class="square-card-thumb-wrap">
+        <img src="${escapeHtml(getSafeImageUrl(item.thumbnail))}" alt="${escapeHtml(item.title)}" class="square-card-thumb" loading="lazy" referrerpolicy="no-referrer" draggable="false">
+        <div class="square-card-play-btn" title="${escapeHtml(t('track.playNowTitle'))}">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="#000"><path d="M8 5v14l11-7z"/></svg>
+        </div>
+      </div>
+      <span class="square-card-title">${escapeHtml(item.title)}</span>
+      <span class="square-card-sub">${escapeHtml(item.artist)}</span>
+    `;
+    card.addEventListener('click', () => {
+      playTrack({
+        title: item.title,
+        artist: item.artist,
+        thumbnail: item.thumbnail,
+        duration: item.duration,
+        duration_str: item.duration_str,
+        source: 'soundcloud',
+        url: item.url
+      }, true);
+    });
+    return card;
+  }
+
+  function clearNewReleaseSkeleton() {
+    if (el.quickPicksRow) el.quickPicksRow.querySelectorAll('.new-release-skeleton').forEach(n => n.remove());
+  }
+
+  function appendNewReleases(items) {
+    if (!el.quickPicksRow) return;
+    clearNewReleaseSkeleton();
+    items.forEach(item => el.quickPicksRow.appendChild(newReleaseCard(item)));
+  }
+
+  function showNewReleaseSkeleton() {
+    if (!el.quickPicksRow || el.quickPicksRow.querySelector('.new-release-skeleton')) return;
+    for (let i = 0; i < 6; i++) {
+      const sk = document.createElement('div');
+      sk.className = 'square-card new-release-skeleton';
+      sk.innerHTML = '<div class="square-card-thumb-wrap"></div><span class="square-card-title">&nbsp;</span><span class="square-card-sub">&nbsp;</span>';
+      el.quickPicksRow.appendChild(sk);
+    }
+  }
+
+  async function loadMoreNewReleases() {
+    if (newReleases.loading || newReleases.done || !el.quickPicksRow) return;
+    newReleases.loading = true;
+    showNewReleaseSkeleton();
+    try {
+      const resp = await fetch(`/api/feed/soundcloud?genre=new&limit=20&offset=${newReleases.offset}`);
+      const data = await resp.json();
+      const got = (data && Array.isArray(data.tracks)) ? data.tracks : [];
+      const fresh = got.filter(tr => tr && tr.title && tr.url && !newReleases.tracks.some(x => x.url === tr.url));
+      newReleases.offset += got.length;
+      newReleases.tracks.push(...fresh);
+      if (!data || !data.has_more || got.length === 0) newReleases.done = true;
+      appendNewReleases(fresh);
+    } catch (_) {
+      // сеть моргнула — попробуем при следующей прокрутке
+    } finally {
+      clearNewReleaseSkeleton();
+      newReleases.loading = false;
+    }
+  }
+
+  function setupNewReleasesScroll() {
+    const row = el.quickPicksRow;
+    if (!row || row.__scrollReady) return;
+    row.__scrollReady = true;
+    // дошли до конца ленты — подгружаем следующую порцию
+    row.addEventListener('scroll', () => {
+      if (row.scrollLeft + row.clientWidth >= row.scrollWidth - 400) loadMoreNewReleases();
+    }, { passive: true });
+    const left = document.getElementById('newRelArrowLeft');
+    const right = document.getElementById('newRelArrowRight');
+    if (left) left.addEventListener('click', () => row.scrollBy({ left: -row.clientWidth * 0.8, behavior: 'smooth' }));
+    if (right) right.addEventListener('click', () => { row.scrollBy({ left: row.clientWidth * 0.8, behavior: 'smooth' }); loadMoreNewReleases(); });
+    // перетаскивание мышью (палец листает нативно)
+    let down = false, sx = 0, sl = 0, moved = false;
+    row.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse') return; down = true; moved = false; sx = e.clientX; sl = row.scrollLeft; });
+    window.addEventListener('pointermove', (e) => {
+      if (!down) return;
+      const dx = e.clientX - sx;
+      if (Math.abs(dx) > 6) { moved = true; row.classList.add('is-dragging'); }
+      row.scrollLeft = sl - dx;
+    });
+    window.addEventListener('pointerup', () => { if (down) { down = false; row.classList.remove('is-dragging'); setTimeout(() => { moved = false; }, 0); } });
+    row.addEventListener('click', (e) => { if (moved) { e.stopPropagation(); e.preventDefault(); } }, true);
+  }
+
   function renderQuickPicksShelf(force = false) {
     if (!el.quickPicksRow) return;
+    setupNewReleasesScroll();
     if (quickPicksShelfRendered && !force && el.quickPicksRow.children.length > 0) return;
     quickPicksShelfRendered = true;
     el.quickPicksRow.innerHTML = '';
-    CURATED_QUICK_PICKS.forEach(item => {
-      const card = document.createElement('div');
-      card.className = 'square-card';
-      card.innerHTML = `
-        <div class="square-card-thumb-wrap">
-          <img src="${getSafeImageUrl(item.thumbnail)}" alt="${escapeHtml(item.title)}" class="square-card-thumb" loading="lazy" referrerpolicy="no-referrer">
-          <div class="square-card-play-btn" title="${t('track.playNowTitle')}">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="#000"><path d="M8 5v14l11-7z"/></svg>
-          </div>
-        </div>
-        <span class="square-card-title">${escapeHtml(item.title)}</span>
-        <span class="square-card-sub">${escapeHtml(item.artist)}</span>
-      `;
-      const playBtn = card.querySelector('.square-card-play-btn');
-      if (playBtn) {
-        playBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          playTrack({
-            title: item.title,
-            artist: item.artist,
-            thumbnail: item.thumbnail,
-            source: item.source || 'youtube',
-            url: item.url || `https://music.youtube.com/search?q=${encodeURIComponent(item.title + ' ' + item.artist)}`
-          }, true);
-        });
-      }
-      el.quickPicksRow.appendChild(card);
-    });
+    if (newReleases.tracks.length) appendNewReleases(newReleases.tracks);
+    else loadMoreNewReleases();
   }
 
   // Render Home View (Screenshot 2: Curated 3-column + Square cards + Community Playlists or Platform Charts)
@@ -3387,6 +3459,7 @@
     if (action !== 'volume' && !state.inVoice && !state.channelId) {
       await checkUserVoice();
       if (!state.inVoice && !state.channelId) {
+        if (action === 'autoplay') return null; // тумблер работает локально, на сервер уйдёт, когда войдёте в голосовую комнату
         if (el.voiceWidgetContainer) {
           el.voiceWidgetContainer.classList.add('dropdown-open');
         }

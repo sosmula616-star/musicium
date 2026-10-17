@@ -1009,7 +1009,8 @@ class MusicService:
         try:
             if track.source in ("audius", "archive"):
                 stream = await open_sources.stream_url(track)
-            elif track.source not in ("youtube", "soundcloud", None, ""):
+            elif track.source not in ("youtube", "soundcloud", None, "") and not any(h in (track.url or "") for h in ("youtube.com", "youtu.be", "soundcloud.com")):
+                # только настоящие «другие сайты»: треки со старой/нестандартной меткой источника, но ссылкой на YouTube/SoundCloud идут прежним путём
                 stream = await self._get_generic_stream(track)
             elif self.streaming_settings.get("mode") == "soundcloud_first":
                 stream = await self._get_soundcloud_stream(track)
@@ -1429,6 +1430,10 @@ class MusicService:
             "chill": "lo-fi chill beats ambient chillhop",
         }
         query = GENRE_QUERIES.get(genre_key, GENRE_QUERIES["all"])
+        is_new = genre_key == "new"
+        if is_new:
+            # Новинки: поиск SoundCloud с сортировкой по дате загрузки (scsearchdate), без ключей
+            query = "new music"
 
         # Check in-memory 30-min cache
         if genre_key in self._sc_trending_cache:
@@ -1437,8 +1442,8 @@ class MusicService:
                 return cached_tracks[offset : offset + limit]
 
         # Fetch up to 50 tracks from SoundCloud via scsearch
-        fetch_limit = 50
-        search_query = f"scsearch{fetch_limit}:{query}"
+        fetch_limit = 60 if is_new else 50
+        search_query = f"{'scsearchdate' if is_new else 'scsearch'}{fetch_limit}:{query}"
 
         loop = asyncio.get_event_loop()
         def _fetch():
@@ -1460,6 +1465,8 @@ class MusicService:
                         title = entry.get("title") or "SoundCloud Track"
                         uploader = entry.get("uploader") or entry.get("channel") or "SoundCloud Artist"
                         dur = int(entry.get("duration") or 210)
+                        if is_new and not (60 <= dur <= 600):
+                            continue  # в новинках — треки, а не подкасты и обрывки
                         thumb = entry.get("thumbnail") or DEFAULT_THUMBNAIL
                         webpage = entry.get("url") or entry.get("webpage_url") or f"https://soundcloud.com/search?q={urllib.parse.quote(title)}"
                         views = entry.get("view_count")

@@ -47,7 +47,7 @@
     }
   </script>
   <link rel="stylesheet" href="/static/style.css?v=visionos-4.0-lyrics5">
-  <link rel="stylesheet" href="/static/premium.css?v=premium-21.2">
+  <link rel="stylesheet" href="/static/premium.css?v=premium-22.1">
   <style>
     /* Language switching rules */
     html[data-lang="ru"] .lang-en,
@@ -524,12 +524,16 @@
             </div>
           </div>
 
-          <!-- Section 4: Хиты SoundCloud & YouTube -->
+          <!-- Section 4: Новинки SoundCloud (бесконечная горизонтальная лента) -->
           <div class="ytm-shelf">
             <div class="ytm-shelf-header">
-              <h2><span data-i18n="home.quickPicks">Хиты SoundCloud & YouTube</span></h2>
+              <h2><span data-i18n="home.quickPicks">Новинки SoundCloud</span></h2>
+              <div class="shelf-nav-arrows">
+                <button class="shelf-arrow-btn" id="newRelArrowLeft" title="Назад"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
+                <button class="shelf-arrow-btn" id="newRelArrowRight" title="Вперед"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></button>
+              </div>
             </div>
-            <div class="square-cards-row" id="quickPicksRow">
+            <div class="new-releases-row" id="quickPicksRow">
               <!-- Injected by JS -->
             </div>
           </div>
@@ -802,6 +806,9 @@
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
           <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-9 9H7V7h4v4zm6 0h-4V7h4v4z"/>
         </svg>
+      </button>
+      <button class="capsule-btn" id="btnAutoplayDock" title="Играть дальше: бот сам включает похожую музыку" aria-label="Играть дальше" aria-pressed="true">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M18.6 6.62c-1.44 0-2.8.56-3.77 1.53L12 10.66 10.48 12h.01L7.8 14.39c-.64.64-1.49.99-2.4.99-1.87 0-3.39-1.51-3.39-3.38S3.53 8.62 5.4 8.62c.91 0 1.76.35 2.44 1.03l1.13 1 1.51-1.34L9.22 8.2C8.2 7.18 6.84 6.62 5.4 6.62 2.42 6.62 0 9.04 0 12s2.42 5.38 5.4 5.38c1.44 0 2.8-.56 3.77-1.53l2.83-2.5.01.01L13.52 12h-.01l2.69-2.39c.64-.64 1.49-.99 2.4-.99 1.87 0 3.39 1.51 3.39 3.38s-1.52 3.38-3.39 3.38c-.9 0-1.76-.35-2.44-1.03l-1.14-1.01-1.51 1.34 1.27 1.12c1.02 1.01 2.37 1.57 3.82 1.57 2.98 0 5.4-2.41 5.4-5.38s-2.42-5.37-5.4-5.37z"/></svg>
       </button>
       <button class="capsule-btn" id="btnToggleQueue" title="Очередь воспроизведения" aria-label="Очередь">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
@@ -1652,9 +1659,9 @@
 
   <!-- Unified Player Store & Autoplay Engine -->
   <script src="/static/player_store.js"></script>
-  <script src="/static/app.js?v=visionos-4.0-lyrics22"></script>
-  <script src="/static/premium.js?v=16"></script>
-  <script src="/static/i18n_extra.js?v=3"></script>
+  <script src="/static/app.js?v=visionos-4.0-lyrics24"></script>
+  <script src="/static/premium.js?v=17"></script>
+  <script src="/static/i18n_extra.js?v=4"></script>
 </body>
 
 </html>

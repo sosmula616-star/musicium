@@ -283,8 +283,13 @@
     }
 
     // Toggle autoplay on/off
-    setAutoplay(enabled) {
+    setAutoplay(enabled, fromServer = false) {
       this.autoplay = Boolean(enabled);
+      if (!fromServer && typeof window.dispatchBotAction === 'function') {
+        // бот сам включает похожую музыку, когда очередь закончилась (даже если приложение закрыто)
+        this._autoplayLocalAt = Date.now();
+        Promise.resolve(window.dispatchBotAction('autoplay', { value: this.autoplay })).catch(() => {});
+      }
       if (!this.autoplay) {
         this.queue = this.queue.filter(t => !t.isAutoplay);
         this.notify('autoplay_change', { autoplay: false });
@@ -450,6 +455,15 @@
 
       let trackChanged = false;
       let queueChanged = false;
+
+      // Тумблер автоподбора хранится на сервере: подхватываем его (но не перебиваем только что нажатое)
+      if (backendState.autoplay !== undefined && Date.now() - (this._autoplayLocalAt || 0) > 4000) {
+        const srvAuto = Boolean(backendState.autoplay);
+        if (srvAuto !== this.autoplay) {
+          this.autoplay = srvAuto;
+          this.notify('autoplay_change', { autoplay: srvAuto });
+        }
+      }
 
       // 1. Current track change check
       if (!this._isSameTrack(this.current, botTrack)) {
