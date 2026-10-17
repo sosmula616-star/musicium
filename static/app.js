@@ -2065,7 +2065,7 @@
   let lastCoverUrl = '';
 
   // Состояние «листания» карусели: смещение фокуса относительно текущего трека.
-  const coverflowBrowse = { curKey: '', offset: 0, dir: 0 };
+  const coverflowBrowse = { curKey: '', key: null, keys: [], dir: 0 };
   const normTitle = (s) => String(s || '').toLowerCase().replace(/\(.*?\)|\[.*?\]/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 
   // Подборка «по вкусу» для пустых мест карусели: сначала /api/discover (новое в стиле лайков), пока грузится — сами лайки
@@ -2167,7 +2167,9 @@
       setTimeout(() => {
         busy = false;
         if (s !== 0) {
-          coverflowBrowse.offset += s;
+          // запоминаем выбранную карточку по ключу трека — подгрузка списков не сдвинет фокус
+          const idx = (Number(stage.dataset.focus) || 0) + s;
+          coverflowBrowse.key = coverflowBrowse.keys[idx] || null;
           renderAllTabQueueView(); // новая раскладка совпадает с итоговой позицией — скачка нет
         }
       }, 430);
@@ -2221,34 +2223,42 @@
 
     // ---- Последовательность карусели: история (старые слева) → текущий → очередь ----
     // Свайп листает карусель (смещает фокус), а не переключает воспроизведение.
-    const centerTrack = current || (queue[0] || fallbackList[2] || { title: 'Blinding Lights', artist: 'The Weeknd', thumbnail: '/static/activity_icon.jpg' });
+    // Фокус запоминается по КЛЮЧУ трека, а не по номеру: подгрузка подборки или очереди не должна
+    // «выдёргивать» из-под пальца выбранную карточку.
+    const keyOf = (tr) => String((tr && (tr.url || tr.title)) || '');
     const seq = [];
     for (let i = Math.min(history.length, 12) - 1; i >= 0; i--) seq.push({ track: history[i], type: 'history', hIdx: i });
-    const currentIdx = seq.length;
-    seq.push({ track: centerTrack, type: 'current' });
+    let baseIdx = seq.length;                 // где стоит «текущий» (или первый трек справа, если ничего не играет)
+    if (current) seq.push({ track: current, type: 'current' });
     queue.slice(0, 12).forEach((t, i) => seq.push({ track: t, type: 'queue', qIdx: i }));
 
     // По бокам пусто — предлагаем треки по вкусу: подборка по лайкам (/api/discover), пока грузится — сами лайки.
     const taken = new Set(seq.map(s => normTitle(s.track.title)));
     const tastePool = getTastePool().filter(t => t && t.title && !taken.has(normTitle(t.title)));
     const NEED = 3;
-    let leftCount = currentIdx, rightCount = seq.length - currentIdx - 1;
+    let leftCount = baseIdx, rightCount = seq.length - baseIdx - (current ? 1 : 0);
     const asTaste = (t) => ({ track: { ...t, isFallback: true, isTaste: true }, type: 'taste' });
     let ti = 0;
     for (; rightCount < NEED && ti < tastePool.length; rightCount++, ti++) seq.push(asTaste(tastePool[ti]));
     let tj = tastePool.length - 1;
-    for (; leftCount < NEED && tj >= ti; leftCount++, tj--) seq.unshift(asTaste(tastePool[tj]));
+    for (; leftCount < 2 && tj >= ti; leftCount++, tj--) { seq.unshift(asTaste(tastePool[tj])); baseIdx++; }
     // Совсем нет данных о вкусе (новый пользователь) — общая заглушка-подборка
     let fbL = 0, fbR = 2;
     for (; rightCount < 2 && fallbackList[fbR]; rightCount++, fbR++) seq.push({ track: { ...fallbackList[fbR], isFallback: true, isAutoplay: true }, type: 'fallback' });
-    for (; leftCount < 2 && fallbackList[fbL]; leftCount++, fbL++) seq.unshift({ track: { ...fallbackList[fbL], isFallback: true }, type: 'fallback' });
+    for (; leftCount < 2 && fallbackList[fbL]; leftCount++, fbL++) { seq.unshift({ track: { ...fallbackList[fbL], isFallback: true }, type: 'fallback' }); baseIdx++; }
+    if (!seq.length) seq.push({ track: { title: 'Blinding Lights', artist: 'The Weeknd', thumbnail: '/static/activity_icon.jpg', isFallback: true }, type: 'fallback' });
     if (tastePool.length === 0) requestTastePool();
-    const curPos = seq.findIndex(s => s.type === 'current');
+    baseIdx = Math.max(0, Math.min(seq.length - 1, baseIdx));
 
-    const curKey = String(centerTrack.url || centerTrack.title || '');
-    if (coverflowBrowse.curKey !== curKey) { coverflowBrowse.curKey = curKey; coverflowBrowse.offset = 0; }
-    coverflowBrowse.offset = Math.max(-curPos, Math.min(seq.length - 1 - curPos, coverflowBrowse.offset));
-    const focus = curPos + coverflowBrowse.offset;
+    // Сменился настоящий текущий трек — возвращаем фокус на него
+    const realKey = current ? keyOf(current) : '';
+    if (coverflowBrowse.curKey !== realKey) { coverflowBrowse.curKey = realKey; coverflowBrowse.key = null; }
+    let focus = baseIdx;
+    if (coverflowBrowse.key) {
+      const found = seq.findIndex(s => keyOf(s.track) === coverflowBrowse.key);
+      if (found >= 0) focus = found; else coverflowBrowse.key = null;
+    }
+    coverflowBrowse.keys = seq.map(s => keyOf(s.track));
     stage.dataset.focus = String(focus);
     stage.dataset.min = String(-focus);
     stage.dataset.max = String(seq.length - 1 - focus);
@@ -2256,7 +2266,7 @@
     const playItem = (item) => {
       if (!item) return;
       if (item.type === 'current') {
-        if (current) window.playerStore.toggle(); else window.playerStore.play(item.track, { isManual: true });
+        window.playerStore.toggle();
       } else if (item.type === 'queue' && !item.track.isFallback) {
         window.playerStore.jumpTo(item.qIdx);
       } else {
@@ -2273,7 +2283,7 @@
       cardEl.dataset.offset = rel;
       cardEl.title = `${track.title} — ${track.artist}`;
 
-      const thumbUrl = getSafeImageUrl(track.thumbnail);
+      const thumbUrl = escapeHtml(getSafeImageUrl(track.thumbnail));
       cardEl.innerHTML = `
         <div class="coverflow-thumb-wrap" style="--cover:url('${thumbUrl}')">
           <img src="${thumbUrl}" alt="${escapeHtml(track.title)}" class="coverflow-thumb" data-t="${escapeHtml(track.title)}" data-a="${escapeHtml(track.artist || '')}" referrerpolicy="no-referrer" draggable="false">
@@ -2289,7 +2299,8 @@
 
       cardEl.addEventListener('click', () => {
         if (window.__coverflowDragged) return; // жест свайпа не считается кликом
-        coverflowBrowse.offset = 0;
+        // выбранная карточка остаётся в центре, пока трек запускается
+        coverflowBrowse.key = keyOf(track);
         playItem(item);
       });
 
@@ -2297,9 +2308,7 @@
       stage.appendChild(cardEl);
     }
 
-    if (coverflowBrowse.dir) {
-      coverflowBrowse.dir = 0;
-    }
+    coverflowBrowse.dir = 0;
 
     viewport.appendChild(stage);
     wrapper.appendChild(viewport);
