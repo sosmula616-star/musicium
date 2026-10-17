@@ -2028,8 +2028,8 @@
     const rot = -sgn * (32 * c1 + 12 * c2 + 8 * c3);
     const scale = 1 - 0.15 * c1 - 0.13 * c2 - 0.12 * c3;
     const z = -10 * c1 - 90 * c2 - 85 * c3;
-    const opacity = Math.max(0, (1 - 0.08 * c1 - 0.24 * c2 - 0.26 * c3) * Math.min(1, Math.max(0, 3.6 - a)));
-    const bright = 1 - 0.18 * c1 - 0.16 * c2 - 0.16 * c3;
+    const opacity = Math.max(0, Math.min(1, (3.4 - a) / 0.9)); // непрозрачные до ±2.5: иначе соседние карточки просвечивают друг сквозь друга
+    const bright = 1 - 0.30 * c1 - 0.22 * c2 - 0.18 * c3;
     card.style.transition = animate ? 'transform 0.42s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.42s, filter 0.42s' : 'none';
     card.style.transform = `translate3d(${x.toFixed(1)}px, 0, ${z.toFixed(1)}px) rotateY(${rot.toFixed(1)}deg) scale(${scale.toFixed(3)})`;
     card.style.opacity = opacity.toFixed(3);
