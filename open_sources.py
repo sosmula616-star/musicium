@@ -271,3 +271,50 @@ async def stream_url(track: Any) -> Optional[str]:
     except Exception as e:
         logger.warning(f"Open-source stream resolve failed for {track.id}: {e}")
     return None
+
+
+# ------------------------------------------------- Piped (запасной путь для YouTube) ---
+# Публичные зеркала без ключей. Используются, когда yt-dlp не смог получить поток напрямую
+# (YouTube часто блокирует IP хостинга) — это тот же ролик, а не подмена на другой трек.
+
+PIPED_INSTANCES = [
+    "https://pipedapi.kavin.rocks",
+    "https://api.piped.private.coffee",
+    "https://pipedapi.adminforge.de",
+    "https://pipedapi.leptons.xyz",
+]
+
+
+def piped_audio_sync(video_id: str, timeout: float = 4.0) -> Optional[str]:
+    """Прямая ссылка на лучший аудиопоток ролика через публичные Piped-API (синхронно, для потоков yt-dlp)."""
+    import concurrent.futures
+    import json as _json
+    import urllib.request
+
+    if not video_id or not re.fullmatch(r"[A-Za-z0-9_-]{11}", video_id):
+        return None
+
+    def fetch(base: str) -> Optional[str]:
+        req = urllib.request.Request(f"{base}/streams/{video_id}", headers=HEADERS)
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = _json.loads(resp.read().decode("utf-8", "replace"))
+        streams = [s for s in (data.get("audioStreams") or []) if s.get("url") and not s.get("videoOnly")]
+        if not streams:
+            return None
+        # AAC (mp4) надёжнее в ffmpeg; среди равных берём максимальный битрейт
+        streams.sort(key=lambda s: (("mp4" in str(s.get("mimeType", ""))), int(s.get("bitrate") or 0)), reverse=True)
+        return streams[0]["url"]
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(PIPED_INSTANCES)) as ex:
+        futures = [ex.submit(fetch, b) for b in PIPED_INSTANCES]
+        try:
+            for fut in concurrent.futures.as_completed(futures, timeout=timeout + 1.5):
+                try:
+                    url = fut.result()
+                except Exception:
+                    continue
+                if url:
+                    return url
+        except concurrent.futures.TimeoutError:
+            pass
+    return None

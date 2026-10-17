@@ -1353,6 +1353,19 @@ class MusicService:
             except Exception as conc_err:
                 logger.debug(f"Concurrent fallback execution error: {conc_err}")
 
+            # --- Strategy 3b: тот же ролик через публичные зеркала Piped (без ключей) ---
+            try:
+                vm = re.search(r"(?:v=|youtu.be/|/shorts/)([A-Za-z0-9_-]{11})", target_url or "")
+                tail = track.id.split("_", 1)[1] if track.id and "_" in track.id else ""
+                vid = vm.group(1) if vm else (tail if len(tail) == 11 else None)
+                if vid:
+                    piped = open_sources.piped_audio_sync(vid)
+                    if piped:
+                        logger.info(f"Resolved YouTube stream via Piped mirror for: {track.title}")
+                        return piped
+            except Exception as piped_err:
+                logger.debug(f"Piped fallback failed: {piped_err}")
+
             # --- Strategy 4: Seamless SoundCloud Fallback (Never fail playback) ---
             logger.warning(f"All YouTube extractions failed for '{track.title}', activating seamless SoundCloud fallback...")
             try:

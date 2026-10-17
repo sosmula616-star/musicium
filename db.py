@@ -26,7 +26,9 @@ async def init_db() -> Optional[asyncpg.Pool]:
             DATABASE_URL,
             min_size=1,
             max_size=10,
-            command_timeout=15.0
+            command_timeout=15.0,
+            # Хостинг БД рвёт простаивающие соединения — закрываем их раньше, чем это сделает сервер
+            max_inactive_connection_lifetime=45.0,
         )
         # Ensure tables exist
         async with _pool.acquire() as conn:
@@ -112,6 +114,28 @@ async def close_db():
         await _pool.close()
         _pool = None
         logger.info("PostgreSQL connection pool closed.")
+
+def _is_transient(e: Exception) -> bool:
+    """Обрыв соединения / таймаут — запрос стоит повторить на свежем соединении."""
+    return isinstance(e, (
+        asyncio.TimeoutError, ConnectionError, OSError,
+        asyncpg.exceptions.ConnectionDoesNotExistError,
+        asyncpg.exceptions.InterfaceError,
+        asyncpg.exceptions.PostgresConnectionError,
+        asyncpg.exceptions.ConnectionFailureError,
+    ))
+
+
+async def _reset_pool() -> None:
+    """Сбрасывает пул: следующий init_db() создаст новый."""
+    global _pool
+    pool, _pool = _pool, None
+    if pool is not None:
+        try:
+            pool.terminate()
+        except Exception:
+            pass
+
 
 # --- Liked Tracks ---
 
@@ -298,7 +322,7 @@ async def create_user_playlist(user_id: str, title: str, cover: Optional[str] = 
         logger.error(f"Error creating playlist for user {user_id}: {e}")
         return None
 
-async def get_community_playlists(current_user_id: Optional[str] = None, sort_by: str = "top", limit: int = 20) -> List[Dict[str, Any]]:
+async def get_community_playlists(current_user_id: Optional[str] = None, sort_by: str = "top", limit: int = 20, _retry: bool = True) -> List[Dict[str, Any]]:
     global _pool
     if not _pool:
         await init_db()
@@ -363,7 +387,11 @@ async def get_community_playlists(current_user_id: Optional[str] = None, sort_by
                 })
             return result
     except Exception as e:
-        logger.error(f"Error fetching community playlists: {e}")
+        if _retry and _is_transient(e):
+            logger.warning(f"Community playlists: connection lost ({type(e).__name__}), retrying on a fresh pool")
+            await _reset_pool()
+            return await get_community_playlists(current_user_id, sort_by, limit, _retry=False)
+        logger.error(f"Error fetching community playlists: {type(e).__name__}: {e}")
         return []
 
 async def toggle_playlist_like(user_id: str, playlist_id: int) -> Dict[str, Any]:
@@ -582,7 +610,7 @@ async def clear_user_history(user_id: str) -> bool:
         logger.error(f"Error clearing history for user {user_id}: {e}")
         return False
 
-async def get_global_recent_history(limit: int = 20) -> List[Dict[str, Any]]:
+async def get_global_recent_history(limit: int = 20, _retry: bool = True) -> List[Dict[str, Any]]:
     global _pool
     if not _pool:
         await init_db()
@@ -618,7 +646,11 @@ async def get_global_recent_history(limit: int = 20) -> List[Dict[str, Any]]:
                 })
             return result
     except Exception as e:
-        logger.error(f"Error fetching global recent history: {e}")
+        if _retry and _is_transient(e):
+            logger.warning(f"Global recent history: connection lost ({type(e).__name__}), retrying on a fresh pool")
+            await _reset_pool()
+            return await get_global_recent_history(limit, _retry=False)
+        logger.error(f"Error fetching global recent history: {type(e).__name__}: {e}")
         return []
 
 # --- Anti-Crash & Restricted Users ---
