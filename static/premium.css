@@ -1843,7 +1843,7 @@ html.sb-collapsed #sbNewsBtn { width: 44px; flex: none; }
 .lyrics-line.active {
   font-size: 27px !important; font-weight: 700 !important; transform: scale(1.04); filter: none; opacity: 1;
   color: transparent !important; background: linear-gradient(100deg, #fff 20%, rgba(var(--accent-rgb), 1) 120%) !important;
-  -webkit-background-clip: text; background-clip: text; padding-bottom: 0.14em; text-shadow: none;
+  -webkit-background-clip: text !important; background-clip: text !important; padding-bottom: 0.14em; text-shadow: none;
 }
 .lyrics-line.active.is-past { color: transparent !important; }
 
