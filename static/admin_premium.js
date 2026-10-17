@@ -289,3 +289,63 @@
     if (tab && tab.classList.contains('active') && !document.hidden) load();
   }, 6000);
 })();
+
+/* ============================================================
+   Делегирование onclick="window.fn(...)": в мини-приложении Discord (Activity) встроенные
+   обработчики событий в атрибутах могут блокироваться песочницей/CSP — кнопки «Войти»,
+   «Включить» и другие молча ничего не делают. Здесь вызываем те же функции сами.
+   В обычном браузере срабатывает ровно один из двух путей: мы гасим событие до атрибута.
+   ============================================================ */
+(function () {
+  'use strict';
+
+  // Разбор списка литералов без eval (eval тоже запрещён CSP): 'строка', "строка", число, true/false/null
+  function parseArgs(src) {
+    var args = [], i = 0, n = src.length;
+    function skipWs() { while (i < n && /\s/.test(src[i])) i++; }
+    while (true) {
+      skipWs();
+      if (i >= n) break;
+      var c = src[i];
+      if (c === "'" || c === '"') {
+        var q = c, out = ''; i++;
+        while (i < n && src[i] !== q) {
+          if (src[i] === '\' && i + 1 < n) { i++; out += src[i]; } else out += src[i];
+          i++;
+        }
+        if (i >= n) return null;
+        i++; args.push(out);
+      } else {
+        var j = i;
+        while (j < n && src[j] !== ',') j++;
+        var tok = src.slice(i, j).trim();
+        if (tok === 'true') args.push(true);
+        else if (tok === 'false') args.push(false);
+        else if (tok === 'null') args.push(null);
+        else if (tok !== '' && !isNaN(Number(tok))) args.push(Number(tok));
+        else return null;
+        i = j;
+      }
+      skipWs();
+      if (src[i] === ',') i++; else if (i < n) return null;
+    }
+    return args;
+  }
+
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest && e.target.closest('[onclick]');
+    if (!el || el.disabled) return;
+    var code = el.getAttribute('onclick') || '';
+    var m = /^\s*window\.([A-Za-z_$][\w$]*)\(([\s\S]*)\)\s*;?\s*$/.exec(code);
+    if (!m) return;                                // нестандартный обработчик — пусть работает как есть
+    var fn = window[m[1]];
+    var args = parseArgs(m[2]);
+    if (typeof fn !== 'function' || args === null) return;
+    e.stopImmediatePropagation();                  // не даём сработать самому атрибуту — иначе вызов будет дважды
+    e.preventDefault();
+    try {
+      var r = fn.apply(el, args);
+      if (r && typeof r.catch === 'function') r.catch(function (err) { console.error('[admin] ' + m[1] + ':', err); });
+    } catch (err) { console.error('[admin] ' + m[1] + ':', err); }
+  }, true);
+})();
