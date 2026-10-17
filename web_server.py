@@ -469,10 +469,6 @@ class WebServer:
             player = self.player_manager.get_player_by_guild_id(guild_id)
         if not player and user_id:
             player = self.player_manager.find_active_player_for_user(user_id)
-        if not player:
-            active_players = [p for p in self.player_manager.players.values() if p.voice_client and p.voice_client.is_connected()]
-            if len(active_players) == 1:
-                player = active_players[0]
 
         title = request.query.get("title")
         artist = request.query.get("artist")
@@ -605,6 +601,14 @@ class WebServer:
 
         player = self.player_manager.get_or_create_player(target_guild)
         player._allow_move = True
+
+        # Автоподбор: если в комнате открыто несколько клиентов (Activity + веб), каждый пытается дозаказать
+        # «похожий» трек — принимаем только первый, остальные игнорируем
+        if data.get("autoplay") and not play_now:
+            now_ts = time.time()
+            if len(player.queue) > 0 or now_ts - getattr(player, "_last_autoplay_at", 0.0) < 20.0:
+                return web.json_response({"success": True, "action": "autoplay_skipped"})
+            player._last_autoplay_at = now_ts
 
         try:
             # If client supplied explicit volume preference, apply it
@@ -759,10 +763,6 @@ class WebServer:
                 player = self.player_manager.get_player_by_guild_id(ch.guild.id)
         if not player and user_id:
             player = self.player_manager.find_active_player_for_user(user_id)
-        if not player:
-            active_players = [p for p in self.player_manager.players.values() if p.voice_client and p.voice_client.is_connected()]
-            if len(active_players) == 1:
-                player = active_players[0]
 
         if action == "join":
             if channel_id:
@@ -806,7 +806,9 @@ class WebServer:
                 return web.json_response({"success": False, "error": "Плеер не найден или не активен"}, status=404)
 
         # Enforce listener permissions only for track skip/seek (do not block volume, pause, or stop)
-        if action not in ("volume", "stop", "leave", "play_pause", "pause", "resume") and player.voice_client and player.voice_client.channel:
+        # Громкость, пауза, остановка и пр. тоже доступны только участникам комнаты бота (или админу сервера):
+        # иначе вторая вкладка/веб-версия на другом сервере меняет чужой плеер
+        if action != "join" and player.voice_client and player.voice_client.channel:
             bot_channel = player.voice_client.channel
             human_members = [m for m in bot_channel.members if not m.bot]
             if human_members and user_id and user_id not in [m.id for m in human_members]:

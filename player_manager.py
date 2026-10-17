@@ -189,7 +189,8 @@ class PlayerManager:
                 # If target_guild_id is specified, only send if client has subscribed to this guild or not yet assigned
                 if target_guild_id is not None:
                     client_guild = self.ws_subscriptions.get(ws)
-                    if client_guild is not None and client_guild != target_guild_id:
+                    # клиенты без подписки (например веб-версия вне голосовой комнаты) чужие события не получают
+                    if client_guild != target_guild_id:
                         continue
                 await ws.send_json(payload)
             except Exception:

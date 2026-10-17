@@ -3331,7 +3331,10 @@
           channel_id: effectiveChannelId,
           track: track,
           play_now: playNow,
-          volume: explicitVol,
+          // громкость отправляем только если пользователь сам двигал ползунок в ЭТОМ клиенте:
+          // иначе вторая вкладка/веб-версия перебивает громкость при каждом запуске трека
+          volume: (state.userExplicitVolume !== null) ? state.userExplicitVolume : undefined,
+          autoplay: !!(silent && !playNow),
         })
       });
 
@@ -3802,7 +3805,9 @@
         try {
           const msg = JSON.parse(event.data);
           if (msg.event === 'player_update') {
-            if (state.guildId && msg.data && msg.data.guild_id && String(msg.data.guild_id) !== String(state.guildId)) {
+            // Событие чужого сервера не применяем: веб-версия без сервера иначе подхватывала состояние любого плеера
+            const myGuild = state.guildId || state.resolvedGuildId;
+            if (!myGuild || !msg.data || !msg.data.guild_id || String(msg.data.guild_id) !== String(myGuild)) {
               return;
             }
             updatePlayerUI(msg.data);
