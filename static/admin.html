@@ -1378,7 +1378,7 @@
       .guilds-grid { grid-template-columns: 1fr; }
     }
   </style>
-  <link rel="stylesheet" href="/static/admin_premium.css?v=8">
+  <link rel="stylesheet" href="/static/admin_premium.css?v=9">
 </head>
 <body>
   <!-- Заставка загрузки -->
@@ -2216,6 +2216,19 @@
       };
 
       // Toast Notification Engine
+      // Сообщение прямо в карточке сервера: тост исчезает за 4 секунды и легко пропускается
+      function cardNote(guildId, message, type) {
+        const sel = document.getElementById(`select-channel-${guildId}`);
+        const sec = sel && sel.closest('.channel-switch-section');
+        if (!sec) return;
+        let n = document.getElementById(`note-${guildId}`);
+        if (!n) { n = document.createElement('div'); n.id = `note-${guildId}`; sec.appendChild(n); }
+        n.className = `card-note ${type || 'error'}`;
+        n.textContent = message;
+        clearTimeout(n._t);
+        n._t = setTimeout(() => n.remove(), 12000);
+      }
+
       function showToast(message, type = 'info') {
         const container = document.getElementById('toastContainer');
         if (!container) return;
@@ -2962,10 +2975,12 @@
           const d = await res.json();
           if (d.ok) {
             showToast(d.message || 'Канал бота переключен', 'success');
+            cardNote(guildId, d.message || 'Канал бота переключен', 'ok');
             await fetchGuilds();
             await fetchStats();
           } else {
             showToast(d.error || 'Ошибка переключения канала', 'error');
+            cardNote(guildId, d.error || d.message || 'Ошибка переключения канала', 'error');
           }
         } catch (e) {
           showToast('Ошибка связи с сервером', 'error');
@@ -3078,11 +3093,13 @@
           const d = await res.json();
           if (d.ok) {
             showToast(d.message || 'Трек запущен!', 'success');
+            cardNote(guildId, d.message || 'Трек запущен', 'ok');
             if (inp) inp.value = '';
             await fetchGuilds();
             await fetchStats();
           } else {
             showToast(d.error || 'Ошибка воспроизведения', 'error');
+            cardNote(guildId, d.error || d.message || 'Ошибка воспроизведения', 'error');
           }
         } catch (e) {
           showToast('Ошибка связи с сервером', 'error');

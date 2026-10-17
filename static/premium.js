@@ -628,22 +628,23 @@
   function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function seen() { try { return localStorage.getItem(KEY); } catch (_) { return null; } }
   function markSeen() { try { if (latest) localStorage.setItem(KEY, latest); } catch (_) {} if (dot) dot.classList.remove('on'); }
+  function isEn() { return document.documentElement.getAttribute('data-lang') === 'en'; }
   function fmtDate(iso) {
-    try { return new Date(iso + 'T00:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }); }
+    try { return new Date(iso + 'T00:00:00').toLocaleDateString(isEn() ? 'en-US' : 'ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }); }
     catch (_) { return iso || ''; }
   }
 
   function render() {
-    if (!entries.length) { list.innerHTML = '<div class="changelog-empty">Записей пока нет.</div>'; return; }
+    if (!entries.length) { list.innerHTML = '<div class="changelog-empty">' + (isEn() ? 'No entries yet.' : 'Записей пока нет.') + '</div>'; return; }
     var prev = seen();
     list.innerHTML = entries.map(function (e, i) {
       var isNew = i === 0 && prev !== e.version;
       return '<article class="changelog-entry' + (isNew ? ' is-new' : '') + '">' +
         '<header><span class="changelog-ver">v' + esc(e.version) + '</span>' +
-        (isNew ? '<span class="changelog-badge">Новое</span>' : '') +
+        (isNew ? '<span class="changelog-badge">' + (isEn() ? 'New' : 'Новое') + '</span>' : '') +
         '<span class="changelog-date">' + esc(fmtDate(e.date)) + '</span></header>' +
-        '<h4>' + esc(e.title) + '</h4>' +
-        '<ul>' + (e.items || []).map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul></article>';
+        '<h4>' + esc(isEn() && e.title_en ? e.title_en : e.title) + '</h4>' +
+        '<ul>' + ((isEn() && e.items_en && e.items_en.length ? e.items_en : e.items) || []).map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul></article>';
     }).join('');
   }
 

@@ -2082,3 +2082,14 @@ html[data-view="home"] .ytm-header-right { gap: 12px; }
 
 /* Кнопка «•••» в плеере убрана по просьбе пользователя */
 #btnAddToPlCurrent, .capsule-more-btn { display: none !important; }
+
+/* Кнопка «Найти / Search» в строке поиска: акцентная таблетка вместо тёмной плашки */
+.ytm-search-btn {
+  height: 34px; padding: 0 16px 0 12px !important; gap: 7px; border-radius: 999px !important; font-weight: 600; letter-spacing: 0.01em;
+  color: #17130c !important; border: none !important;
+  background: linear-gradient(180deg, #fff 0%, rgba(var(--accent-rgb), 1) 140%) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 6px 16px rgba(var(--accent-rgb), 0.35) !important;
+  transition: transform 0.3s var(--ease), box-shadow 0.3s;
+}
+.ytm-search-btn:hover { transform: translateY(-1px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 10px 22px rgba(var(--accent-rgb), 0.5) !important; }
+.ytm-search-btn svg { color: #17130c; }

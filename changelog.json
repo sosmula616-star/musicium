@@ -1,20 +1,58 @@
 [
   {
+    "version": "2.1.0",
+    "title": "Карусель, новые источники и подбор по вкусу",
+    "title_en": "Carousel, new sources and taste-based autoplay",
+    "date": "2026-10-17",
+    "author": "Musicium Team",
+    "items": [
+      "Карусель треков листается свайпом: карточки плавно едут за мышью или пальцем, без смены воспроизведения",
+      "Автоподбор по вашим лайкам: новая музыка в том же стиле, языке и вайбе; пустые места в карусели заполняются треками по вкусу",
+      "Новые источники без ключей и регистрации: Audius, Mixcloud и Internet Archive (чипы на странице поиска)",
+      "Визуализация под бит: эквалайзер, обложка и свечение плеера реагируют на музыку",
+      "Если обложка не загрузилась, она подбирается на другой площадке (iTunes, Deezer)",
+      "Шапка и плеер стали аккуратнее, на главной показывается, где сейчас используется бот",
+      "Полный английский перевод интерфейса"
+    ],
+    "items_en": [
+      "The track carousel now scrolls by swipe: cards glide with your mouse or finger without changing playback",
+      "Autoplay based on your likes: new music in the same style, language and vibe; empty carousel slots are filled with tracks picked for you",
+      "New sources with no keys or sign-up: Audius, Mixcloud and Internet Archive (chips on the search page)",
+      "Beat-reactive visuals: the equalizer, cover and player glow respond to the music",
+      "If a cover fails to load, it is found on another platform (iTunes, Deezer)",
+      "Cleaner header and player; the home page shows where the bot is being used right now",
+      "Full English translation of the interface"
+    ]
+  },
+  {
     "version": "2.0.0",
     "title": "Премиальный редизайн Musicium",
+    "title_en": "Musicium premium redesign",
     "date": "2026-10-16",
     "author": "Musicium Team",
     "items": [
       "Новый стеклянный дизайн Liquid Glass и пять тем оформления: Champagne, Adaptive, Platinum, Amethyst, Sage — у каждой свой фон",
       "Переработанное левое меню: мини-плеер, таймер сна, сворачивание, плавающий индикатор раздела",
       "Новая главная страница: приветствие, быстрый доступ к избранному, истории и очереди",
-      "Обновлённый плеер: время трека, кнопки «Нравится», перемешать и повтор, меню действий «•••», перемотка Shift + ←/→",
+      "Обновлённый плеер: время трека, кнопки «Нравится», перемешать и повтор, перемотка Shift + ←/→",
       "Горячие клавиши: / — поиск, M — звук, L — текст песни, H — главная, ? — подсказка",
       "Автоподбор больше не добавляет лишние треки в очередь, а списки не мерцают",
       "Быстрее старт треков и плавные переходы: нарастание громкости при старте и затухание при пропуске",
       "Красивые заглушки вместо логотипа, если у трека нет обложки; исправлены чёрные полосы на миниатюрах YouTube",
       "Заставка загрузки и анимация входа через Discord",
       "Обновлены Условия использования и Политика конфиденциальности"
+    ],
+    "items_en": [
+      "New Liquid Glass design and five themes: Champagne, Adaptive, Platinum, Amethyst, Sage — each with its own background",
+      "Reworked left menu: sleep timer, collapsing and a floating section indicator",
+      "New home page: greeting and quick access to liked tracks, history and queue",
+      "Updated player: track time, like, shuffle and repeat buttons, seek with Shift + ←/→",
+      "Keyboard shortcuts: / search, M mute, L lyrics, H home, ? help",
+      "Autoplay no longer adds extra tracks to the queue, and lists no longer flicker",
+      "Faster track start and smoother transitions: fade-in on start and fade-out on skip",
+      "Nice placeholders instead of the logo when a track has no cover; black bars on YouTube thumbnails fixed",
+      "Loading splash and Discord sign-in animation",
+      "Updated Terms of Service and Privacy Policy"
     ]
   }
 ]
