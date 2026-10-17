@@ -228,6 +228,8 @@
       diagRow('yt-dlp', !!g.yt_dlp, g.yt_dlp || 'не найден') +
       diagRow('FFmpeg', !!g.ffmpeg, g.ffmpeg ? 'найден' : 'не найден') +
       diagRow('Opus (голос)', !!g.opus, g.opus ? 'загружен' : 'не загружен') +
+      diagRow('PyNaCl (голос)', !!g.nacl, g.nacl ? 'установлен' : 'НЕ установлен — голос не подключится') +
+      diagRow('davey (шифрование DAVE)', !!g.davey, g.davey ? 'установлен' : 'НЕ установлен — Discord не пустит в голос') +
       diagRow('База данных', !!g.database, g.database ? 'подключена' : 'недоступна') +
       diagRow('Система', null, g.platform || '—');
   }

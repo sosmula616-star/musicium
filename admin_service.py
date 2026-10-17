@@ -484,8 +484,11 @@ async def switch_bot_channel(bot: discord.Client, player_manager: Any, guild_id:
     except discord.Forbidden:
         return False, f"У бота нет прав на вход в канал «{channel.name}» (нужны «Подключаться» и «Говорить»)."
     except Exception as e:
-        logger.error(f"[ADMIN ACTION] Failed to switch channel: {e}", exc_info=True)
-        return False, f"Ошибка переключения канала: {str(e)}"
+        logger.error(f"[ADMIN ACTION] Failed to switch channel: {type(e).__name__}: {e}", exc_info=True)
+        hint = ""
+        if isinstance(e, RuntimeError) and "nacl" in str(e).lower():
+            hint = " Установите PyNaCl на хостинге (pip install PyNaCl)."
+        return False, f"Ошибка подключения ({type(e).__name__}): {e}{hint}"
 
 
 async def disconnect_bot_voice(bot: discord.Client, player_manager: Any, guild_id: int) -> Tuple[bool, str]:
@@ -855,6 +858,13 @@ async def get_bot_overview(bot: discord.Client, player_manager: Any, music_servi
         diag["opus"] = bool(discord.opus.is_loaded())
     except Exception:
         diag["opus"] = False
+    # Для голоса нужны PyNaCl и (с 2026 г., протокол DAVE) davey — без них подключение к каналу не устанавливается
+    for mod in ("nacl", "davey"):
+        try:
+            __import__(mod)
+            diag[mod] = True
+        except Exception:
+            diag[mod] = False
     try:
         import db as _db
         diag["database"] = getattr(_db, "_pool", None) is not None
