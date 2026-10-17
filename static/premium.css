@@ -2093,3 +2093,63 @@ html[data-view="home"] .ytm-header-right { gap: 12px; }
 }
 .ytm-search-btn:hover { transform: translateY(-1px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 10px 22px rgba(var(--accent-rgb), 0.5) !important; }
 .ytm-search-btn svg { color: #17130c; }
+
+/* ============================================================
+   V21 — адаптивность: шапка, плеер, карточки поиска
+   ============================================================ */
+/* Кнопки лайка и «в плейлист» на карточках результатов были белыми (браузерный стиль) */
+.btn-card-like, .btn-card-add-pl {
+  background: rgba(255, 255, 255, 0.06) !important; color: var(--text-primary) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important; backdrop-filter: blur(12px);
+}
+.btn-card-like:hover, .btn-card-add-pl:hover { background: rgba(255, 255, 255, 0.14) !important; border-color: rgba(255, 255, 255, 0.28) !important; color: #fff !important; transform: translateY(-2px); }
+.btn-card-like.liked { color: #ff6b88 !important; border-color: rgba(255, 107, 136, 0.4) !important; background: rgba(255, 107, 136, 0.12) !important; }
+
+/* Шапка: поиск сжимается, правая часть не вылезает за край */
+.ytm-header { overflow: visible; gap: 12px; }
+.ytm-search-container { flex: 1 1 260px; min-width: 150px; max-width: 520px; }
+.ytm-header-right { flex: 0 1 auto; min-width: 0; flex-wrap: nowrap; }
+.ytm-voice-widget { min-width: 0; max-width: 220px; }
+.ytm-voice-widget * { min-width: 0; }
+@media (max-width: 1500px) { .ytm-online-pill { display: none !important; } }
+@media (max-width: 1320px) {
+  #headerAdminPill span, #headerAdminPill .admin-pill-label { display: none; }
+  .ytm-voice-widget { max-width: 170px; }
+  .user-details { display: none; }
+}
+@media (max-width: 1100px) { .ytm-voice-widget { display: none !important; } }
+
+/* Плеер центрируется по области контента, а не по окну: не заезжает на меню слева */
+@media (min-width: 1181px) {
+  .player-dock, .vision-capsule-dock {
+    left: calc(50% + 138px) !important;
+    max-width: min(1060px, calc(100vw - 276px - 40px)) !important;
+    width: calc(100% - 276px - 40px) !important;
+  }
+  html.sb-collapsed .player-dock, html.sb-collapsed .vision-capsule-dock {
+    left: calc(50% + 38px) !important;
+    max-width: min(1060px, calc(100vw - 76px - 40px)) !important;
+    width: calc(100% - 76px - 40px) !important;
+  }
+}
+@media (min-width: 901px) and (max-width: 1180px) {
+  .player-dock, .vision-capsule-dock { left: calc(50% + 116px) !important; width: calc(100% - 232px - 32px) !important; max-width: calc(100vw - 232px - 32px) !important; }
+  html.sb-collapsed .player-dock, html.sb-collapsed .vision-capsule-dock { left: calc(50% + 38px) !important; width: calc(100% - 76px - 32px) !important; max-width: calc(100vw - 76px - 32px) !important; }
+  .cap-pill-actions #btnShuffle, .cap-pill-actions #btnLoop { display: none; }
+}
+/* Узкая док-панель: прячем второстепенное, чтобы название и прогресс не ужимались */
+@media (max-width: 1280px) { .cap-time { display: none; } }
+
+/* ---------- Мобильный плеер: название не должно сжиматься до одной буквы ---------- */
+@media (max-width: 900px) {
+  .capsule-center-pill { padding: 3px 8px 3px 4px !important; min-width: 0; flex: 1 1 0; gap: 8px; }
+  .capsule-center-pill::before, .capsule-center-pill::after { display: none; }
+  .capsule-track-meta { min-width: 0; flex: 1 1 0; }
+  .cap-title-row .dock-title-marquee { max-width: 100%; }
+  .cap-source-badge { display: none !important; }
+  .cap-pill-actions { display: none; }
+  .capsule-controls-right { gap: 0; flex: 0 0 auto; }
+  #btnDockLyrics { display: inline-flex !important; }
+  .player-dock, .vision-capsule-dock { padding: 0 8px !important; gap: 8px !important; }
+}
+@media (max-width: 400px) { .cap-art-wrap, .cap-art-wrap .capsule-thumb { width: 34px; height: 34px; } .capsule-controls-left { gap: 0; } }
